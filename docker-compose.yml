@@ -1,0 +1,19 @@
+# Local PostgreSQL for @anang/platform-app
+# Usage: docker compose up -d
+# DATABASE_URL=postgresql://anang:anang@localhost:5432/anang?schema=public
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: anang-postgres
+    environment:
+      POSTGRES_USER: anang
+      POSTGRES_PASSWORD: anang
+      POSTGRES_DB: anang
+    ports:
+      - "5432:5432"
+    volumes:
+      - anang_pg:/var/lib/postgresql/data
+
+volumes:
+  anang_pg:

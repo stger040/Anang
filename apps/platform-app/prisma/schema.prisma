@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ModuleKey {
+  CORE
+  BUILD
+  PAY
+  CONNECT
+  INSIGHT
+  SUPPORT
+  COVER
+}
+
+enum AppRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  STAFF
+}
+
+enum ClaimLifecycleStatus {
+  DRAFT
+  READY
+  SUBMITTED
+  ACCEPTED
+  DENIED
+  PAID
+  APPEALED
+}
+
+model Tenant {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  displayName  String
+  primaryColor String   @default("#0f766e")
+  logoUrl      String?
+  settings     Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships          Membership[]
+  moduleEntitlements   ModuleEntitlement[]
+  patients             Patient[]
+  encounters           Encounter[]
+  claims               Claim[]
+  statements           Statement[]
+  payments             Payment[]
+  auditEvents          AuditEvent[]
+  claimDrafts          ClaimDraft[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  appRole   AppRole  @default(STAFF)
+  createdAt DateTime @default(now())
+
+  memberships Membership[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      AppRole  @default(STAFF)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+}
+
+model ModuleEntitlement {
+  id        String    @id @default(cuid())
+  tenantId  String
+  module    ModuleKey
+  enabled   Boolean   @default(true)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, module])
+}
+
+model Patient {
+  id        String   @id @default(cuid())
+  tenantId  String
+  mrn       String?
+  firstName String
+  lastName  String
+  dob       DateTime?
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  encounters Encounter[]
+  statements Statement[]
+  claims     Claim[]
+
+  @@index([tenantId])
+}
+
+model Encounter {
+  id             String   @id @default(cuid())
+  tenantId       String
+  patientId      String
+  dateOfService  DateTime
+  chiefComplaint String?
+  /// Mock clinical documentation / provider note for Build MVP
+  visitSummary   String   @db.Text
+  reviewStatus   String   @default("queued") // queued | in_review | approved
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient  Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  drafts   ClaimDraft[]
+
+  @@index([tenantId])
+}
+
+model ClaimDraft {
+  id           String    @id @default(cuid())
+  tenantId     String
+  encounterId  String
+  status       String    @default("draft") // draft | ready | submitted_mock
+  approvedAt   DateTime?
+  approvedById String?
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  encounter Encounter  @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  lines     ClaimDraftLine[]
+  issues    ClaimIssue[]
+
+  @@index([tenantId])
+}
+
+model ClaimDraftLine {
+  id         String     @id @default(cuid())
+  draftId    String
+  cpt        String
+  icd10      String
+  modifier   String?
+  units      Int        @default(1)
+  chargeCents Int
+  /// Plain-language reason the mock AI surfaced this code
+  aiRationale String    @db.Text
+
+  draft ClaimDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+}
+
+model ClaimIssue {
+  id              String     @id @default(cuid())
+  draftId         String
+  severity        String     // info | warning | critical
+  category        String     // denial_risk | documentation | coding
+  title           String
+  detail          String     @db.Text
+  explainability  String     @db.Text
+
+  draft ClaimDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+}
+
+model Claim {
+  id           String               @id @default(cuid())
+  tenantId     String
+  patientId    String?
+  claimNumber  String
+  status       ClaimLifecycleStatus
+  payerName    String?
+  billedCents  Int
+  paidCents    Int?
+  denialReason String?
+  submittedAt  DateTime?
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient  Patient?          @relation(fields: [patientId], references: [id])
+  timeline ClaimTimelineEvent[]
+
+  @@index([tenantId])
+}
+
+model ClaimTimelineEvent {
+  id      String   @id @default(cuid())
+  claimId String
+  at      DateTime @default(now())
+  label   String
+  detail  String?
+
+  claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+}
+
+model Statement {
+  id           String   @id @default(cuid())
+  tenantId     String
+  patientId    String
+  number       String
+  totalCents   Int
+  balanceCents Int
+  status       String
+  dueDate      DateTime
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient  Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  lines    StatementLine[]
+  payments Payment[]
+
+  @@index([tenantId])
+}
+
+model StatementLine {
+  id          String    @id @default(cuid())
+  statementId String
+  code        String
+  description String
+  amountCents Int
+
+  statement Statement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  tenantId    String
+  statementId String?
+  amountCents Int
+  status      String
+  method      String?
+  paidAt      DateTime?
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  statement Statement? @relation(fields: [statementId], references: [id])
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  actorUserId String?
+  action      String
+  resource    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+}

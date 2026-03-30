@@ -1,0 +1,14 @@
+{
+  "name": "@anang/brand",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Anang — company, domain, module copy",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts"
+}

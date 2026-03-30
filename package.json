@@ -1,0 +1,25 @@
+{
+  "name": "anang-monorepo",
+  "private": true,
+  "packageManager": "npm@10.9.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n marketing,platform -c blue,magenta \"npm run dev -w @anang/marketing-site\" \"npm run dev -w @anang/platform-app\"",
+    "dev:marketing": "npm run dev -w @anang/marketing-site",
+    "dev:platform": "npm run dev -w @anang/platform-app",
+    "build": "npm run build -w @anang/marketing-site && npm run build -w @anang/platform-app",
+    "lint": "npm run lint -w @anang/marketing-site && npm run lint -w @anang/platform-app",
+    "db:generate": "npm run db:generate -w @anang/platform-app",
+    "db:push": "npm run db:push -w @anang/platform-app",
+    "db:migrate": "npm run db:migrate -w @anang/platform-app",
+    "db:seed": "npm run db:seed -w @anang/platform-app",
+    "db:studio": "npm run db:studio -w @anang/platform-app",
+    "db:validate": "npm run db:validate -w @anang/platform-app"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

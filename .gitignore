@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js / builds (any workspace app)
+**/.next/
+out/
+# Root-only build artifacts (do not use plain "build/" — it ignores Next.js `**/build/` routes)
+/build/
+dist/
+
+# Environment & secrets — do not commit real credentials
+# Keep only *.env.example templates in git
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+**/.env*.local
+!**/.env.example
+
+# Logs & debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Vercel CLI local link
+.vercel
+
+# Turbo
+.turbo
+
+# Test coverage
+coverage/
+*.lcov
+
+# Prisma / local DB files (if using file-backed dev DB)
+*.db
+*.db-journal
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE (uncomment if you prefer machine-local only)
+# .idea/
+# .vscode/*
+# !.vscode/extensions.json
+
+# Certificates / keys
+*.pem
+
+# Optional: Python / tooling noise from local envs
+.venv/
+__pycache__/
