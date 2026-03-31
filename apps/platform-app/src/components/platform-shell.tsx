@@ -1,6 +1,4 @@
-import { AppSidebar } from "@/components/app-sidebar";
-import { SignOutButton } from "@/components/sign-out-button";
-import { TopBar } from "@/components/top-bar";
+import { TenantWorkspace } from "@/components/tenant-workspace";
 import type { ModuleKey } from "@prisma/client";
 
 export function PlatformShell({
@@ -19,25 +17,14 @@ export function PlatformShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen">
-      <AppSidebar
-        orgSlug={orgSlug}
-        enabledModules={enabledModules}
-        tenantName={tenantName}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar
-          orgLabel={tenantName}
-          userEmail={userEmail}
-          actions={
-            <>
-              {extraTopActions}
-              <SignOutButton />
-            </>
-          }
-        />
-        <main className="flex-1 overflow-auto p-4 sm:p-6">{children}</main>
-      </div>
-    </div>
+    <TenantWorkspace
+      orgSlug={orgSlug}
+      tenantName={tenantName}
+      enabledModules={enabledModules}
+      userEmail={userEmail}
+      extraTopActions={extraTopActions}
+    >
+      {children}
+    </TenantWorkspace>
   );
 }
