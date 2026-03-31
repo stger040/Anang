@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { getBrand } from "@anang/brand";
 import { getBookMeetingUrl, urls } from "@anang/config";
+import { FooterTagline } from "@/components/footer-tagline";
 import { SiteFooterLogo } from "@/components/site-footer-logo";
 import { SiteHeaderBar } from "@/components/site-header-bar";
 import Link from "next/link";
@@ -38,12 +39,10 @@ export default function RootLayout({
             <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
               <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
                 <SiteFooterLogo />
-                <p className="mt-4 max-w-md text-[1.75rem] leading-snug text-white/70 sm:max-w-lg">
-                  {b.product.shortDescription}
-                </p>
+                <FooterTagline text={b.product.shortDescription} />
               </div>
               <div className="flex flex-col gap-4 text-sm text-white/75 sm:items-end">
-                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 sm:justify-end">
                   <Link href="/platform" className="hover:text-white">
                     Platform
                   </Link>
@@ -71,16 +70,22 @@ export default function RootLayout({
                     Product sign in
                   </a>
                 </div>
-                <div className="text-white/55">
+                <div className="text-white/55 sm:hidden">
                   <p>{urls.marketing}</p>
                   <p className="mt-1">Product: {urls.platform}</p>
                 </div>
               </div>
             </div>
-            <p className="mt-8 text-xs text-white/45">
-              © {new Date().getFullYear()} {b.company.legalName}. All rights
-              reserved.
-            </p>
+            <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <p className="text-center text-xs text-white/45 sm:text-left">
+                © {new Date().getFullYear()} {b.company.legalName}. All rights
+                reserved.
+              </p>
+              <div className="hidden text-sm text-white/55 sm:block sm:text-right">
+                <p>{urls.marketing}</p>
+                <p className="mt-1">Product: {urls.platform}</p>
+              </div>
+            </div>
           </div>
         </footer>
       </body>
