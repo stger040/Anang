@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import { getBrand } from "@anang/brand";
 import { getBookMeetingUrl, urls } from "@anang/config";
 import { SiteFooterLogo } from "@/components/site-footer-logo";
-import { SiteHeaderLogo } from "@/components/site-header-logo";
+import { SiteHeaderBar } from "@/components/site-header-bar";
 import Link from "next/link";
 import "./globals.css";
 
@@ -31,41 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen font-sans">
-        <header className="sticky top-0 z-50 border-b border-brand-navy-dark/20 bg-brand-navy text-white shadow-sm">
-          <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 py-3 px-4 sm:px-6">
-            <SiteHeaderLogo />
-            <nav className="hidden items-center gap-8 text-sm font-medium text-white/80 md:flex">
-              <Link href="/platform" className="transition hover:text-white">
-                Platform
-              </Link>
-              <Link href="/modules" className="transition hover:text-white">
-                Modules
-              </Link>
-              <Link href="/about" className="transition hover:text-white">
-                About
-              </Link>
-              <Link href="/pilot" className="transition hover:text-white">
-                Pilot
-              </Link>
-            </nav>
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <a
-                href={bookUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hidden rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15 sm:inline-block"
-              >
-                Book a call
-              </a>
-              <a
-                href={`${appUrl}/login`}
-                className="rounded-lg bg-brand-coral px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-coral-hover sm:px-4"
-              >
-                Sign in
-              </a>
-            </div>
-          </div>
-        </header>
+        <SiteHeaderBar bookUrl={bookUrl} appUrl={appUrl} />
         {children}
         <footer className="border-t border-brand-navy-dark/30 bg-brand-navy-dark text-white">
           <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
