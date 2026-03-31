@@ -41,6 +41,7 @@ The article stresses: **EHR + claims/EOB + patient account data** in one **consu
 
 These are the kinds of things **we can implement in-repo** (subject to your priorities and review):
 
+- **Integration readiness (shipped):** each tenant’s **Settings** page includes an **Integration readiness** card (EHR, payments, comms, clearinghouse) driven only by **optional env vars** — plus **`GET /api/integrations/status`** for the same JSON. No secrets exposed; use it in demos to show what’s mock vs ready.
 - **Product surface:** Flesh out Cover, Support, Pre flows; patient-facing portal route group; richer Insight.
 - **Integrations (code + patterns):** FHIR sync jobs, webhook receivers, idempotent upserts into Prisma models, admin screens for “last sync / errors”.
 - **Payments:** Server-side payment intents, webhooks, reconciliation tables — **after** you choose Stripe vs bank gateway and get keys.

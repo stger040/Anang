@@ -14,6 +14,7 @@
 | Platform login | `https://app.anang.ai/login` | Demo auth + tier picker |
 | Platform health | `https://app.anang.ai/api/health` | JSON `{ ok, serviceId, ts }` — “is deploy alive?” |
 | Platform version | `https://app.anang.ai/api/version` | JSON `{ version, serviceId, commit? }` |
+| Integration snapshot | `https://app.anang.ai/api/integrations/status` | JSON lanes for EHR / payments / comms / clearinghouse (env-driven, no secrets) |
 
 Replace hosts with your real Vercel domains if different.
 
