@@ -1,4 +1,6 @@
 import { getBrand } from "@anang/brand";
+import { PageCta } from "@/components/page-cta";
+import Link from "next/link";
 
 export const metadata = { title: "About" };
 
@@ -8,7 +10,7 @@ export default async function AboutPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
       <h1 className="text-3xl font-semibold text-slate-900">About</h1>
-      <div className="prose prose-slate mt-8 max-w-2xl">
+      <div className="mt-8 max-w-2xl space-y-4 text-slate-700">
         <p>
           {b.company.displayName} builds software for U.S. healthcare providers
           who need a modern, unified approach to revenue cycle — from how
@@ -25,6 +27,14 @@ export default async function AboutPage() {
           systems.
         </p>
       </div>
+
+      <PageCta title="Talk with us" />
+
+      <p className="mt-10">
+        <Link href="/" className="text-sm font-medium text-brand-navy hover:underline">
+          ← Back home
+        </Link>
+      </p>
     </div>
   );
 }

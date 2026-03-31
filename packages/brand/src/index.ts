@@ -32,3 +32,5 @@ export function getBrand(): BrandConfig {
 
 export { brandDefaults };
 export type { BrandConfig };
+export { cedarInspiredTheme } from "./theme";
+export type { CedarInspiredTheme } from "./theme";

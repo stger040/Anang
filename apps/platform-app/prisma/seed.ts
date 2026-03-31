@@ -81,7 +81,7 @@ async function main() {
       slug: "lco",
       name: "LCO Health Center",
       displayName: "LCO Health Center",
-      primaryColor: "#0f766e",
+      primaryColor: "#13264C",
       settings: {
         timezone: "America/Chicago",
         emrConnection: "demo_synthetic",
@@ -107,7 +107,7 @@ async function main() {
       slug: "demo",
       name: "Demo Tenant",
       displayName: "Demo Tenant (Investor Sandbox)",
-      primaryColor: "#7c3aed",
+      primaryColor: "#E24E42",
       settings: {
         isSandbox: true,
       },

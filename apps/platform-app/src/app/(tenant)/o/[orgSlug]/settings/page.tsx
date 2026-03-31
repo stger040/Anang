@@ -75,10 +75,10 @@ export default async function TenantSettingsPage({
             Module entitlements
           </h2>
           <div className="flex flex-wrap gap-4 text-sm font-medium">
-            <Link href={`/o/${orgSlug}/settings/users`} className="text-teal-800 underline">
+            <Link href={`/o/${orgSlug}/settings/users`} className="text-brand-navy underline">
               User management →
             </Link>
-            <Link href={`/o/${orgSlug}/settings/audit`} className="text-teal-800 underline">
+            <Link href={`/o/${orgSlug}/settings/audit`} className="text-brand-navy underline">
               Audit log →
             </Link>
           </div>

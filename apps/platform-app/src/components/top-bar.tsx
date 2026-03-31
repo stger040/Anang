@@ -16,9 +16,16 @@ export function TopBar({
       <div className="flex min-w-0 items-center gap-3">
         <Link
           href="/login"
-          className="shrink-0 text-xs font-semibold uppercase tracking-wide text-teal-800"
+          className="flex shrink-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-brand-navy"
         >
-          {suiteName}
+          <img
+            src="/brand/logo-trans-light-bg.svg"
+            alt=""
+            width={120}
+            height={28}
+            className="h-7 w-auto max-w-[120px]"
+          />
+          <span className="hidden sm:inline">{suiteName}</span>
         </Link>
         <span className="hidden text-slate-300 sm:inline">|</span>
         <div className="min-w-0">

@@ -3,10 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --surface: #f8fafc;
+  --surface: #f7f5f2;
   --border: #e2e8f0;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-brand-cream text-slate-900 antialiased;
 }

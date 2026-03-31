@@ -12,8 +12,11 @@ export default {
         display: ["var(--font-sans)", "system-ui", "sans-serif"],
       },
       colors: {
-        anang: {
-          teal: { 50: "#f0fdfa", 700: "#0f766e", 800: "#115e59" },
+        brand: {
+          navy: { DEFAULT: "#13264C", dark: "#0B1428", light: "#1e3d6e" },
+          coral: { DEFAULT: "#E24E42", hover: "#C63F36" },
+          cream: "#F7F5F2",
+          sky: "#E8F4FC",
         },
       },
     },

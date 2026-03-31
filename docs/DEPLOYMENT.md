@@ -60,6 +60,22 @@ If your Vercel UI uses “project root” differently, the rule is: **run `npm c
 
 Connect each Vercel project to the **same GitHub repo** and branch (usually `main`).
 
+### Where to set Install / Build commands in the Vercel UI
+
+These are **Step 1 (items 3–6)** if you only connected the repo and Root Directory first:
+
+1. Open the project → **Settings** (gear) → **General**.
+2. Scroll to **Build & Development Settings**.
+3. **Framework Preset:** Next.js (usually auto-detected).
+4. **Root Directory:** should already show `apps/marketing-site` or `apps/platform-app`.
+5. Enable **Override** next to **Install Command** and paste:
+   `cd ../.. && npm ci`
+6. Enable **Override** next to **Build Command** and paste the marketing or platform command from the table above.
+7. Click **Save**.
+8. **Deploy** tab → **Redeploy** (or push a commit) so the new settings run.
+
+`npm ci` needs the repo root `package-lock.json`; the `cd ../..` steps up from `apps/<app>` to the monorepo root.
+
 ---
 
 ## Environment variables
@@ -75,8 +91,9 @@ Optional overrides for `@anang/brand` (see `packages/brand`):
 | `NEXT_PUBLIC_ANANG_APP_HOST` | App hostname for CTAs (e.g. `app.anang.ai`) |
 | `NEXT_PUBLIC_ANANG_SUITE_NAME` | Product name in metadata |
 | `NEXT_PUBLIC_ANANG_TAGLINE` | Tagline |
+| `NEXT_PUBLIC_ANANG_CALENDLY` | Full URL for “Book a demo / Book a call” (e.g. `https://calendly.com/...`) |
 
-Set these in **Vercel → Project → Environment Variables** or copy from `apps/marketing-site/.env.example` locally.
+Set these in **Vercel → Project → Environment Variables** (or **Settings → Environment Variables**) for Production / Preview as needed. Locally, copy from `apps/marketing-site/.env.example`.
 
 ### Platform (`apps/platform-app`)
 
@@ -95,20 +112,72 @@ Local template: `apps/platform-app/.env.example`.
 
 ---
 
-## Database (production)
+## Database (production) — Step 4 in detail
 
-1. Provision **PostgreSQL** (Neon, Supabase, RDS, Azure Database for PostgreSQL, etc.).
-2. Set `DATABASE_URL` on the **platform** Vercel project.
-3. Apply schema and seed from a trusted environment (CI or your laptop with prod URL), e.g.:
+The **platform app** (`app.anang.ai`) is not a static site: sign-in and tenant pages read **Postgres** via Prisma.
+
+### Step 4 — beginner walkthrough (free Postgres on Neon)
+
+You do **not** need to install Postgres on your PC. A **hosted** database gives you a URL; the app and your laptop both connect to that same URL.
+
+**A. Create the database (one time)**
+
+1. Sign up at [Neon](https://neon.tech) (or use [Supabase](https://supabase.com) — both offer free tiers).
+2. Create a **new project**. Pick a region close to your Vercel region if prompted.
+3. Open the project’s **Dashboard** and find the **connection string** for Postgres. It usually looks like  
+   `postgresql://USER:PASSWORD@HOST.neon.tech/neondb?sslmode=require`.
+4. Copy the entire string. Treat it like a password — do not paste it in chat or commit it to git.
+
+**B. Give the URL to Vercel**
+
+1. Vercel → **Anang Platform** project (the one whose Root Directory is `apps/platform-app`) → **Settings → Environment Variables**.
+2. Add **`DATABASE_URL`** = paste the connection string. Scope: **Production** (and **Preview** if you want preview deployments to work against a DB too — you can use the same Neon DB while learning, or create a second Neon branch later).
+3. **Save**, then **Deployments → Redeploy** the latest production deploy so the new variable is picked up.
+
+**C. Create tables and demo data (one time, from your laptop)**
+
+Your code already defines the schema (Prisma). You “push” that shape to the empty Neon database, then “seed” starter rows (orgs, demo user, etc.).
+
+1. On your machine, open a terminal in the **repo root** (`Medtech_placeholder` folder — where `package-lock.json` lives).
+2. Set `DATABASE_URL` **only for this terminal session** (replace the placeholder with your real string from Neon):
 
 ```powershell
-# Use the production DATABASE_URL only from a secure context
-npm run db:migrate -w @anang/platform-app
-# or for early phases: db:push (less ideal for prod discipline)
+$env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST.neon.tech/neondb?sslmode=require"
+```
+
+3. Still in the repo root, run:
+
+```powershell
+npm run db:push -w @anang/platform-app
 npm run db:seed -w @anang/platform-app
 ```
 
-For production, prefer **Prisma Migrate** (`db:migrate`) over `db:push` once you introduce migration history.
+- **`db:push`** creates/updates tables in Neon to match the Prisma schema (good for early production; later you may switch to versioned **`db:migrate`**).
+- **`db:seed`** inserts demo data so login and tenant routes have something to read.
+
+If either command errors, read the message: common fixes are a typo in the URL, firewall/VPN blocking outbound connections, or Node/npm not run from the **monorepo root**.
+
+**D. Smoke test**
+
+Open `https://app.anang.ai/login` (or your platform URL) and use the [demo tier flow](./TENANCY_AND_MODULES.md) (`demo@anang.ai` / `demo` by default unless you changed seed data).
+
+---
+
+### Step 4 — short checklist (for those who already know hosted Postgres)
+
+1. **Provision a database** (e.g. [Neon](https://neon.tech), Supabase, RDS). Copy the Postgres connection string.
+2. In the **platform** Vercel project → **Settings → Environment Variables**, add **`DATABASE_URL`** = that connection string (mark as sensitive). Redeploy.
+3. **Apply schema + seed** once from a trusted machine (your laptop or CI), pointing at the **same** `DATABASE_URL`:
+
+```powershell
+$env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST/DB?sslmode=require"
+npm run db:push -w @anang/platform-app
+npm run db:seed -w @anang/platform-app
+```
+
+Use **`db:migrate`** instead of **`db:push`** when you adopt versioned Prisma migrations for production discipline.
+
+Until steps 1–3 succeed, the marketing site can work while the platform returns database errors on data routes.
 
 ---
 

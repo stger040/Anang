@@ -64,7 +64,7 @@ export function AppSidebar({
               href={full}
               className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 active
-                  ? "bg-teal-50 text-teal-900"
+                  ? "bg-brand-sky/90 text-brand-navy"
                   : "text-slate-700 hover:bg-slate-50"
               }`}
             >

@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { getBrand } from "@anang/brand";
+import { getBookMeetingUrl } from "@anang/config";
 
 export default async function HomePage() {
   const b = getBrand();
   const appUrl = `https://${b.company.platformSubdomain}`;
+  const bookUrl = getBookMeetingUrl();
 
   return (
     <main>
-      <section className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-b from-slate-50 to-white">
+      <section className="relative overflow-hidden border-b border-slate-200/80 bg-gradient-to-b from-white to-brand-sky/25">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
-          <p className="text-sm font-semibold uppercase tracking-wider text-teal-700">
+          <p className="text-sm font-semibold uppercase tracking-wider text-brand-navy">
             AI revenue cycle platform
           </p>
           <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl sm:leading-[1.1]">
@@ -22,21 +24,29 @@ export default async function HomePage() {
             <strong>AI-assisted claims build</strong> as a core differentiator.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
+            <a
+              href={bookUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex rounded-lg bg-brand-coral px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-coral-hover"
+            >
+              Book a demo
+            </a>
             <Link
               href="/pilot"
-              className="inline-flex rounded-lg bg-teal-700 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-800"
+              className="inline-flex rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-brand-navy shadow-sm transition hover:bg-slate-50"
             >
               Request a pilot
             </Link>
             <a
               href={`${appUrl}/login`}
-              className="inline-flex rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+              className="inline-flex rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-brand-navy shadow-sm transition hover:bg-slate-50"
             >
-              Book a demo
+              Product sandbox
             </a>
             <Link
               href="/platform"
-              className="inline-flex items-center px-2 py-3 text-sm font-medium text-teal-800 hover:underline"
+              className="inline-flex items-center px-2 py-3 text-sm font-medium text-brand-navy underline-offset-4 hover:underline"
             >
               Explore the platform →
             </Link>
@@ -82,10 +92,10 @@ export default async function HomePage() {
           ].map((m) => (
             <div
               key={m.title}
-              className={`rounded-xl border p-6 ${m.highlight ? "border-teal-200 bg-teal-50/40 ring-1 ring-teal-100" : "border-slate-200 bg-white"}`}
+              className={`rounded-xl border p-6 ${m.highlight ? "border-brand-coral/35 bg-brand-sky/50 ring-1 ring-brand-navy/10" : "border-slate-200 bg-white"}`}
             >
               {m.highlight && (
-                <span className="text-xs font-semibold uppercase text-teal-800">
+                <span className="text-xs font-semibold uppercase text-brand-coral">
                   Flagship
                 </span>
               )}
@@ -98,29 +108,29 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="border-y border-slate-200 bg-slate-900 py-20 text-white">
+      <section className="border-y border-brand-navy-dark/20 bg-brand-navy py-20 text-white">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <h2 className="text-2xl font-semibold">
             Built for health-system reality
           </h2>
           <ul className="mt-8 grid gap-6 sm:grid-cols-3">
             <li>
-              <p className="font-medium text-teal-300">Multi-tenant SaaS</p>
-              <p className="mt-2 text-sm text-slate-300">
+              <p className="font-medium text-brand-coral">Multi-tenant SaaS</p>
+              <p className="mt-2 text-sm text-white/75">
                 Isolated org data, module entitlements, and audit-friendly
                 patterns — ready for enterprise procurement.
               </p>
             </li>
             <li>
-              <p className="font-medium text-teal-300">White-label ready</p>
-              <p className="mt-2 text-sm text-slate-300">
+              <p className="font-medium text-brand-coral">White-label ready</p>
+              <p className="mt-2 text-sm text-white/75">
                 Per-tenant branding fields so patient and staff experiences
                 stay on your brand.
               </p>
             </li>
             <li>
-              <p className="font-medium text-teal-300">Human in the loop</p>
-              <p className="mt-2 text-sm text-slate-300">
+              <p className="font-medium text-brand-coral">Human in the loop</p>
+              <p className="mt-2 text-sm text-white/75">
                 AI suggests; your coders and billing leaders approve. No silent
                 auto-submit of claims.
               </p>

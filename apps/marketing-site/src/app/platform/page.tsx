@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getBrand } from "@anang/brand";
+import { PageCta } from "@/components/page-cta";
 
 export const metadata = { title: "Platform" };
 
@@ -43,11 +44,19 @@ export default async function PlatformPage() {
         </section>
         <Link
           href="/modules"
-          className="inline-flex font-medium text-teal-800 hover:underline"
+          className="inline-flex font-medium text-brand-navy hover:underline"
         >
           View all modules →
         </Link>
       </div>
+
+      <PageCta title="See the product" />
+
+      <p className="mt-10">
+        <Link href="/" className="text-sm font-medium text-brand-navy hover:underline">
+          ← Back home
+        </Link>
+      </p>
     </div>
   );
 }

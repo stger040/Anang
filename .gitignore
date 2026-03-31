@@ -44,6 +44,9 @@ coverage/
 .DS_Store
 Thumbs.db
 
+# TypeScript incremental build caches
+**/tsconfig.tsbuildinfo
+
 # IDE (uncomment if you prefer machine-local only)
 # .idea/
 # .vscode/*

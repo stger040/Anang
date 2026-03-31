@@ -111,7 +111,7 @@ export default async function InsightPage({
             streams land in warehouse. For pilots, narrative KPIs above carry
             the story.
           </p>
-          <div className="mt-6 h-40 rounded-lg border border-dashed border-slate-200 bg-gradient-to-tr from-teal-50/80 to-white" />
+          <div className="mt-6 h-40 rounded-lg border border-dashed border-slate-200 bg-gradient-to-tr from-brand-sky/80 to-white" />
         </Card>
       </div>
     </div>

@@ -9,11 +9,18 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-teal-800">
-            Anang
-          </p>
-          <p className="text-sm font-semibold text-slate-900">Platform admin</p>
+        <div className="flex items-center gap-3">
+          <img
+            src="/brand/logo-trans-light-bg.svg"
+            alt="Anang"
+            width={128}
+            height={28}
+            className="h-7 w-auto"
+          />
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Platform admin</p>
+            <p className="text-xs text-slate-500">Cross-tenant operator</p>
+          </div>
         </div>
         <nav className="flex flex-wrap items-center gap-4 text-sm">
           <Link href="/admin" className="text-slate-600 hover:text-slate-900">

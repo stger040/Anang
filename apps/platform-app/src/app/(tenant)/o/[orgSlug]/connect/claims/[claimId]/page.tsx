@@ -82,7 +82,7 @@ export default async function ClaimTimelinePage({
         <ol className="relative mt-6 space-y-6 border-l border-slate-200 pl-6">
           {claim.timeline.map((ev, i) => (
             <li key={ev.id} className="relative">
-              <span className="absolute -left-[25px] top-1 flex h-3 w-3 items-center justify-center rounded-full border-2 border-white bg-teal-600" />
+              <span className="absolute -left-[25px] top-1 flex h-3 w-3 items-center justify-center rounded-full border-2 border-white bg-brand-coral" />
               <p className="text-sm font-medium text-slate-900">{ev.label}</p>
               {ev.detail ? (
                 <p className="mt-0.5 text-sm text-slate-600">{ev.detail}</p>

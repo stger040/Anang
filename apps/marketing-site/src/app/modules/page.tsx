@@ -1,4 +1,6 @@
 import { getBrand } from "@anang/brand";
+import { PageCta } from "@/components/page-cta";
+import Link from "next/link";
 
 export const metadata = { title: "Modules" };
 
@@ -24,7 +26,7 @@ export default async function ModulesPage() {
       <div className="mt-12 divide-y divide-slate-200 border-y border-slate-200">
         {mods.map((m) => (
           <div key={m.key} className="grid gap-4 py-10 sm:grid-cols-3">
-            <div className="font-mono text-xs text-teal-800">{m.key}</div>
+            <div className="font-mono text-xs text-brand-navy">{m.key}</div>
             <div className="sm:col-span-2">
               <h2 className="text-xl font-semibold text-slate-900">
                 {m.label}
@@ -34,6 +36,14 @@ export default async function ModulesPage() {
           </div>
         ))}
       </div>
+
+      <PageCta title="Discuss module mix for your system" />
+
+      <p className="mt-10">
+        <Link href="/" className="text-sm font-medium text-brand-navy hover:underline">
+          ← Back home
+        </Link>
+      </p>
     </div>
   );
 }

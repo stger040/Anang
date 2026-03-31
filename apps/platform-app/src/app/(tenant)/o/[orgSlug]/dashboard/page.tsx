@@ -90,7 +90,7 @@ export default async function DashboardPage({
           <ul className="mt-3 space-y-2 text-sm">
             {mods.includes("BUILD") ? (
               <li>
-                <Link className="text-teal-800 underline" href={`/o/${orgSlug}/build`}>
+                <Link className="text-brand-navy underline" href={`/o/${orgSlug}/build`}>
                   Open Build queue
                 </Link>
               </li>
@@ -98,7 +98,7 @@ export default async function DashboardPage({
             {mods.includes("INSIGHT") ? (
               <li>
                 <Link
-                  className="text-teal-800 underline"
+                  className="text-brand-navy underline"
                   href={`/o/${orgSlug}/insight`}
                 >
                   Insight dashboards
@@ -108,7 +108,7 @@ export default async function DashboardPage({
             {mods.includes("CONNECT") ? (
               <li>
                 <Link
-                  className="text-teal-800 underline"
+                  className="text-brand-navy underline"
                   href={`/o/${orgSlug}/connect`}
                 >
                   Claims lifecycle
@@ -117,7 +117,7 @@ export default async function DashboardPage({
             ) : null}
             <li>
               <Link
-                className="text-teal-800 underline"
+                className="text-brand-navy underline"
                 href={`/o/${orgSlug}/settings`}
               >
                 Tenant admin

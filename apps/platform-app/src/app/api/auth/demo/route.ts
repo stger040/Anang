@@ -1,19 +1,67 @@
 import { prisma } from "@/lib/prisma";
+import { getDemoLoginEmail, getDemoPassword } from "@/lib/demo-password";
+import {
+  TIER_TO_USER_EMAIL,
+  type DemoTierId,
+} from "@/lib/demo-tiers";
 import { DEMO_SESSION_COOKIE } from "@/lib/session";
 import { AppRole } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+function isValidTier(x: unknown): x is DemoTierId {
+  return typeof x === "string" && x in TIER_TO_USER_EMAIL;
+}
+
 export async function POST(req: Request) {
-  const body = (await req.json()) as { email?: string };
-  const email = body.email?.trim().toLowerCase();
-  if (!email) {
-    return NextResponse.json({ error: "email required" }, { status: 400 });
+  const body = (await req.json()) as {
+    email?: string;
+    password?: string;
+    demoTier?: unknown;
+  };
+
+  const emailRaw = body.email?.trim().toLowerCase();
+  const password = typeof body.password === "string" ? body.password : "";
+
+  if (!emailRaw) {
+    return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const demoEmail = getDemoLoginEmail();
+  const demoPw = getDemoPassword();
+
+  let targetEmail: string;
+
+  if (emailRaw === demoEmail) {
+    if (password !== demoPw) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 },
+      );
+    }
+    if (!isValidTier(body.demoTier)) {
+      return NextResponse.json(
+        { error: "Choose a demo tier for this sign-in email" },
+        { status: 400 },
+      );
+    }
+    targetEmail = TIER_TO_USER_EMAIL[body.demoTier];
+  } else {
+    if (password !== demoPw) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 },
+      );
+    }
+    targetEmail = emailRaw;
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: targetEmail } });
   if (!user) {
-    return NextResponse.json({ error: "unknown user" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Unknown user — run db:seed or check tier mapping" },
+      { status: 404 },
+    );
   }
 
   const payload = {

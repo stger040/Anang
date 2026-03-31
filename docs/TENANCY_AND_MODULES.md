@@ -45,9 +45,17 @@ Route groups under `/o/[orgSlug]/*/layout.tsx` call `requireModule(orgSlug, "…
 | `tamarack` | **Tamarack Health** — Build + Pay + Insight + Core (no Connect / Support / Cover) |
 | `demo` | **Demo Tenant** — Pay + Insight + Core only |
 
-Seeded users (see `/login`):
+**Product sign-in (`/login`)** uses an email + password form with a **demo tier** picker (no real mailbox needed):
 
-- `super@anang.internal` — platform super admin (`/admin`)
+- Default virtual email: `demo@anang.ai` (override with `DEMO_LOGIN_EMAIL` / `NEXT_PUBLIC_DEMO_LOGIN_EMAIL`).
+- Default password: `demo` (override with `DEMO_LOGIN_PASSWORD`).
+- **Enterprise** tier → signs in as LCO (all modules). **Growth** → Tamarack (subset). **Essentials** → Demo tenant (Pay + Insight). **Platform admin** → super admin (`/admin`).
+
+Power users can still sign in with a seeded email directly (same demo password) — tier selection only applies to the virtual demo email.
+
+Seeded identities behind the tiers:
+
+- `super@anang.internal` — platform super admin
 - `admin@lco.anang.demo` — LCO tenant admin
 - `rcm@tamarack.anang.demo` — Tamarack staff
 - `viewer@demo.anang.demo` — Demo tenant staff
