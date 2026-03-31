@@ -32,7 +32,7 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen font-sans">
         <header className="sticky top-0 z-50 border-b border-brand-navy-dark/20 bg-brand-navy text-white shadow-sm">
-          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 py-3 px-4 sm:px-6">
             <SiteHeaderLogo />
             <nav className="hidden items-center gap-8 text-sm font-medium text-white/80 md:flex">
               <Link href="/platform" className="transition hover:text-white">

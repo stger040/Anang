@@ -7,9 +7,9 @@ export function SiteHeaderLogo() {
       <img
         src="/brand/logo-trans-dark-bg.svg"
         alt="Anang"
-        width={180}
-        height={36}
-        className="h-9 w-auto max-h-9"
+        width={540}
+        height={108}
+        className="h-[108px] w-auto max-h-[108px] max-w-[min(92vw,540px)] object-contain object-left"
       />
     </Link>
   );

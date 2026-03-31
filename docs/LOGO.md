@@ -16,7 +16,7 @@ Keep **identical** filenames in both apps when you update the brand (copy the SV
 
 1. **Prefer SVG export** if Canva or your tool supports clean vectors. Otherwise use **PNG with transparent background**.
 2. **Safe horizontal sizes** for the header:
-   - **SVG:** `viewBox` roughly **200–280 × 36–48** for a compact wordmark; the layout constrains height to `h-9` (36px) and width `auto`.
+   - **SVG:** `viewBox` roughly **200–280 × 36–48** for a compact wordmark; the marketing header uses **108px** height (3× the earlier 36px ribbon) with width `auto` (capped on small viewports).
    - **PNG @1x:** about **240–320px wide × 36–40px tall** for retina-friendly scaling use **@2x** (e.g. **480×72**).
 3. **Two variants** (current filenames):
    - **Dark background** (navy `#13264C` / `#0B1428`): use **white or near-white** type and **coral `#E24E42`** accent so it matches the Cedar-adjacent theme.
@@ -32,7 +32,7 @@ Keep **identical** filenames in both apps when you update the brand (copy the SV
 
 If you need to **swap** which variant appears on dark vs light UI, update the `src` paths in `site-header-logo.tsx`, `site-footer-logo.tsx`, `login/page.tsx`, `top-bar.tsx`, and `admin/layout.tsx` (or rename files and keep paths unchanged).
 
-If your wordmark is **wide**, the header uses `max-h-9` and `w-auto`; extremely wide marks may need a simplified **icon-only** variant for mobile (future enhancement).
+If your wordmark is **wide**, the header uses `max-h-[108px]` and `max-w-[min(92vw,540px)]`; extremely wide marks may need a simplified **icon-only** variant for mobile (future enhancement).
 
 ## Calendly URL
 
