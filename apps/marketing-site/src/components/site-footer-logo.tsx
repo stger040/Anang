@@ -1,15 +1,18 @@
 import Link from "next/link";
 
-/** Smaller wordmark for dark footer */
+/** Wordmark for dark footer — 3× previous 32px height; centered on mobile only */
 export function SiteFooterLogo() {
   return (
-    <Link href="/" className="inline-block">
+    <Link
+      href="/"
+      className="mx-auto inline-block sm:mx-0"
+    >
       <img
         src="/brand/logo-trans-dark-bg.svg"
         alt="Anang"
-        width={160}
-        height={32}
-        className="h-8 w-auto opacity-95"
+        width={480}
+        height={96}
+        className="h-24 w-auto max-h-24 max-w-[min(92vw,480px)] object-contain object-center opacity-95 sm:object-left"
       />
     </Link>
   );

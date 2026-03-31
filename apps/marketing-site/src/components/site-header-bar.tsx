@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useState } from "react";
 import { SiteHeaderLogo } from "@/components/site-header-logo";
 
+/**
+ * When true, hamburger→X uses slightly longer bars in the open state and extra
+ * button space so the X reads evenly (avoids perceived crop on the right).
+ * Set to `false` to revert to identical bar widths for burger and X.
+ */
+const EXTEND_HAMBURGER_X_LIMBS = true;
+
 type SiteHeaderBarProps = {
   bookUrl: string;
   appUrl: string;
@@ -76,25 +83,35 @@ export function SiteHeaderBar({ bookUrl, appUrl }: SiteHeaderBarProps) {
 
           <button
             type="button"
-            className="inline-flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-lg text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:hidden"
+            className={`inline-flex min-h-11 flex-col items-center justify-center gap-1.5 overflow-visible rounded-lg text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:hidden ${
+              EXTEND_HAMBURGER_X_LIMBS && menuOpen ? "min-w-12 px-0.5" : "h-11 w-11"
+            }`}
             aria-expanded={menuOpen}
             aria-controls={menuId}
             aria-label={menuOpen ? "Close menu" : "Open menu"}
             onClick={() => setMenuOpen((o) => !o)}
           >
             <span
-              className={`block h-0.5 w-6 rounded-full bg-current transition duration-200 ease-out ${
-                menuOpen ? "translate-y-[7px] rotate-45" : ""
+              className={`block h-0.5 rounded-full bg-current transition-[transform,width] duration-200 ease-out ${
+                menuOpen && EXTEND_HAMBURGER_X_LIMBS
+                  ? "w-[29px] translate-y-[7px] rotate-45"
+                  : menuOpen
+                    ? "w-6 translate-y-[7px] rotate-45"
+                    : "w-6"
               }`}
             />
             <span
-              className={`block h-0.5 w-6 rounded-full bg-current transition duration-200 ease-out ${
-                menuOpen ? "scale-x-0 opacity-0" : ""
+              className={`block h-0.5 rounded-full bg-current transition duration-200 ease-out ${
+                menuOpen ? "w-6 scale-x-0 opacity-0" : "w-6"
               }`}
             />
             <span
-              className={`block h-0.5 w-6 rounded-full bg-current transition duration-200 ease-out ${
-                menuOpen ? "-translate-y-[7px] -rotate-45" : ""
+              className={`block h-0.5 rounded-full bg-current transition-[transform,width] duration-200 ease-out ${
+                menuOpen && EXTEND_HAMBURGER_X_LIMBS
+                  ? "w-[29px] -translate-y-[7px] -rotate-45"
+                  : menuOpen
+                    ? "w-6 -translate-y-[7px] -rotate-45"
+                    : "w-6"
               }`}
             />
           </button>

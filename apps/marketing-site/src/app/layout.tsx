@@ -36,9 +36,9 @@ export default function RootLayout({
         <footer className="border-t border-brand-navy-dark/30 bg-brand-navy-dark text-white">
           <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
             <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
-              <div>
+              <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
                 <SiteFooterLogo />
-                <p className="mt-4 max-w-md text-sm text-white/70">
+                <p className="mt-4 max-w-md text-[1.75rem] leading-snug text-white/70 sm:max-w-lg">
                   {b.product.shortDescription}
                 </p>
               </div>
