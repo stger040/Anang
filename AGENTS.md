@@ -7,7 +7,7 @@ Before changing product behavior or adding features, read **`docs/PLATFORM_OVERV
 **Apps:**
 
 - **`apps/marketing-site`** — public marketing (`anang.ai`).
-- **`apps/platform-app`** — multi-tenant product (`app.anang.ai`), Prisma + PostgreSQL, routes under `/o/[orgSlug]/…` and super-admin `/admin`.
+- **`apps/platform-app`** — multi-tenant product (`app.anang.ai`), Prisma + PostgreSQL, routes under `/o/[orgSlug]/…` and super-admin `/admin`. **Client demos:** [`docs/CLIENT_SHOWCASE.md`](docs/CLIENT_SHOWCASE.md) (URLs, script, bottlenecks).
 
 **Conventions:**
 

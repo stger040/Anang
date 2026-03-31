@@ -70,6 +70,8 @@
 
 **Rule:** Do **not** scatter “Anang” or product copy across random files — use **`getBrand()`** from `@anang/brand` or edit **`packages/brand/src/config.ts`**.
 
+**Selling / demos:** See **[`CLIENT_SHOWCASE.md`](./CLIENT_SHOWCASE.md)** for URLs, demo script, seeded logins, and current bottlenecks.
+
 ---
 
 ## 6. Compliance and risk (high level)

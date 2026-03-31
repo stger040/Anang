@@ -9,7 +9,7 @@
 - [ ] Mono-repo, CI, dev/staging/prod
 - [ ] Multi-tenant data model + auth (SSO roadmap)
 - [ ] HIPAA baseline (encryption, audit, BAAs)
-- [ ] `/api/health` + `/api/version` (wired to `@repo/brand` `technical.serviceId`)
+- [x] `/api/health` + `/api/version` (platform app — `serviceId` from `@anang/brand`)
 - [ ] **`packages/brand`** — final company/product/AI names
 
 ## Patient experience (Pay + Pre)
