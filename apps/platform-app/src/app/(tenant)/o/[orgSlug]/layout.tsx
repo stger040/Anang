@@ -1,7 +1,6 @@
 import { PlatformShell } from "@/components/platform-shell";
 import { getDemoSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
-import { getBrand } from "@anang/brand";
 import { notFound, redirect } from "next/navigation";
 
 export default async function OrgLayout({
@@ -18,14 +17,11 @@ export default async function OrgLayout({
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) notFound();
 
-  const b = getBrand();
-
   return (
     <PlatformShell
       orgSlug={orgSlug}
       tenantName={ctx.tenant.displayName}
       enabledModules={Array.from(ctx.enabledModules)}
-      suiteName={b.product.suiteName}
       userEmail={session.email}
     >
       {children}

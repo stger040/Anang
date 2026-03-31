@@ -7,7 +7,6 @@ export function PlatformShell({
   orgSlug,
   tenantName,
   enabledModules,
-  suiteName,
   userEmail,
   extraTopActions,
   children,
@@ -15,7 +14,6 @@ export function PlatformShell({
   orgSlug: string;
   tenantName: string;
   enabledModules: ModuleKey[];
-  suiteName: string;
   userEmail: string;
   extraTopActions?: React.ReactNode;
   children: React.ReactNode;
@@ -29,7 +27,6 @@ export function PlatformShell({
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
-          suiteName={suiteName}
           orgLabel={tenantName}
           userEmail={userEmail}
           actions={
