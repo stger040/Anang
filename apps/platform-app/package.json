@@ -9,6 +9,8 @@
     "lint": "next lint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:push:neon": "node --env-file=.env.neon ../../node_modules/prisma/build/index.js db push",
+    "db:seed:neon": "node --env-file=.env.neon ../../node_modules/tsx/dist/cli.mjs prisma/seed.ts",
     "db:migrate": "prisma migrate dev",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "prisma studio",

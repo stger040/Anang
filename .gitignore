@@ -18,7 +18,9 @@ dist/
 **/.env.test.local
 **/.env.production.local
 **/.env*.local
+**/.env.neon
 !**/.env.example
+!**/.env.neon.example
 
 # Logs & debug
 npm-debug.log*

@@ -138,22 +138,29 @@ You do **not** need to install Postgres on your PC. A **hosted** database gives 
 
 Your code already defines the schema (Prisma). You “push” that shape to the empty Neon database, then “seed” starter rows (orgs, demo user, etc.).
 
-1. On your machine, open a terminal in the **repo root** (`Medtech_placeholder` folder — where `package-lock.json` lives).
-2. Set `DATABASE_URL` **only for this terminal session** (replace the placeholder with your real string from Neon):
+**Recommended (avoids clobbering local Docker Postgres):** put the **same** Neon `DATABASE_URL` you use in Vercel into a file the repo **never commits**:
+
+1. Copy `apps/platform-app/.env.neon.example` → `apps/platform-app/.env.neon`.
+2. Edit `.env.neon` so `DATABASE_URL` is your real Neon string (one line, quoted is fine).
+3. From the **repo root** (folder with `package-lock.json`), run:
+
+```powershell
+npm run db:push:neon -w @anang/platform-app
+npm run db:seed:neon -w @anang/platform-app
+```
+
+Those scripts use Node’s `--env-file=.env.neon` so your normal `apps/platform-app/.env` can keep pointing at **localhost** for local Docker.
+
+- **`db:push:neon`** creates/updates tables in Neon to match the Prisma schema (good for early production; later you may switch to versioned **`db:migrate`**).
+- **`db:seed:neon`** inserts demo data so login and tenant routes have something to read.
+
+**Alternate:** set `DATABASE_URL` only for one terminal session, then use the plain `db:push` / `db:seed` scripts (they read `apps/platform-app/.env`, which is usually **local Docker** — so this only works if you temporarily replace that value or export `DATABASE_URL` in the shell, which overrides `.env` for Prisma):
 
 ```powershell
 $env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST.neon.tech/neondb?sslmode=require"
-```
-
-3. Still in the repo root, run:
-
-```powershell
 npm run db:push -w @anang/platform-app
 npm run db:seed -w @anang/platform-app
 ```
-
-- **`db:push`** creates/updates tables in Neon to match the Prisma schema (good for early production; later you may switch to versioned **`db:migrate`**).
-- **`db:seed`** inserts demo data so login and tenant routes have something to read.
 
 If either command errors, read the message: common fixes are a typo in the URL, firewall/VPN blocking outbound connections, or Node/npm not run from the **monorepo root**.
 
@@ -170,12 +177,19 @@ Open `https://app.anang.ai/login` (or your platform URL) and use the [demo tier 
 3. **Apply schema + seed** once from a trusted machine (your laptop or CI), pointing at the **same** `DATABASE_URL`:
 
 ```powershell
+# Easiest with local Docker .env unchanged: use .env.neon (see section C).
+npm run db:push:neon -w @anang/platform-app
+npm run db:seed:neon -w @anang/platform-app
+```
+
+```powershell
+# Or one shell session + standard scripts:
 $env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST/DB?sslmode=require"
 npm run db:push -w @anang/platform-app
 npm run db:seed -w @anang/platform-app
 ```
 
-Use **`db:migrate`** instead of **`db:push`** when you adopt versioned Prisma migrations for production discipline.
+Use **`db:migrate`** instead of **`db:push`** / **`db:push:neon`** when you adopt versioned Prisma migrations for production discipline.
 
 Until steps 1–3 succeed, the marketing site can work while the platform returns database errors on data routes.
 
