@@ -2,7 +2,7 @@
 
 **Purpose:** Give founders and sales a **single place** for URLs, logins, a short demo path, and **honest** notes on what is product-ready vs scaffold — so you can meet clients without guessing.
 
-**Related:** [`PLATFORM_OVERVIEW.md`](./PLATFORM_OVERVIEW.md) · [`TENANCY_AND_MODULES.md`](./TENANCY_AND_MODULES.md) · [`DEPLOYMENT.md`](./DEPLOYMENT.md) · [`EPIC_AND_TEST_DATA.md`](./EPIC_AND_TEST_DATA.md)
+**Related:** [`PLATFORM_OVERVIEW.md`](./PLATFORM_OVERVIEW.md) · [`PATH_TO_FULL_PRODUCT.md`](./PATH_TO_FULL_PRODUCT.md) (Cedar-class gap list + what you supply vs what we build) · [`TENANCY_AND_MODULES.md`](./TENANCY_AND_MODULES.md) · [`DEPLOYMENT.md`](./DEPLOYMENT.md) · [`EPIC_AND_TEST_DATA.md`](./EPIC_AND_TEST_DATA.md)
 
 ---
 
