@@ -19,7 +19,7 @@ function entitlementsForTenant(slug: string): ModuleKey[] {
       ModuleKey.COVER,
     ];
   }
-  if (slug === "tamarack") {
+  if (slug === "hayward" || slug === "ashland") {
     // Selective deployment: no Connect / Support / Cover in this pilot-shaped tenant
     return [ModuleKey.CORE, ModuleKey.BUILD, ModuleKey.PAY, ModuleKey.INSIGHT];
   }
@@ -89,14 +89,29 @@ async function main() {
     },
   });
 
-  const tenantTamarack = await prisma.tenant.create({
+  const tenantTamarackHayward = await prisma.tenant.create({
     data: {
-      slug: "tamarack",
-      name: "Tamarack Health",
+      slug: "hayward",
+      name: "Tamarack Health — Hayward",
       displayName: "Tamarack Health",
       primaryColor: "#1d4ed8",
       settings: {
         timezone: "America/Los_Angeles",
+        site: "hayward",
+        emrConnection: "demo_synthetic",
+      },
+    },
+  });
+
+  const tenantTamarackAshland = await prisma.tenant.create({
+    data: {
+      slug: "ashland",
+      name: "Tamarack Health — Ashland",
+      displayName: "Tamarack Health",
+      primaryColor: "#1d4ed8",
+      settings: {
+        timezone: "America/Los_Angeles",
+        site: "ashland",
         emrConnection: "demo_synthetic",
       },
     },
@@ -114,7 +129,12 @@ async function main() {
     },
   });
 
-  for (const t of [tenantLco, tenantTamarack, tenantDemo]) {
+  for (const t of [
+    tenantLco,
+    tenantTamarackHayward,
+    tenantTamarackAshland,
+    tenantDemo,
+  ]) {
     const mods = entitlementsForTenant(t.slug);
     for (const m of mods) {
       await prisma.moduleEntitlement.create({
@@ -137,7 +157,12 @@ async function main() {
       { userId: userLco.id, tenantId: tenantLco.id, role: AppRole.TENANT_ADMIN },
       {
         userId: userTamarack.id,
-        tenantId: tenantTamarack.id,
+        tenantId: tenantTamarackHayward.id,
+        role: AppRole.STAFF,
+      },
+      {
+        userId: userTamarack.id,
+        tenantId: tenantTamarackAshland.id,
         role: AppRole.STAFF,
       },
       { userId: userDemo.id, tenantId: tenantDemo.id, role: AppRole.STAFF },
@@ -167,7 +192,7 @@ async function main() {
 
   const patTam1 = await prisma.patient.create({
     data: {
-      tenantId: tenantTamarack.id,
+      tenantId: tenantTamarackHayward.id,
       mrn: "TAM-44102",
       firstName: "Elena",
       lastName: "Vargas",
@@ -205,7 +230,7 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
 
   const encTam1 = await prisma.encounter.create({
     data: {
-      tenantId: tenantTamarack.id,
+      tenantId: tenantTamarackHayward.id,
       patientId: patTam1.id,
       dateOfService: new Date("2026-03-15T16:45:00Z"),
       chiefComplaint: "ACL reconstruction follow-up",
@@ -284,7 +309,7 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
 
   await prisma.claimDraft.create({
     data: {
-      tenantId: tenantTamarack.id,
+      tenantId: tenantTamarackHayward.id,
       encounterId: encTam1.id,
       status: "draft",
     },
@@ -368,7 +393,7 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
   });
 
   await mkClaim({
-    tenantId: tenantTamarack.id,
+    tenantId: tenantTamarackHayward.id,
     patientId: patTam1.id,
     claimNumber: "CLM-TAM-4401",
     status: ClaimLifecycleStatus.SUBMITTED,
@@ -506,7 +531,7 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
 
   // eslint-disable-next-line no-console
   console.log("Seed complete.", {
-    tenants: ["lco", "tamarack", "demo"],
+    tenants: ["lco", "hayward", "ashland", "demo"],
     demoUsers: [
       userSuper.email,
       userLco.email,

@@ -42,7 +42,8 @@ Route groups under `/o/[orgSlug]/*/layout.tsx` call `requireModule(orgSlug, "…
 | Slug | Story |
 |------|--------|
 | `lco` | **LCO Health Center** — all modules enabled for full-platform pilots |
-| `tamarack` | **Tamarack Health** — Build + Pay + Insight + Core (no Connect / Support / Cover) |
+| `hayward` | **Tamarack Health** (Hayward site) — Build + Pay + Insight + Core (no Connect / Support / Cover) |
+| `ashland` | **Tamarack Health** (Ashland site) — same module mix; distinct org slug for multi-site demos |
 | `demo` | **Demo Tenant** — Pay + Insight + Core only |
 
 **Product sign-in (`/login`)** uses an email + password form with a **demo tier** picker (no real mailbox needed):
@@ -57,7 +58,7 @@ Seeded identities behind the tiers:
 
 - `super@anang.internal` — platform super admin
 - `admin@lco.anang.demo` — LCO tenant admin
-- `rcm@tamarack.anang.demo` — Tamarack staff
+- `rcm@tamarack.anang.demo` — Tamarack staff (seeded memberships on **hayward** and **ashland**; first-login redirect uses `/o/hayward/...` by membership order)
 - `viewer@demo.anang.demo` — Demo tenant staff
 
 ## Data isolation posture

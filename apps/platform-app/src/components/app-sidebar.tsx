@@ -7,69 +7,111 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ModuleKey } from "@prisma/client";
+import type { ReactNode } from "react";
 
 export type NavItem = {
   href: string;
   label: string;
   module?: ModuleKey;
-  icon: string;
+  icon: ReactNode;
   iconTone: string;
 };
+
+/** Wider three-bar rail icon (+1px line length vs typical ☰ glyph in this slot). */
+function SupportRailIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 14"
+      width="20"
+      height="14"
+      className={className}
+      aria-hidden
+    >
+      <line
+        x1="1"
+        y1="3.5"
+        x2="19"
+        y2="3.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line
+        x1="1"
+        y1="7"
+        x2="19"
+        y2="7"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line
+        x1="1"
+        y1="10.5"
+        x2="19"
+        y2="10.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 const ALL: NavItem[] = [
   {
     href: "dashboard",
     label: "Overview",
-    icon: "◆",
+    icon: <span className="text-base">◆</span>,
     module: undefined,
     iconTone: "text-purple-600",
   },
   {
     href: "build",
     label: "Build",
-    icon: "▣",
+    icon: <span className="text-base">▣</span>,
     module: "BUILD",
     iconTone: "text-blue-600",
   },
   {
     href: "pay",
     label: "Pay",
-    icon: "$",
+    icon: <span className="text-base">$</span>,
     module: "PAY",
     iconTone: "text-green-600",
   },
   {
     href: "connect",
     label: "Connect",
-    icon: "⇄",
+    icon: <span className="text-base">⇄</span>,
     module: "CONNECT",
     iconTone: "text-red-600",
   },
   {
     href: "insight",
     label: "Insight",
-    icon: "◇",
+    icon: <span className="text-base">◇</span>,
     module: "INSIGHT",
     iconTone: "text-emerald-800",
   },
   {
     href: "support",
     label: "Support",
-    icon: "☰",
+    icon: <SupportRailIcon />,
     module: "SUPPORT",
     iconTone: "text-violet-900",
   },
   {
     href: "cover",
     label: "Cover",
-    icon: "◎",
+    icon: <span className="text-base">◎</span>,
     module: "COVER",
     iconTone: "text-orange-600",
   },
   {
     href: "settings",
     label: "Admin",
-    icon: "⚙",
+    icon: <span className="text-base">⚙</span>,
     module: undefined,
     iconTone: "text-slate-500",
   },
@@ -108,9 +150,11 @@ export function AppSidebar({
       className="flex shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white transition-[width] duration-300 ease-out"
       style={{ width: widthPx }}
     >
-      <div className="border-b border-slate-200 px-4 py-2.5 sm:px-6 sm:py-3">
+      <div
+        className={`border-b border-slate-200 py-2.5 sm:py-3 ${collapsed ? "px-1" : "px-4 sm:px-6"}`}
+      >
         <div
-          className={`relative overflow-hidden ${collapsed ? "min-h-[3rem]" : "min-h-[3.25rem]"}`}
+          className={`relative ${collapsed ? "min-h-[3rem] overflow-visible" : "min-h-[3.25rem] overflow-hidden"}`}
         >
           <div
             className={`transition-all duration-300 ease-out ${
@@ -127,16 +171,22 @@ export function AppSidebar({
             </p>
           </div>
           <div
-            className={`absolute inset-0 flex flex-col justify-center transition-all duration-300 ease-out ${
+            className={`absolute inset-0 flex flex-col justify-center text-center transition-all duration-300 ease-out ${
               collapsed
                 ? "translate-y-0 opacity-100"
                 : "pointer-events-none -translate-y-1 opacity-0"
             }`}
           >
-            <p className="truncate text-center text-sm font-bold tracking-tight text-slate-900" title={tenantName}>
+            <p
+              className="whitespace-nowrap text-xs font-bold leading-tight tracking-tight text-slate-900 sm:text-sm"
+              title={tenantName}
+            >
               {orgAbbrev || "—"}
             </p>
-            <p className="truncate text-center font-mono text-[11px] text-slate-500" title={`/${orgSlug}`}>
+            <p
+              className="mt-0.5 whitespace-nowrap font-mono text-[11px] leading-none text-slate-500"
+              title={`/${orgSlug}`}
+            >
               {slugAbbrev}
             </p>
           </div>
@@ -161,7 +211,7 @@ export function AppSidebar({
               }`}
             >
               <span
-                className={`w-5 shrink-0 text-center text-base leading-none ${n.iconTone}`}
+                className={`flex h-5 w-5 shrink-0 items-center justify-center leading-none ${n.iconTone}`}
               >
                 {n.icon}
               </span>
