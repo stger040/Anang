@@ -51,7 +51,7 @@ If you later want *many customers on one Vercel app and one Neon database*, you 
 
 ## Optional env: `DATABASE_URL__<SLUG>` (per-tenant branch)
 
-Slug `synthetic-test` maps to **`DATABASE_URL__SYNTHETIC_TEST`** (hyphens → underscores, uppercased). When set, **`/o/synthetic-test`**, **`/p/synthetic-test`**, tenant **OIDC callback**, **credentials login with `?org=`**, **flow-intent**, and **tenant-scoped API routes** (pay, support assistant, clearinghouse inbound X12, Stripe checkout metadata with `orgSlug`) use that connection string. Everything else (**`/admin`**, global NextAuth helpers that only know an email, **`/post-signin`**, cron unless updated) still uses **`DATABASE_URL`**.
+Slug `synthetic-test` maps to **`DATABASE_URL__SYNTHETIC_TEST`** (hyphens → underscores, uppercased). When set, **`/o/synthetic-test`**, **`/p/synthetic-test`**, tenant **OIDC callback**, **credentials login with `?org=`**, **flow-intent**, **Greenway FHIR cron** (`?tenantSlug=` / `GREENWAY_FHIR_SYNC_TENANT_SLUG`), and **tenant-scoped API routes** (pay, support assistant, clearinghouse inbound X12, Stripe checkout metadata with `orgSlug`) use that connection string. **`/admin`**, global NextAuth (e.g. global OIDC `signIn` guard by email), and **`/post-signin`** still use **`DATABASE_URL`** unless you point production at a single branch for everything.
 
 That override database must be a **full** Prisma migrate target with **`User`**, **`Membership`**, **`Tenant`**, and all clinical tables for that environment — same IDs you expect in the UI — or auth and FKs will disagree between databases.
 

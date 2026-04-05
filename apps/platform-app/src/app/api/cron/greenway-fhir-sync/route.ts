@@ -74,7 +74,9 @@ async function handleCron(req: Request) {
     null;
 
   const ranAt = new Date().toISOString();
-  const { prisma } = await import("@/lib/prisma");
+  const { prisma, tenantPrisma } = await import("@/lib/prisma");
+  /** When `syncTenantSlug` is set, persist reads/writes use that slug’s DB (`DATABASE_URL__…` if configured). */
+  let tenantSyncDb = prisma;
 
   let tenantRow: {
     id: string;
@@ -85,7 +87,8 @@ async function handleCron(req: Request) {
   let cfg = await resolveGreenwayFhirEnvConfigAsync();
 
   if (syncTenantSlug) {
-    const t = await prisma.tenant.findUnique({
+    tenantSyncDb = tenantPrisma(syncTenantSlug);
+    const t = await tenantSyncDb.tenant.findUnique({
       where: { slug: syncTenantSlug },
       select: { id: true, slug: true, settings: true },
     });
@@ -135,13 +138,13 @@ async function handleCron(req: Request) {
     }> = [];
 
     for (const fid of bulkPatientIds) {
-      const syncResult = await syncGreenwayPatientEncounters(prisma, {
+      const syncResult = await syncGreenwayPatientEncounters(tenantSyncDb, {
         tenantId: tenantRow.id,
         config: cfg,
         fhirPatientLogicalId: fid,
       });
       const ok = syncResult.ok;
-      await prisma.auditEvent.create({
+      await tenantSyncDb.auditEvent.create({
         data: {
           tenantId: tenantRow.id,
           actorUserId: null,
@@ -199,13 +202,13 @@ async function handleCron(req: Request) {
       const { syncGreenwayPatientEncounters } = await import(
         "@/lib/connectors/greenway-fhir/sync-greenway-patient-encounters"
       );
-      const syncResult = await syncGreenwayPatientEncounters(prisma, {
+      const syncResult = await syncGreenwayPatientEncounters(tenantSyncDb, {
         tenantId: tenantRow.id,
         config: cfg,
         fhirPatientLogicalId: patientId,
       });
 
-      await prisma.auditEvent.create({
+      await tenantSyncDb.auditEvent.create({
         data: {
           tenantId: tenantRow.id,
           actorUserId: null,
