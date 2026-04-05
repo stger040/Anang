@@ -9,7 +9,7 @@ import {
   validateX12Structure,
   type X12ValidationResult,
 } from "@/lib/connect/edi/validate-x12-structure";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { readRequestIdFromHeaders } from "@/lib/platform-log";
 import { getSession } from "@/lib/session";
 import { parseImplementationSettings } from "@/lib/tenant-implementation-settings";
@@ -39,14 +39,14 @@ export async function approveClaimDraft(formData: FormData) {
     throw new Error("Forbidden");
   }
 
-  const draft = await prisma.claimDraft.findFirst({
+  const draft = await tenantPrisma(orgSlug).claimDraft.findFirst({
     where: { id: draftId, tenantId: ctx.tenant.id },
     include: { encounter: true },
   });
   if (!draft) throw new Error("Draft not found");
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.$transaction(async (tx) => {
+  await tenantPrisma(orgSlug).$transaction(async (tx) => {
     await tx.claimDraft.update({
       where: { id: draftId },
       data: {
@@ -100,10 +100,10 @@ export async function preview837pFromDraft(formData: FormData): Promise<
     return { ok: false, error: "Forbidden" };
   }
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: ctx.tenant.id } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { id: ctx.tenant.id } });
   if (!tenant) return { ok: false, error: "Tenant not found" };
 
-  const draft = await prisma.claimDraft.findFirst({
+  const draft = await tenantPrisma(orgSlug).claimDraft.findFirst({
     where: { id: draftId, tenantId: tenant.id },
     include: {
       encounter: { include: { patient: true } },
@@ -119,7 +119,7 @@ export async function preview837pFromDraft(formData: FormData): Promise<
     };
   }
 
-  const coverages = await prisma.coverage.findMany({
+  const coverages = await tenantPrisma(orgSlug).coverage.findMany({
     where: {
       patientId: draft.encounter.patientId,
       tenantId: tenant.id,

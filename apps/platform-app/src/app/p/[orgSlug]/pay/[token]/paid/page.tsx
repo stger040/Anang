@@ -1,6 +1,6 @@
 import { PatientPayLinkErrorPanel } from "@/components/patient-pay-link-error";
 import { verifyPatientPayTokenDetailed } from "@/lib/patient-pay-token";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { readRequestIdFromHeaders } from "@/lib/platform-log";
 import { formatSupportRef } from "@/lib/support-ref";
 import { getStripe } from "@/lib/stripe-server";
@@ -19,7 +19,7 @@ export default async function PatientPayPaidPage({
   const { session_id: sessionId } = await searchParams;
   const token = decodeURIComponent(rawToken);
 
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
     select: { id: true, displayName: true },
   });
@@ -77,7 +77,7 @@ export default async function PatientPayPaidPage({
     );
   }
 
-  const stmt = await prisma.statement.findFirst({
+  const stmt = await tenantPrisma(orgSlug).statement.findFirst({
     where: { id: statementId, tenantId: tenant.id },
     select: {
       number: true,

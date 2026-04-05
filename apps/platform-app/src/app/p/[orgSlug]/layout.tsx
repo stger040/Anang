@@ -1,5 +1,5 @@
 import { PatientWebPushRegister } from "@/components/patient-web-push-register";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
@@ -9,7 +9,7 @@ export async function generateMetadata({
   params: Promise<{ orgSlug: string }>;
 }): Promise<Metadata> {
   const { orgSlug } = await params;
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
     select: { displayName: true, primaryColor: true },
   });

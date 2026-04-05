@@ -6,7 +6,7 @@ import {
   signPatientPayGateCookie,
 } from "@/lib/patient-pay-gate";
 import { verifyPatientPayToken } from "@/lib/patient-pay-token";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -41,7 +41,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const stmt = await prisma.statement.findFirst({
+  const db = tenantPrisma(claims.orgSlug);
+  const stmt = await db.statement.findFirst({
     where: { id: claims.statementId, tenant: { slug: claims.orgSlug } },
     include: { patient: true },
   });
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
     maxAge: PATIENT_PAY_GATE_MAX_AGE_SEC,
   });
 
-  await prisma.patientPortalIdentity.upsert({
+  await db.patientPortalIdentity.upsert({
     where: { patientId: stmt.patient.id },
     create: {
       tenantId: stmt.tenantId,

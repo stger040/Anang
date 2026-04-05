@@ -9,7 +9,7 @@ import {
   verifyPatientPayGateCookie,
 } from "@/lib/patient-pay-gate";
 import { verifyPatientPayTokenDetailed } from "@/lib/patient-pay-token";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { readRequestIdFromHeaders } from "@/lib/platform-log";
 import { formatSupportRef } from "@/lib/support-ref";
 import { Badge, Card } from "@anang/ui";
@@ -25,7 +25,7 @@ export default async function PatientPayStatementPage({
   const { orgSlug, token: rawToken } = await params;
   const token = decodeURIComponent(rawToken);
 
-  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) notFound();
 
   const reqId = await readRequestIdFromHeaders();
@@ -49,7 +49,7 @@ export default async function PatientPayStatementPage({
   const stepUpOk = verifyPatientPayGateCookie(gateRaw, token);
 
   if (!stepUpOk) {
-    const lite = await prisma.statement.findFirst({
+    const lite = await tenantPrisma(orgSlug).statement.findFirst({
       where: { id: claims.statementId, tenantId: tenant.id },
       select: {
         patient: {
@@ -95,7 +95,7 @@ export default async function PatientPayStatementPage({
     );
   }
 
-  const stmt = await prisma.statement.findFirst({
+  const stmt = await tenantPrisma(orgSlug).statement.findFirst({
     where: { id: claims.statementId, tenantId: tenant.id },
     include: {
       patient: {

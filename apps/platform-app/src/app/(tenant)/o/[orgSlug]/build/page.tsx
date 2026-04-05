@@ -1,5 +1,5 @@
 import { parseFhirVisitSummaryMeta } from "@/lib/fhir-visit-summary-meta";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
 import Link from "next/link";
 
@@ -9,10 +9,10 @@ export default async function BuildQueuePage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
 
-  const encounters = await prisma.encounter.findMany({
+  const encounters = await tenantPrisma(orgSlug).encounter.findMany({
     where: { tenantId: tenant.id },
     orderBy: { dateOfService: "desc" },
     include: {

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,13 +11,13 @@ export default async function ConnectRemittancesPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
     select: { id: true },
   });
   if (!tenant) notFound();
 
-  const remittances = await prisma.remittance835.findMany({
+  const remittances = await tenantPrisma(orgSlug).remittance835.findMany({
     where: { tenantId: tenant.id },
     orderBy: { importedAt: "desc" },
     select: {

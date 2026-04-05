@@ -3,7 +3,7 @@ import { StatementPaymentPlanStaffForm } from "@/components/statement-payment-pl
 import { PayWithStripeButton } from "@/components/pay-with-stripe-button";
 import { StatementLineExplain } from "@/components/statement-line-explain";
 import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -19,10 +19,10 @@ export default async function StatementDetailPage({
   params: Promise<{ orgSlug: string; statementId: string }>;
 }) {
   const { orgSlug, statementId } = await params;
-  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) notFound();
 
-  const stmt = await prisma.statement.findFirst({
+  const stmt = await tenantPrisma(orgSlug).statement.findFirst({
     where: { id: statementId, tenantId: tenant.id },
     include: {
       patient: {

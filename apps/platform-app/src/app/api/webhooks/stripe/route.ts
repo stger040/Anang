@@ -1,6 +1,6 @@
 import { platformLog, readRequestId } from "@/lib/platform-log";
 import { allocatePaymentToPlanInstallments } from "@/lib/pay/plan-installment-allocation";
-import { prisma } from "@/lib/prisma";
+import { prisma, tenantPrisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe-server";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
@@ -63,6 +63,7 @@ async function handleCheckoutCompleted(
   const sessionId = session.id;
   const tenantId = session.metadata?.tenantId;
   const statementId = session.metadata?.statementId;
+  const orgSlug = session.metadata?.orgSlug?.trim();
   if (!tenantId || !statementId) {
     platformLog("warn", "pay.stripe.checkout_completed.bad_metadata", {
       requestId,
@@ -71,16 +72,18 @@ async function handleCheckoutCompleted(
     return;
   }
 
+  const db = orgSlug ? tenantPrisma(orgSlug) : prisma;
+
   const amountTotal = session.amount_total ?? 0;
   if (amountTotal <= 0) return;
 
-  const existing = await prisma.payment.findFirst({
+  const existing = await db.payment.findFirst({
     where: { stripeCheckoutSessionId: sessionId },
   });
   if (existing) return;
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await db.$transaction(async (tx) => {
       const dup = await tx.payment.findFirst({
         where: { stripeCheckoutSessionId: sessionId },
       });
@@ -155,7 +158,7 @@ async function handleCheckoutCompleted(
       });
     });
   } catch (e) {
-    const stillThere = await prisma.payment.findFirst({
+    const stillThere = await db.payment.findFirst({
       where: { stripeCheckoutSessionId: sessionId },
     });
     if (!stillThere) {

@@ -1,5 +1,5 @@
 import { platformLog, readRequestId } from "@/lib/platform-log";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 /** POST JSON `{ orgSlug, endpoint, keys: { p256dh, auth } }` — persists subscription when push is enabled. */
@@ -31,7 +31,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const tenant = await prisma.tenant.findUnique({
+  const db = tenantPrisma(orgSlug);
+  const tenant = await db.tenant.findUnique({
     where: { slug: orgSlug },
     select: { id: true },
   });
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
 
   const ua = req.headers.get("user-agent")?.slice(0, 512) ?? null;
 
-  await prisma.patientPushSubscription.upsert({
+  await db.patientPushSubscription.upsert({
     where: {
       tenantId_endpoint: { tenantId: tenant.id, endpoint },
     },

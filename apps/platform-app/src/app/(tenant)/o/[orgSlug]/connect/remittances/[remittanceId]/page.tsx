@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -37,13 +37,13 @@ export default async function Remittance835DetailPage({
   params: Promise<{ orgSlug: string; remittanceId: string }>;
 }) {
   const { orgSlug, remittanceId } = await params;
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
     select: { id: true },
   });
   if (!tenant) notFound();
 
-  const rem = await prisma.remittance835.findFirst({
+  const rem = await tenantPrisma(orgSlug).remittance835.findFirst({
     where: { id: remittanceId, tenantId: tenant.id },
     include: {
       adjudications: {

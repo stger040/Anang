@@ -1,5 +1,5 @@
 import { PageHeader } from "@anang/ui";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { CoverWorkspace } from "./cover-workspace";
 
 export default async function CoverPage({
@@ -12,16 +12,16 @@ export default async function CoverPage({
   const { orgSlug } = await params;
   const { patientId: patientIdParam } = await searchParams;
 
-  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
 
   const [patients, cases] = await Promise.all([
-    prisma.patient.findMany({
+    tenantPrisma(orgSlug).patient.findMany({
       where: { tenantId: tenant.id },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       take: 80,
     }),
-    prisma.coverAssistanceCase.findMany({
+    tenantPrisma(orgSlug).coverAssistanceCase.findMany({
       where: { tenantId: tenant.id },
       orderBy: { updatedAt: "desc" },
       include: { patient: true },

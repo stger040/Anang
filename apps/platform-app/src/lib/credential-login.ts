@@ -1,9 +1,10 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, tenantPrisma } from "@/lib/prisma";
 import { getPlatformLoginPassword, getVirtualLoginEmail } from "@/lib/auth-config";
 import {
   PROFILE_TO_USER_EMAIL,
   type AccessProfileId,
 } from "@/lib/login-routing";
+import { validateTenantSlug } from "@/lib/platform-slug";
 import type { AppRole } from "@prisma/client";
 
 function isValidProfile(x: unknown): x is AccessProfileId {
@@ -23,6 +24,8 @@ export async function resolveCredentialLogin(input: {
   email: string;
   password: string;
   accessProfile?: string;
+  /** When set (e.g. `?org=`), user row is resolved from that tenant’s DB (`DATABASE_URL__…` when configured). */
+  tenantSlug?: string;
 }): Promise<CredentialLoginResult | null> {
   const emailRaw = input.email.trim().toLowerCase();
   const password = input.password;
@@ -45,7 +48,11 @@ export async function resolveCredentialLogin(input: {
     targetEmail = emailRaw;
   }
 
-  const user = await prisma.user.findUnique({ where: { email: targetEmail } });
+  const org = validateTenantSlug(input.tenantSlug?.trim() ?? "");
+  const db =
+    emailRaw === virtualEmail || !org ? prisma : tenantPrisma(org);
+
+  const user = await db.user.findUnique({ where: { email: targetEmail } });
   if (!user) return null;
 
   return {

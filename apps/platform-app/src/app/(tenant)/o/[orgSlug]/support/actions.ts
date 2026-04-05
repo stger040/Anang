@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { readRequestIdFromHeaders } from "@/lib/platform-log";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
@@ -48,20 +48,20 @@ export async function createSupportTask(formData: FormData) {
   const tenantId = ctx.tenant.id;
 
   if (patientId) {
-    const p = await prisma.patient.findFirst({
+    const p = await tenantPrisma(orgSlug).patient.findFirst({
       where: { id: patientId, tenantId },
     });
     if (!p) throw new Error("Patient not found");
   }
 
   if (statementId) {
-    const s = await prisma.statement.findFirst({
+    const s = await tenantPrisma(orgSlug).statement.findFirst({
       where: { id: statementId, tenantId },
     });
     if (!s) throw new Error("Statement not found");
   }
 
-  await prisma.supportTask.create({
+  await tenantPrisma(orgSlug).supportTask.create({
     data: {
       tenantId,
       patientId,
@@ -75,7 +75,7 @@ export async function createSupportTask(formData: FormData) {
   });
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId,
       actorUserId: session.userId,
@@ -107,18 +107,18 @@ export async function updateSupportTaskStatus(formData: FormData) {
 
   const tenantId = ctx.tenant.id;
 
-  const row = await prisma.supportTask.findFirst({
+  const row = await tenantPrisma(orgSlug).supportTask.findFirst({
     where: { id: taskId, tenantId },
   });
   if (!row) throw new Error("Not found");
 
-  await prisma.supportTask.update({
+  await tenantPrisma(orgSlug).supportTask.update({
     where: { id: taskId },
     data: { status },
   });
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId,
       actorUserId: session.userId,

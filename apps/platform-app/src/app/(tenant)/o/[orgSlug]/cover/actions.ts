@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { readRequestIdFromHeaders } from "@/lib/platform-log";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
@@ -46,7 +46,7 @@ export async function createCoverAssistanceCase(formData: FormData) {
 
   const tenantId = ctx.tenant.id;
 
-  const patient = await prisma.patient.findFirst({
+  const patient = await tenantPrisma(orgSlug).patient.findFirst({
     where: { id: patientId, tenantId },
   });
   if (!patient) throw new Error("Patient not found");
@@ -68,7 +68,7 @@ export async function createCoverAssistanceCase(formData: FormData) {
     throw new Error("Invalid income");
   }
 
-  await prisma.coverAssistanceCase.create({
+  await tenantPrisma(orgSlug).coverAssistanceCase.create({
     data: {
       tenantId,
       patientId: patient.id,
@@ -81,7 +81,7 @@ export async function createCoverAssistanceCase(formData: FormData) {
   });
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId,
       actorUserId: session.userId,
@@ -113,18 +113,18 @@ export async function updateCoverCaseStatus(formData: FormData) {
 
   const tenantId = ctx.tenant.id;
 
-  const row = await prisma.coverAssistanceCase.findFirst({
+  const row = await tenantPrisma(orgSlug).coverAssistanceCase.findFirst({
     where: { id: caseId, tenantId },
   });
   if (!row) throw new Error("Not found");
 
-  await prisma.coverAssistanceCase.update({
+  await tenantPrisma(orgSlug).coverAssistanceCase.update({
     where: { id: caseId },
     data: { status },
   });
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId,
       actorUserId: session.userId,

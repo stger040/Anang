@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { getIntegrationStatus } from "@/lib/integration-status";
 import { Badge, Card, PageHeader } from "@anang/ui";
 import Link from "next/link";
@@ -9,7 +9,7 @@ export default async function TenantSettingsPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
     include: { moduleEntitlements: true },
   });

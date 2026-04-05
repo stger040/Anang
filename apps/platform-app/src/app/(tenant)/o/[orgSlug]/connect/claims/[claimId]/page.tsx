@@ -1,5 +1,5 @@
 import { isEdiOutboundHttpConfigured } from "@/lib/connect/edi/outbound-x12-http";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { isTenantSettingsEditor } from "@/lib/tenant-admin-guard";
 import { assertOrgAccess } from "@/lib/tenant-context";
@@ -23,7 +23,7 @@ export default async function ClaimTimelinePage({
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) notFound();
 
-  const claim = await prisma.claim.findFirst({
+  const claim = await tenantPrisma(orgSlug).claim.findFirst({
     where: { id: claimId, tenantId: ctx.tenant.id },
     include: {
       patient: true,

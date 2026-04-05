@@ -43,6 +43,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
           password: c.password,
           accessProfile:
             typeof c.accessProfile === "string" ? c.accessProfile : undefined,
+          tenantSlug:
+            typeof c.tenantSlug === "string" ? c.tenantSlug : undefined,
         });
         if (!user) return null;
         if (user.appRole !== AppRole.SUPER_ADMIN) {

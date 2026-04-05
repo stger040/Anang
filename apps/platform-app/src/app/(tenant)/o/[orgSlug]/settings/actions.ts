@@ -14,7 +14,7 @@ import {
 } from "@/lib/connectors/persist-patient-encounter-import";
 import { parseBuildRulePackConfig } from "@/lib/build/rule-pack-config";
 import { normalizeCpt, normalizeIcd10 } from "@/lib/build/retrieval";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { normalizeFhirBundlePayload } from "@/lib/fhir-fixture-import";
 import {
   BILLING_DISCOVERY_ITEMS,
@@ -80,7 +80,7 @@ export async function saveImplementationProgress(
   }
 
   const rawSettings =
-    (await prisma.tenant.findUnique({ where: { id: ctx.tenant.id } }))
+    (await tenantPrisma(orgSlug).tenant.findUnique({ where: { id: ctx.tenant.id } }))
       ?.settings ?? {};
   const base =
     rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
@@ -118,7 +118,7 @@ export async function saveImplementationProgress(
     tradingPartnerEnrollment,
   });
 
-  await prisma.tenant.update({
+  await tenantPrisma(orgSlug).tenant.update({
     where: { id: ctx.tenant.id },
     data: {
       settings: {
@@ -129,7 +129,7 @@ export async function saveImplementationProgress(
   });
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,
@@ -192,7 +192,7 @@ export async function saveBuildRulePack(
   const cfg = parseBuildRulePackConfig(parsed);
   if (!cfg.ok) return { error: cfg.error };
 
-  await prisma.buildRulePack.upsert({
+  await tenantPrisma(orgSlug).buildRulePack.upsert({
     where: { tenantId: ctx.tenant.id },
     create: {
       tenantId: ctx.tenant.id,
@@ -202,7 +202,7 @@ export async function saveBuildRulePack(
   });
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,
@@ -272,7 +272,7 @@ export async function upsertBuildKnowledgeChunk(
   if (!title) return { error: "Title is required." };
   if (!body) return { error: "Body / reference text is required." };
 
-  await prisma.buildKnowledgeChunk.upsert({
+  await tenantPrisma(orgSlug).buildKnowledgeChunk.upsert({
     where: {
       tenantId_kind_lookupKey: {
         tenantId: ctx.tenant.id,
@@ -296,7 +296,7 @@ export async function upsertBuildKnowledgeChunk(
   });
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,
@@ -346,7 +346,7 @@ export async function deleteBuildKnowledgeChunk(
     };
   }
 
-  const deleted = await prisma.buildKnowledgeChunk.deleteMany({
+  const deleted = await tenantPrisma(orgSlug).buildKnowledgeChunk.deleteMany({
     where: { id: chunkId, tenantId: ctx.tenant.id },
   });
 
@@ -355,7 +355,7 @@ export async function deleteBuildKnowledgeChunk(
   }
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,
@@ -435,7 +435,7 @@ export async function importFhirFixtureFromSettings(
     | undefined;
 
   try {
-    const txResult = await persistPatientEncounterImport(prisma, {
+    const txResult = await persistPatientEncounterImport(tenantPrisma(orgSlug), {
       tenantId: ctx.tenant.id,
       payEnabled,
       normalized: d,
@@ -476,7 +476,7 @@ export async function importFhirFixtureFromSettings(
     return { error: "Database error while saving patient / encounter." };
   }
 
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,
@@ -652,7 +652,7 @@ export async function importCsvFixtureFromSettings(
     | undefined;
 
   try {
-    const txResult = await persistPatientEncounterImport(prisma, {
+    const txResult = await persistPatientEncounterImport(tenantPrisma(orgSlug), {
       tenantId: ctx.tenant.id,
       payEnabled,
       normalized: d,
@@ -694,7 +694,7 @@ export async function importCsvFixtureFromSettings(
     return { error: "Database error while saving patient / encounter." };
   }
 
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,
@@ -806,7 +806,7 @@ export async function testGreenwayFhirPatientFromSettings(
     return { error: "Patient logical id is required." };
   }
 
-  const tenantRow = await prisma.tenant.findUnique({
+  const tenantRow = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { id: ctx.tenant.id },
     select: { slug: true, settings: true },
   });
@@ -852,7 +852,7 @@ export async function testGreenwayFhirPatientFromSettings(
   }
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,
@@ -942,7 +942,7 @@ export async function syncGreenwayFhirPatientEncountersFromSettings(
     return { error: "Patient logical id is required." };
   }
 
-  const tenantRow = await prisma.tenant.findUnique({
+  const tenantRow = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { id: ctx.tenant.id },
     select: { slug: true, settings: true },
   });
@@ -967,14 +967,14 @@ export async function syncGreenwayFhirPatientEncountersFromSettings(
     };
   }
 
-  const syncResult = await syncGreenwayPatientEncounters(prisma, {
+  const syncResult = await syncGreenwayPatientEncounters(tenantPrisma(orgSlug), {
     tenantId: ctx.tenant.id,
     config: cfg,
     fhirPatientLogicalId: patientLogicalId,
   });
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,

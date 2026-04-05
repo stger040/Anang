@@ -5,7 +5,7 @@ import {
   validateX12Structure,
 } from "@/lib/connect/edi/validate-x12-structure";
 import { platformLog } from "@/lib/platform-log";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { createIngestionBatchRecordingRawPayload } from "@/lib/connectors/source-artifact";
 import type { Prisma } from "@prisma/client";
 import { createHash } from "crypto";
@@ -52,7 +52,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
-  const tenant = await prisma.tenant.findUnique({
+  const db = tenantPrisma(tenantSlug);
+  const tenant = await db.tenant.findUnique({
     where: { slug: tenantSlug },
     select: { id: true },
   });
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
   let result: Awaited<ReturnType<typeof applyInboundX12ToTenant>>;
 
   try {
-    const txOut = await prisma.$transaction(async (tx) => {
+    const txOut = await db.$transaction(async (tx) => {
       const ingest = await createIngestionBatchRecordingRawPayload(tx, {
         tenantId: tenant.id,
         connectorKind: "edi_inbound",
@@ -137,7 +138,7 @@ export async function POST(req: Request) {
     );
   }
 
-  await prisma.auditEvent.create({
+  await db.auditEvent.create({
     data: {
       tenantId: tenant.id,
       actorUserId: null,

@@ -5,7 +5,7 @@ import {
 } from "@/lib/patient-pay-token";
 import { sendPatientPayLinkEmail } from "@/lib/patient-pay-email";
 import { platformLog, readRequestId } from "@/lib/platform-log";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { getAppOrigin } from "@/lib/stripe-server";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
@@ -62,7 +62,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const stmt = await prisma.statement.findFirst({
+  const db = tenantPrisma(orgSlug);
+  const stmt = await db.statement.findFirst({
     where: { id: statementId, tenantId: ctx.tenant.id },
     include: { patient: true },
   });
@@ -115,7 +116,7 @@ export async function POST(req: Request) {
     ttlSec,
   });
 
-  await prisma.auditEvent.create({
+  await db.auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,

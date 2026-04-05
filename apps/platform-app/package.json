@@ -18,6 +18,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:deploy:neon": "node --env-file=.env.neon ../../node_modules/prisma/build/index.js migrate deploy",
     "db:seed": "npx tsx prisma/seed.ts",
+    "db:report:tenant-stats": "npx tsx prisma/report-tenant-stats.ts",
     "db:import:xlsx": "npx tsx prisma/import-realistic-xlsx.ts",
     "db:import:xlsx:neon": "node --env-file=.env.neon ../../node_modules/tsx/dist/cli.mjs prisma/import-realistic-xlsx.ts",
     "db:import:xlsx:enrich:neon": "node --env-file=.env.neon ../../node_modules/tsx/dist/cli.mjs prisma/import-realistic-xlsx.ts --enrich-only",

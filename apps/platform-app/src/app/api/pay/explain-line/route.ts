@@ -1,6 +1,6 @@
 import { explainStatementLine } from "@/lib/bill-line-explain";
 import { platformLog, readRequestId } from "@/lib/platform-log";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
 import { ModuleKey } from "@prisma/client";
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const line = await prisma.statementLine.findFirst({
+  const line = await tenantPrisma(orgSlug).statementLine.findFirst({
     where: {
       id: lineId,
       statementId,

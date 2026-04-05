@@ -4,7 +4,7 @@ import {
   patientPayStatementUrl,
 } from "@/lib/patient-pay-token";
 import { platformLog, readRequestId } from "@/lib/platform-log";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { sendPatientPaySmsViaTwilio } from "@/lib/sms-twilio";
 import { getAppOrigin } from "@/lib/stripe-server";
 import { getSession } from "@/lib/session";
@@ -79,13 +79,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const tenantRow = await prisma.tenant.findUnique({
+  const db = tenantPrisma(orgSlug);
+  const tenantRow = await db.tenant.findUnique({
     where: { id: ctx.tenant.id },
     select: { settings: true },
   });
   const messagingSettings = parseTenantMessagingSettings(tenantRow?.settings);
 
-  const stmt = await prisma.statement.findFirst({
+  const stmt = await db.statement.findFirst({
     where: { id: statementId, tenantId: ctx.tenant.id },
     include: { patient: true },
   });
@@ -173,7 +174,7 @@ export async function POST(req: Request) {
       : {}),
   });
 
-  await prisma.auditEvent.create({
+  await db.auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,

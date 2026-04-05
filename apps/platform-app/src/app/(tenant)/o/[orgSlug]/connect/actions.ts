@@ -13,7 +13,7 @@ import {
   postEdiOutboundX12Http,
 } from "@/lib/connect/edi/outbound-x12-http";
 import { createIngestionBatchRecordingRawPayload } from "@/lib/connectors/source-artifact";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { platformLog, readRequestIdFromHeaders } from "@/lib/platform-log";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
@@ -68,7 +68,7 @@ export async function recordClaim837EdiSubmission(
     return { error: "Missing claim." };
   }
 
-  const claim = await prisma.claim.findFirst({
+  const claim = await tenantPrisma(orgSlug).claim.findFirst({
     where: { id: claimId, tenantId: ctx.tenant.id },
   });
   if (!claim) {
@@ -111,7 +111,7 @@ export async function recordClaim837EdiSubmission(
 
   const receivedAt = new Date().toISOString();
 
-  await prisma.$transaction(async (tx) => {
+  await tenantPrisma(orgSlug).$transaction(async (tx) => {
     await tx.claim837EdiSubmission.create({
       data: {
         tenantId: ctx.tenant.id,
@@ -163,7 +163,7 @@ export async function recordClaim837EdiSubmission(
   });
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,
@@ -217,7 +217,7 @@ export async function record837OutboundWithTransport(
     return { error: "Missing claim." };
   }
 
-  const claim = await prisma.claim.findFirst({
+  const claim = await tenantPrisma(orgSlug).claim.findFirst({
     where: { id: claimId, tenantId: ctx.tenant.id },
   });
   if (!claim) {
@@ -274,7 +274,7 @@ export async function record837OutboundWithTransport(
 
   const receivedAt = new Date().toISOString();
 
-  const { submissionId, baseMetadata } = await prisma.$transaction(
+  const { submissionId, baseMetadata } = await tenantPrisma(orgSlug).$transaction(
     async (tx) => {
       const recorded = await createIngestionBatchRecordingRawPayload(tx, {
         tenantId: ctx.tenant.id,
@@ -369,7 +369,7 @@ export async function record837OutboundWithTransport(
       const http = await postEdiOutboundX12Http(x12);
       httpOk = http.ok;
       httpStatus = http.status;
-      await prisma.claim837EdiSubmission.update({
+      await tenantPrisma(orgSlug).claim837EdiSubmission.update({
         where: { id: submissionId },
         data: {
           metadata: {
@@ -383,7 +383,7 @@ export async function record837OutboundWithTransport(
           } as Prisma.InputJsonValue,
         },
       });
-      await prisma.claimTimelineEvent.create({
+      await tenantPrisma(orgSlug).claimTimelineEvent.create({
         data: {
           claimId: claim.id,
           label: http.ok
@@ -398,7 +398,7 @@ export async function record837OutboundWithTransport(
       httpOk = false;
       httpStatus = 0;
       const message = e instanceof Error ? e.message : "HTTP request failed";
-      await prisma.claim837EdiSubmission.update({
+      await tenantPrisma(orgSlug).claim837EdiSubmission.update({
         where: { id: submissionId },
         data: {
           metadata: {
@@ -412,7 +412,7 @@ export async function record837OutboundWithTransport(
           } as Prisma.InputJsonValue,
         },
       });
-      await prisma.claimTimelineEvent.create({
+      await tenantPrisma(orgSlug).claimTimelineEvent.create({
         data: {
           claimId: claim.id,
           label: "837 HTTP transport failed",
@@ -423,7 +423,7 @@ export async function record837OutboundWithTransport(
   }
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,

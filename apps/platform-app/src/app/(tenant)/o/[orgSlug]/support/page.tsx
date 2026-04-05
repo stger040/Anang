@@ -1,5 +1,5 @@
 import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { PageHeader } from "@anang/ui";
 import { SupportAssistantPanel } from "./support-assistant-panel";
 import { SupportWorkspace } from "./support-workspace";
@@ -11,22 +11,22 @@ export default async function SupportPage({
 }) {
   const { orgSlug } = await params;
 
-  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
 
   const [patients, statements, tasks] = await Promise.all([
-    prisma.patient.findMany({
+    tenantPrisma(orgSlug).patient.findMany({
       where: { tenantId: tenant.id },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       take: 80,
     }),
-    prisma.statement.findMany({
+    tenantPrisma(orgSlug).statement.findMany({
       where: { tenantId: tenant.id },
       orderBy: { dueDate: "desc" },
       take: 40,
       select: { id: true, number: true, balanceCents: true },
     }),
-    prisma.supportTask.findMany({
+    tenantPrisma(orgSlug).supportTask.findMany({
       where: { tenantId: tenant.id },
       orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
       include: { patient: true, statement: true },

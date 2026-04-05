@@ -1,5 +1,5 @@
 import { platformLog, readRequestId } from "@/lib/platform-log";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { getAppOrigin, getStripe } from "@/lib/stripe-server";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
@@ -43,14 +43,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const tenant = await prisma.tenant.findUnique({
+  const db = tenantPrisma(orgSlug);
+  const tenant = await db.tenant.findUnique({
     where: { slug: orgSlug },
   });
   if (!tenant) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
-  const stmt = await prisma.statement.findFirst({
+  const stmt = await db.statement.findFirst({
     where: { id: statementId, tenantId: tenant.id },
   });
   if (!stmt) {
@@ -102,7 +103,7 @@ export async function POST(req: Request) {
     );
   }
 
-  await prisma.auditEvent.create({
+  await db.auditEvent.create({
     data: {
       tenantId: tenant.id,
       actorUserId: session.userId,

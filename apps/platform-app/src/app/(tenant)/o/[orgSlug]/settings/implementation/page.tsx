@@ -3,7 +3,7 @@ import {
   isGreenwayFhirClientCredentialsConfiguredForSuffix,
   readGreenwayFhirEnvConfigForTenant,
 } from "@/lib/connectors/greenway-fhir";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { isTenantSettingsEditor } from "@/lib/tenant-admin-guard";
 import { parseImplementationSettings } from "@/lib/tenant-implementation-settings";
 import { getSession } from "@/lib/session";
@@ -35,7 +35,7 @@ export default async function ImplementationHubPage({
 
   const canEdit = await isTenantSettingsEditor(session, ctx.tenant.id);
 
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { id: ctx.tenant.id },
     select: { settings: true },
   });
@@ -48,7 +48,7 @@ export default async function ImplementationHubPage({
   const payEnabled = ctx.enabledModules.has(ModuleKey.PAY);
 
   const buildRulePackRow = buildEnabled
-    ? await prisma.buildRulePack.findUnique({
+    ? await tenantPrisma(orgSlug).buildRulePack.findUnique({
         where: { tenantId: ctx.tenant.id },
         select: { config: true },
       })
@@ -66,7 +66,7 @@ export default async function ImplementationHubPage({
     !gwCfg?.baseUrl ? "missing" : !gwHasAuth ? "no_token" : "ready";
 
   const buildKnowledgeChunks = buildEnabled
-    ? await prisma.buildKnowledgeChunk.findMany({
+    ? await tenantPrisma(orgSlug).buildKnowledgeChunk.findMany({
         where: { tenantId: ctx.tenant.id },
         orderBy: [{ kind: "asc" }, { lookupKey: "asc" }],
         select: {
@@ -201,7 +201,10 @@ export default async function ImplementationHubPage({
             canEdit={canEdit}
             greenwayEnvStatus={greenwayEnvStatus}
           />
-          <GreenwayFhirSyncActivity tenantId={ctx.tenant.id} />
+          <GreenwayFhirSyncActivity
+            orgSlug={orgSlug}
+            tenantId={ctx.tenant.id}
+          />
         </div>
       </Card>
     </div>

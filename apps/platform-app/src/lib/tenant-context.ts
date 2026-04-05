@@ -1,7 +1,7 @@
 import { AppRole, ModuleKey } from "@prisma/client";
 import { unlockAllModulesForTesting } from "@/lib/auth-config";
 import { computeEffectiveModules } from "@/lib/effective-modules";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/session";
 
 function allEntitledModuleKeys(): Set<ModuleKey> {
@@ -36,7 +36,8 @@ export type OrgAccessContext = TenantNavContext & {
 export async function loadTenantNav(
   orgSlug: string,
 ): Promise<TenantNavContext | null> {
-  const tenant = await prisma.tenant.findUnique({
+  const db = tenantPrisma(orgSlug);
+  const tenant = await db.tenant.findUnique({
     where: { slug: orgSlug },
     include: {
       moduleEntitlements: true,
@@ -72,7 +73,8 @@ export async function assertOrgAccess(
   const ctx = await loadTenantNav(orgSlug);
   if (!ctx) return null;
 
-  const membership = await prisma.membership.findFirst({
+  const db = tenantPrisma(orgSlug);
+  const membership = await db.membership.findFirst({
     where: { userId: session.userId, tenantId: ctx.tenant.id },
   });
 

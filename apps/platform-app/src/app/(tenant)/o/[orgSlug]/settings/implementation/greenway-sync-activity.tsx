@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { GREENWAY_FHIR_AUDIT_ACTIONS } from "@/lib/connectors/greenway-fhir/audit-actions";
 
 function asMeta(
@@ -36,11 +36,13 @@ function summarizeMetadata(action: string, meta: Record<string, unknown> | null)
 }
 
 export async function GreenwayFhirSyncActivity({
+  orgSlug,
   tenantId,
 }: {
+  orgSlug: string;
   tenantId: string;
 }) {
-  const rows = await prisma.auditEvent.findMany({
+  const rows = await tenantPrisma(orgSlug).auditEvent.findMany({
     where: {
       tenantId,
       action: { in: [...GREENWAY_FHIR_AUDIT_ACTIONS] },

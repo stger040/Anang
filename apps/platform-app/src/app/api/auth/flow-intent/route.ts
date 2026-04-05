@@ -7,7 +7,7 @@ import {
   authFlowCookieSecure,
 } from "@/lib/auth-flow-cookies";
 import { platformLog, readRequestId } from "@/lib/platform-log";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { validateTenantSlug } from "@/lib/platform-slug";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   if (orgRaw) {
     const slug = validateTenantSlug(orgRaw);
     if (slug) {
-      const tenant = await prisma.tenant.findUnique({
+      const tenant = await tenantPrisma(slug).tenant.findUnique({
         where: { slug },
         select: { id: true },
       });

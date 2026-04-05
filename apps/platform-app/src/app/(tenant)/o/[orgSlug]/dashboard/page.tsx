@@ -2,7 +2,7 @@ import { ModuleKey } from "@prisma/client";
 import { PageHeader, StatCard, Card, Badge } from "@anang/ui";
 import Link from "next/link";
 import { unlockAllModulesForTesting } from "@/lib/auth-config";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 
 export default async function DashboardPage({
   params,
@@ -10,7 +10,7 @@ export default async function DashboardPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
     include: {
       moduleEntitlements: { where: { enabled: true } },
@@ -18,7 +18,7 @@ export default async function DashboardPage({
   });
   if (!tenant) return null;
 
-  const claimAgg = await prisma.claim.groupBy({
+  const claimAgg = await tenantPrisma(orgSlug).claim.groupBy({
     by: ["status"],
     where: { tenantId: tenant.id },
     _count: true,
@@ -29,11 +29,11 @@ export default async function DashboardPage({
   const denialRate =
     totalClaims > 0 ? Math.round((denied / totalClaims) * 100) : 0;
 
-  const openBuild = await prisma.encounter.count({
+  const openBuild = await tenantPrisma(orgSlug).encounter.count({
     where: { tenantId: tenant.id, reviewStatus: { not: "approved" } },
   });
 
-  const arAgg = await prisma.statement.aggregate({
+  const arAgg = await tenantPrisma(orgSlug).statement.aggregate({
     where: { tenantId: tenant.id },
     _sum: { balanceCents: true },
   });

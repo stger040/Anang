@@ -5,7 +5,7 @@ import {
   verifyPatientPayGateCookie,
 } from "@/lib/patient-pay-gate";
 import { verifyPatientPayToken } from "@/lib/patient-pay-token";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { getAppOrigin, getStripe } from "@/lib/stripe-server";
 import { ModuleKey } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -52,7 +52,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const tenant = await prisma.tenant.findUnique({
+  const db = tenantPrisma(claims.orgSlug);
+  const tenant = await db.tenant.findUnique({
     where: { slug: claims.orgSlug },
     include: {
       moduleEntitlements: {
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Pay is not available" }, { status: 403 });
   }
 
-  const stmt = await prisma.statement.findFirst({
+  const stmt = await db.statement.findFirst({
     where: { id: claims.statementId, tenantId: tenant.id },
   });
   if (!stmt) {
@@ -116,7 +117,7 @@ export async function POST(req: Request) {
     );
   }
 
-  await prisma.auditEvent.create({
+  await db.auditEvent.create({
     data: {
       tenantId: tenant.id,
       actorUserId: null,

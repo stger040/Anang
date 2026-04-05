@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
 import { AppRole } from "@prisma/client";
 import Link from "next/link";
@@ -20,10 +20,10 @@ export default async function TenantUsersPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
 
-  const memberships = await prisma.membership.findMany({
+  const memberships = await tenantPrisma(orgSlug).membership.findMany({
     where: { tenantId: tenant.id },
     include: { user: true },
     orderBy: { id: "asc" },

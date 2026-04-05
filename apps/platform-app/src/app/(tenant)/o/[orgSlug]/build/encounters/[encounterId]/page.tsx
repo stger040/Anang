@@ -2,7 +2,7 @@ import { approveClaimDraft } from "../../actions";
 import { Preview837pForm } from "./preview-837p-form";
 import { syncClaimDraftRuleIssues } from "@/lib/build/sync-draft-rules";
 import { parseFhirVisitSummaryMeta } from "@/lib/fhir-visit-summary-meta";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { Badge, Button, Card, PageHeader } from "@anang/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -41,10 +41,10 @@ export default async function EncounterDetailPage({
   params: Promise<{ orgSlug: string; encounterId: string }>;
 }) {
   const { orgSlug, encounterId } = await params;
-  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) notFound();
 
-  let encounter = await prisma.encounter.findFirst({
+  let encounter = await tenantPrisma(orgSlug).encounter.findFirst({
     where: { id: encounterId, tenantId: tenant.id },
     include: {
       patient: true,
@@ -62,11 +62,11 @@ export default async function EncounterDetailPage({
 
   const firstDraft = encounter.drafts[0];
   if (firstDraft) {
-    await syncClaimDraftRuleIssues(prisma, {
+    await syncClaimDraftRuleIssues(tenantPrisma(orgSlug), {
       tenantId: tenant.id,
       draftId: firstDraft.id,
     });
-    const refreshed = await prisma.encounter.findFirst({
+    const refreshed = await tenantPrisma(orgSlug).encounter.findFirst({
       where: { id: encounterId, tenantId: tenant.id },
       include: {
         patient: true,

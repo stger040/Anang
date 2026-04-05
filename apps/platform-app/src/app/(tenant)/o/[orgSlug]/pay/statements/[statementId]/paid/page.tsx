@@ -1,5 +1,5 @@
 import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe-server";
 import { Badge, Button, Card, PageHeader } from "@anang/ui";
 import Link from "next/link";
@@ -15,10 +15,10 @@ export default async function StatementPaidPage({
   const { orgSlug, statementId } = await params;
   const { session_id: sessionId } = await searchParams;
 
-  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) notFound();
 
-  const stmtExists = await prisma.statement.findFirst({
+  const stmtExists = await tenantPrisma(orgSlug).statement.findFirst({
     where: { id: statementId, tenantId: tenant.id },
     select: { id: true, number: true, balanceCents: true },
   });

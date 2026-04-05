@@ -9,7 +9,7 @@ import {
 import { getAppOrigin } from "@/lib/app-origin";
 import { postSignInPath } from "@/lib/post-signin-url";
 import { platformLog, readRequestId } from "@/lib/platform-log";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { validateTenantSlug } from "@/lib/platform-slug";
 import {
   loadTenantAuthRow,
@@ -211,9 +211,10 @@ export async function GET(
 
   const displayName = claims ? displayNameFromClaims(claims) : undefined;
 
-  let user = await prisma.user.findUnique({ where: { email } });
+  const db = tenantPrisma(slug);
+  let user = await db.user.findUnique({ where: { email } });
   const existingMembership = user
-    ? await prisma.membership.findUnique({
+    ? await db.membership.findUnique({
         where: {
           userId_tenantId: { userId: user.id, tenantId: row.id },
         },
@@ -228,7 +229,7 @@ export async function GET(
     }
     const name = displayName ?? email.split("@")[0] ?? "User";
     const memRole = tenantJitMembershipAppRole(auth);
-    user = await prisma.$transaction(async (tx) => {
+    user = await db.$transaction(async (tx) => {
       const u = await tx.user.create({
         data: {
           email,
@@ -276,7 +277,7 @@ export async function GET(
       });
     }
     const memRole = tenantJitMembershipAppRole(auth);
-    await prisma.$transaction(async (tx) => {
+    await db.$transaction(async (tx) => {
       await tx.membership.create({
         data: {
           userId: tenantUser.id,

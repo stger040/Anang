@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
 import { ModuleKey } from "@prisma/client";
@@ -54,7 +54,7 @@ export async function createStatementPaymentPlanAction(
     return { ok: false, error: "Invalid date" };
   }
 
-  const stmt = await prisma.statement.findFirst({
+  const stmt = await tenantPrisma(orgSlug).statement.findFirst({
     where: { id: statementId, tenantId: ctx.tenant.id },
   });
   if (!stmt || stmt.balanceCents <= 0) {
@@ -70,7 +70,7 @@ export async function createStatementPaymentPlanAction(
   const weeks = Math.min(52, Math.max(1, Math.floor(intervalWeeks)));
   const tenantId = ctx.tenant.id;
 
-  await prisma.$transaction(async (tx) => {
+  await tenantPrisma(orgSlug).$transaction(async (tx) => {
     await tx.statementPaymentPlan.deleteMany({
       where: { tenantId, statementId },
     });
@@ -129,7 +129,7 @@ export async function markPaymentPlanInstallmentPaidAction(
 
   const tenantId = ctx.tenant.id;
 
-  const inst = await prisma.paymentPlanInstallment.findFirst({
+  const inst = await tenantPrisma(orgSlug).paymentPlanInstallment.findFirst({
     where: { id: installmentId, plan: { tenantId } },
     include: { plan: { include: { statement: true } } },
   });
@@ -154,7 +154,7 @@ export async function markPaymentPlanInstallmentPaidAction(
     };
   }
 
-  await prisma.$transaction(async (tx) => {
+  await tenantPrisma(orgSlug).$transaction(async (tx) => {
     const payment = await tx.payment.create({
       data: {
         tenantId,

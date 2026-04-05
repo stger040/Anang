@@ -4,7 +4,7 @@
  */
 
 import { AppRole } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { validateTenantSlug } from "@/lib/platform-slug";
 
 export const TENANT_AUTH_POLICIES = [
@@ -90,7 +90,7 @@ export function tenantJitMembershipAppRole(
 export async function loadTenantAuthRow(slug: string) {
   const s = validateTenantSlug(slug);
   if (!s) return null;
-  return prisma.tenant.findUnique({
+  return tenantPrisma(s).tenant.findUnique({
     where: { slug: s },
     select: { id: true, slug: true, displayName: true, settings: true },
   });

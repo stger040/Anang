@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
 import { ModuleKey } from "@prisma/client";
@@ -27,7 +27,7 @@ export async function setPatientBillingSmsConsentAction(
     return { ok: false, error: "Forbidden" };
   }
 
-  const stmt = await prisma.statement.findFirst({
+  const stmt = await tenantPrisma(orgSlug).statement.findFirst({
     where: {
       id: statementId,
       tenantId: ctx.tenant.id,
@@ -40,12 +40,12 @@ export async function setPatientBillingSmsConsentAction(
 
   const now = new Date();
   if (consent === "in") {
-    await prisma.patient.update({
+    await tenantPrisma(orgSlug).patient.update({
       where: { id: patientId, tenantId: ctx.tenant.id },
       data: { billingSmsOptInAt: now, billingSmsOptOutAt: null },
     });
   } else if (consent === "out") {
-    await prisma.patient.update({
+    await tenantPrisma(orgSlug).patient.update({
       where: { id: patientId, tenantId: ctx.tenant.id },
       data: { billingSmsOptOutAt: now },
     });
@@ -53,7 +53,7 @@ export async function setPatientBillingSmsConsentAction(
     return { ok: false, error: "Invalid consent" };
   }
 
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,

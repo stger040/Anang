@@ -1,7 +1,7 @@
 "use server";
 
 import { platformLog, readRequestIdFromHeaders } from "@/lib/platform-log";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { parseStaffModuleKeysFromForm } from "@/lib/staff-module-form";
 import { getSession } from "@/lib/session";
 import { isTenantSettingsEditor } from "@/lib/tenant-admin-guard";
@@ -36,7 +36,7 @@ export async function updateMembershipStaffModulesAction(
     };
   }
 
-  const row = await prisma.membership.findFirst({
+  const row = await tenantPrisma(orgSlug).membership.findFirst({
     where: { id: membershipId, tenantId: ctx.tenant.id },
   });
   if (!row) return { error: "Membership not found." };
@@ -46,13 +46,13 @@ export async function updateMembershipStaffModulesAction(
 
   const staffAllowList = parseStaffModuleKeysFromForm(formData);
 
-  await prisma.membership.update({
+  await tenantPrisma(orgSlug).membership.update({
     where: { id: membershipId },
     data: { staffModuleAllowList: staffAllowList },
   });
 
   const requestId = await readRequestIdFromHeaders();
-  await prisma.auditEvent.create({
+  await tenantPrisma(orgSlug).auditEvent.create({
     data: {
       tenantId: ctx.tenant.id,
       actorUserId: session.userId,

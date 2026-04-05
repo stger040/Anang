@@ -1,7 +1,7 @@
 "use server";
 
 import { verifyPatientPayTokenDetailed } from "@/lib/patient-pay-token";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function acknowledgeStatementPaymentPlanAction(
@@ -21,13 +21,13 @@ export async function acknowledgeStatementPaymentPlanAction(
     return { ok: false, error: "Invalid or expired link" };
   }
 
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
     select: { id: true },
   });
   if (!tenant) return { ok: false, error: "Not found" };
 
-  const plan = await prisma.statementPaymentPlan.findFirst({
+  const plan = await tenantPrisma(orgSlug).statementPaymentPlan.findFirst({
     where: {
       id: planId,
       tenantId: tenant.id,
@@ -39,7 +39,7 @@ export async function acknowledgeStatementPaymentPlanAction(
     return { ok: false, error: "No plan is available to acknowledge." };
   }
 
-  await prisma.statementPaymentPlan.update({
+  await tenantPrisma(orgSlug).statementPaymentPlan.update({
     where: { id: plan.id },
     data: {
       status: "acknowledged",

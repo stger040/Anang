@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { parseImplementationSettings } from "@/lib/tenant-implementation-settings";
 import { formatTradingPartnerSummary } from "@/lib/trading-partner-enrollment";
 import { CLAIM_STATUSES } from "@anang/types";
@@ -24,7 +24,7 @@ export default async function ConnectClaimsPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
     select: { id: true, settings: true },
   });
@@ -41,7 +41,7 @@ export default async function ConnectClaimsPage({
     implementation?.tradingPartnerEnrollment,
   );
 
-  const claims = await prisma.claim.findMany({
+  const claims = await tenantPrisma(orgSlug).claim.findMany({
     where: { tenantId: tenant.id },
     orderBy: { submittedAt: "desc" },
     include: {

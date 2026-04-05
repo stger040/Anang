@@ -6,7 +6,7 @@ import {
   verifyPatientPayGateCookie,
 } from "@/lib/patient-pay-gate";
 import { verifyPatientPayToken } from "@/lib/patient-pay-token";
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { ModuleKey } from "@prisma/client";
 import { NextResponse } from "next/server";
 
@@ -46,7 +46,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const tenant = await prisma.tenant.findUnique({
+  const db = tenantPrisma(claims.orgSlug);
+  const tenant = await db.tenant.findUnique({
     where: { slug: claims.orgSlug },
     include: {
       moduleEntitlements: {
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const line = await prisma.statementLine.findFirst({
+  const line = await db.statementLine.findFirst({
     where: {
       id: lineId,
       statementId: claims.statementId,

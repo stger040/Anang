@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { Card, PageHeader, StatCard } from "@anang/ui";
 
 export default async function InsightPage({
@@ -7,10 +7,10 @@ export default async function InsightPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
 
-  const claims = await prisma.claim.findMany({ where: { tenantId: tenant.id } });
+  const claims = await tenantPrisma(orgSlug).claim.findMany({ where: { tenantId: tenant.id } });
   const total = claims.length;
   const denied = claims.filter((c) => c.status === "DENIED").length;
   const paid = claims.filter((c) => c.status === "PAID").length;
@@ -33,11 +33,11 @@ export default async function InsightPage({
   ).length;
 
   const [stmtBal, fhirFixtureStatementCount] = await Promise.all([
-    prisma.statement.aggregate({
+    tenantPrisma(orgSlug).statement.aggregate({
       where: { tenantId: tenant.id },
       _sum: { balanceCents: true },
     }),
-    prisma.statement.count({
+    tenantPrisma(orgSlug).statement.count({
       where: {
         tenantId: tenant.id,
         number: { startsWith: "FHIR-" },

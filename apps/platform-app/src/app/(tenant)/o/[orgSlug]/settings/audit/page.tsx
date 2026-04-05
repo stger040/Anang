@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { Card, PageHeader, Button } from "@anang/ui";
 import Link from "next/link";
 
@@ -8,10 +8,10 @@ export default async function TenantAuditPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
 
-  const events = await prisma.auditEvent.findMany({
+  const events = await tenantPrisma(orgSlug).auditEvent.findMany({
     where: { tenantId: tenant.id },
     orderBy: { createdAt: "desc" },
     take: 50,

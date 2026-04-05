@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { tenantPrisma } from "@/lib/prisma";
 import { platformLog, readRequestId } from "@/lib/platform-log";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
@@ -65,11 +65,12 @@ export async function POST(req: Request) {
     { role: "user" as const, content: message },
   ].slice(-12);
 
+  const db = tenantPrisma(orgSlug);
   const [openTaskCount, urgentOpenCount] = await Promise.all([
-    prisma.supportTask.count({
+    db.supportTask.count({
       where: { tenantId: ctx.tenant.id, status: { not: "resolved" } },
     }),
-    prisma.supportTask.count({
+    db.supportTask.count({
       where: {
         tenantId: ctx.tenant.id,
         status: { not: "resolved" },
