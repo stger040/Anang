@@ -2,12 +2,12 @@
 
 **Company:** Anang — https://anang.ai
 
-Before changing product behavior or adding features, read **`docs/PLATFORM_OVERVIEW.md`** — it explains the full platform shape, modules, Cedar benchmark, and document map.
+Before changing product behavior or adding features, read **`docs/PLATFORM_OVERVIEW.md`** — it explains the full platform shape, modules, Cedar benchmark, and document map. For **patient** channels (SMS, web, native), **Pay/Cover** parity, or **payment-attribution / take-rate** design, read **`docs/PRODUCT_SURFACES_VISION.md`** and **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`**.
 
 **Apps:**
 
 - **`apps/marketing-site`** — public marketing (`anang.ai`).
-- **`apps/platform-app`** — multi-tenant product (`app.anang.ai`), Prisma + PostgreSQL, routes under `/o/[orgSlug]/…` and super-admin `/admin`. **Client demos:** [`docs/CLIENT_SHOWCASE.md`](docs/CLIENT_SHOWCASE.md) (URLs, script, bottlenecks).
+- **`apps/platform-app`** — multi-tenant product (`app.anang.ai`), Prisma + PostgreSQL, routes under `/o/[orgSlug]/…` and super-admin `/admin`. **Pilot runbook:** [`docs/CLIENT_SHOWCASE.md`](docs/CLIENT_SHOWCASE.md) (URLs, sign-in, verification).
 
 **Conventions:**
 

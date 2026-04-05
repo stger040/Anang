@@ -1,8 +1,39 @@
 import { approveClaimDraft } from "../../actions";
+import { Preview837pForm } from "./preview-837p-form";
+import { syncClaimDraftRuleIssues } from "@/lib/build/sync-draft-rules";
+import { parseFhirVisitSummaryMeta } from "@/lib/fhir-visit-summary-meta";
 import { prisma } from "@/lib/prisma";
 import { Badge, Button, Card, PageHeader } from "@anang/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
+type IssueCitation = {
+  chunkId?: string;
+  title?: string;
+  excerpt?: string;
+  sourceLabel?: string | null;
+};
+
+function buildActivityBadgeTone(
+  eventType: string,
+): "default" | "teal" | "info" {
+  if (eventType === "draft_approved") return "teal";
+  return "default";
+}
+
+function buildActivityLabel(eventType: string): string {
+  return eventType.replaceAll("_", " ");
+}
+
+function issueCitationsFromJson(value: unknown): IssueCitation[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (x): x is IssueCitation =>
+      x != null &&
+      typeof x === "object" &&
+      typeof (x as IssueCitation).excerpt === "string",
+  );
+}
 
 export default async function EncounterDetailPage({
   params,
@@ -13,19 +44,48 @@ export default async function EncounterDetailPage({
   const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) notFound();
 
-  const encounter = await prisma.encounter.findFirst({
+  let encounter = await prisma.encounter.findFirst({
     where: { id: encounterId, tenantId: tenant.id },
     include: {
       patient: true,
       drafts: {
         orderBy: { id: "desc" },
-        include: { lines: true, issues: true },
+        include: {
+          lines: true,
+          issues: true,
+          buildDraftEvents: { orderBy: { createdAt: "desc" }, take: 30 },
+        },
       },
     },
   });
   if (!encounter) notFound();
 
+  const firstDraft = encounter.drafts[0];
+  if (firstDraft) {
+    await syncClaimDraftRuleIssues(prisma, {
+      tenantId: tenant.id,
+      draftId: firstDraft.id,
+    });
+    const refreshed = await prisma.encounter.findFirst({
+      where: { id: encounterId, tenantId: tenant.id },
+      include: {
+        patient: true,
+        drafts: {
+          orderBy: { id: "desc" },
+          include: {
+            lines: true,
+            issues: true,
+            buildDraftEvents: { orderBy: { createdAt: "desc" }, take: 30 },
+          },
+        },
+      },
+    });
+    if (!refreshed) notFound();
+    encounter = refreshed;
+  }
+
   const draft = encounter.drafts[0];
+  const fixtureMeta = parseFhirVisitSummaryMeta(encounter.visitSummary);
 
   return (
     <div className="space-y-6">
@@ -41,17 +101,46 @@ export default async function EncounterDetailPage({
         }
       />
 
+      {fixtureMeta.isFhirFixtureImport ? (
+        <Card className="border-violet-100 bg-violet-50/50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-violet-800">
+            FHIR import
+          </p>
+          <p className="mt-1 text-sm text-slate-800">
+            This visit was loaded from a pasted FHIR R4 Bundle. Pay statement
+            lines, if any, come from Claim resources in that bundle.
+            ExplanationOfBenefit resources in the bundle are summarized below
+            for reference; operational 835 handling is a separate integration
+            path.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge tone="default">FHIR R4</Badge>
+            {fixtureMeta.explanationOfBenefitResourceCount != null ? (
+              <Badge tone="info">
+                EOB trace · {fixtureMeta.explanationOfBenefitResourceCount}{" "}
+                resource
+                {fixtureMeta.explanationOfBenefitResourceCount === 1
+                  ? ""
+                  : "s"}
+              </Badge>
+            ) : (
+              <Badge tone="default">No EOB in bundle</Badge>
+            )}
+          </div>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">
-            Clinical note (synthetic)
+            Clinical note (seed / EHR)
           </h2>
           <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
             {encounter.visitSummary}
           </p>
           <p className="mt-4 text-xs text-slate-500">
             Future: ingest from HL7/FHIR or vendor SDK; today this string seeds
-            the AI code & risk layers for demos.
+            the AI code & risk layers.
           </p>
         </Card>
         <Card className="p-5">
@@ -123,6 +212,11 @@ export default async function EncounterDetailPage({
               <h2 className="text-sm font-semibold text-slate-900">
                 Risk & documentation
               </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Deterministic rule findings refresh on each visit; seed-sourced
+                rows use the{" "}
+                <span className="font-medium text-slate-600">SEED</span> label.
+              </p>
               <ul className="mt-4 space-y-3">
                 {draft.issues.map((issue) => (
                   <li
@@ -142,6 +236,14 @@ export default async function EncounterDetailPage({
                         {issue.severity}
                       </Badge>
                       <Badge tone="info">{issue.category.replace("_", " ")}</Badge>
+                      {issue.issueSource ? (
+                        <Badge tone="default">{issue.issueSource}</Badge>
+                      ) : null}
+                      {issue.ruleKey ? (
+                        <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">
+                          {issue.ruleKey}
+                        </code>
+                      ) : null}
                     </div>
                     <p className="mt-2 font-medium text-slate-900">
                       {issue.title}
@@ -153,9 +255,72 @@ export default async function EncounterDetailPage({
                     <p className="mt-1 text-sm text-slate-700">
                       {issue.explainability}
                     </p>
+                    {(() => {
+                      const cites = issueCitationsFromJson(issue.citations);
+                      if (cites.length === 0) return null;
+                      return (
+                        <div className="mt-3 rounded-md border border-teal-100 bg-teal-50/40 p-3">
+                          <p className="text-xs font-medium uppercase tracking-wide text-teal-900">
+                            Retrieval citations
+                          </p>
+                          <ul className="mt-2 space-y-2">
+                            {cites.map((c, idx) => (
+                              <li key={c.chunkId ?? idx} className="text-sm">
+                                <span className="font-medium text-slate-900">
+                                  {c.title ?? "Reference"}
+                                </span>
+                                {c.sourceLabel ? (
+                                  <span className="ml-1.5 text-xs text-slate-500">
+                                    ({c.sourceLabel})
+                                  </span>
+                                ) : null}
+                                <p className="mt-0.5 text-slate-700">
+                                  {c.excerpt}
+                                </p>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })()}
                   </li>
                 ))}
               </ul>
+            </Card>
+
+            <Card className="p-5">
+              <h2 className="text-sm font-semibold text-slate-900">
+                Build activity
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Rule syncs and approvals on this draft (audit-friendly trail).
+              </p>
+              {draft.buildDraftEvents.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-500">
+                  No events yet — reload after rule evaluation runs.
+                </p>
+              ) : (
+                <ul className="mt-4 max-h-64 space-y-3 overflow-y-auto">
+                  {draft.buildDraftEvents.map((ev) => (
+                    <li
+                      key={ev.id}
+                      className="rounded-lg border border-slate-100 bg-slate-50/80 p-3 text-sm"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={buildActivityBadgeTone(ev.eventType)}>
+                          {buildActivityLabel(ev.eventType)}
+                        </Badge>
+                        <span className="text-xs text-slate-500">
+                          {ev.createdAt.toLocaleString()}
+                        </span>
+                      </div>
+                      <pre className="mt-2 max-h-24 overflow-x-auto overflow-y-auto rounded bg-white p-2 text-[10px] leading-snug text-slate-700">
+                        {JSON.stringify(ev.payload, null, 2)}
+                      </pre>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Card>
           </div>
 
@@ -166,9 +331,9 @@ export default async function EncounterDetailPage({
                   Human review
                 </h2>
                 <p className="mt-1 max-w-2xl text-sm text-slate-600">
-                  Approving locks the draft as submission-ready in this demo. A
-                  production path would enqueue 837 generation and attach
-                  evidence packets for high-risk edits.
+                  Approving marks the draft as ready for billing operations. A
+                  full production path would enqueue compliant claim submission
+                  and attach evidence for high-risk edits.
                 </p>
               </div>
               <form action={approveClaimDraft} className="flex flex-col gap-2">
@@ -210,6 +375,11 @@ export default async function EncounterDetailPage({
                 2,
               )}
             </pre>
+            <Preview837pForm
+              draftId={draft.id}
+              orgSlug={orgSlug}
+              disabled={draft.lines.length === 0}
+            />
           </Card>
         </>
       ) : (

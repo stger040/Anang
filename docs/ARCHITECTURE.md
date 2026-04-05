@@ -1,21 +1,23 @@
 # Architecture — Anang monorepo
 
-## Two surfaces, one company
+## Deployable apps today vs patient surfaces (vision)
 
-Anang ships as **one product brand** with **two deployable Next.js applications**:
+Anang ships as **one product brand**. **Today** the repo has **two** deployable Next.js applications:
 
 | App | Package | Intended host | Audience |
 |-----|---------|---------------|----------|
 | Public marketing | `@anang/marketing-site` | `anang.ai` | Prospects, investors, health-system buyers |
-| Product platform | `@anang/platform-app` | `app.anang.ai` | Authenticated staff and admins |
+| Product platform | `@anang/platform-app` | `app.anang.ai` | Authenticated **staff and admins** (tenant workspace `/o/[orgSlug]/…`, super-admin `/admin`) |
 
-Keeping them **separate apps** preserves clean caching, security boundaries (no accidental export of marketing bundles into authenticated areas), independent release cadence, and straightforward Vercel project mapping.
+**Vision (not separate from the modules—additional shells):** **Patients** should use the **same** Pay / Cover / Support / Core **APIs** on **mobile web (incl. SMS magic links)**, **desktop web**, and eventually **native iOS / Android**—see **`docs/PRODUCT_SURFACES_VISION.md`** and **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`**. That may appear as a **`apps/patient-portal`** app or route group per **`BUILD_PLAN.md`**; it does **not** change the **`ModuleKey`** list in Prisma.
 
-Shared UI, copy, configuration, and TypeScript types live in `packages/*` so both surfaces stay visually and semantically aligned without merging codebases.
+Keeping marketing and **staff** platform **separate** preserves caching, security boundaries, release cadence, and Vercel mapping. A future **patient** app will follow the same pattern (or shared BFF) with **stricter** PHI UX review.
+
+Shared UI, copy, configuration, and TypeScript types live in `packages/*` so all surfaces stay aligned without merging codebases.
 
 ## Platform-app structure
 
-- **`/login`** — demo cookie auth (replace with enterprise IdP before production).
+- **`/login`** — Auth.js: optional **OpenID Connect (enterprise SSO)** + staging **Credentials** provider; JWT session cookie (`AUTH_SECRET` required).
 - **`/admin`** — **super admin** only (`AppRole.SUPER_ADMIN`). Lists tenants and cross-tenant audit.
 - **`/o/[orgSlug]/…`** — tenant-scoped workspace. Access requires membership **unless** the user is a super admin.
 
@@ -31,15 +33,24 @@ API routes (`/api/auth/*`) and Server Actions cover auth + mutations without a s
 
 ## Module model (product)
 
-The product is **one platform, many modules** (Build, Pay, Connect, Insight, Support, Cover, plus Core admin). Navigation and route-level layouts **gate** features using `ModuleEntitlement` rows. Disabled modules return **404** at module routes so URLs do not leak unlicensed product areas in demos.
+The product is **one platform, many modules** (Build, Pay, Connect, Insight, Support, Cover, plus Core admin). Navigation and route-level layouts **gate** features using `ModuleEntitlement` rows. Disabled modules return **404** at module routes so URLs do not expose unlicensed product areas.
+
+**Staff data (examples):** `CoverAssistanceCase` powers **Cover** intake queues; `SupportTask` powers **Support** work queues — both tenant-scoped in Postgres (see `prisma/schema.prisma`).
 
 ## AI / Build
 
-Today, ICD/CPT suggestions, denial risk, and documentation gaps are **seeded and deterministic** but shaped like future model outputs: each suggestion includes human-readable “why” text. The intended production split is:
+Today, ICD/CPT suggestions, denial risk, and documentation gaps are **seeded and deterministic** but shaped like future pipeline outputs: each suggestion includes human-readable “why” text.
 
-1. **UI** — human-in-the-loop review and approval.
-2. **Service layer** (future) — model inference, rules, payer policy graph, evidence retrieval.
-3. **Persistence** — `ClaimDraft`, `ClaimDraftLine`, `ClaimIssue` mirror what a real pipeline would store.
+**Target architecture (not LLM-first)** — see **`IMPLEMENTATION_PLAN.md`** (strategic section) and **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**:
+
+1. **Deterministic rules engine** — validation, payer edits, normalization; **runs with external LLMs disabled**.
+2. **Retrieval / knowledge** — code references, bulletins, SOPs — **grounding**, not raw generation.
+3. **Narrow predictive scores** — when instrumentation supports them (shadow → promote).
+4. **Generative explanation** — paraphrase for staff/patient UX; **provider-swappable** (template fallback required).
+
+**Connectors** feed the canonical model; see **`docs/CONNECTOR_STRATEGY.md`** and **`docs/CORE_DATA_MODEL.md`**.
+
+**Persistence direction:** `ClaimDraft`, `ClaimDraftLine`, `ClaimIssue` evolve toward **rule-id / citation-linked** audit; add **recommendation + outcome** tables as Build matures.
 
 ## White-label
 
@@ -47,11 +58,11 @@ Today, ICD/CPT suggestions, denial risk, and documentation gaps are **seeded and
 
 ## Mock vs production-ready
 
-| Area | Mock / demo | Production-oriented pieces |
+| Area | Mock / scaffold | Production-oriented pieces |
 |------|-------------|---------------------------|
 | Auth | HTTP-only cookie with JSON payload | Replace with SSO + server sessions |
 | AI | Static rationale strings in DB | Swap service implementation |
 | EDI / clearinghouse | Placeholder copy + timelines | Integrate vendor + parsers |
 | Audit | Single-table events | Stream to SIEM + retention policy |
 
-See also: `docs/TENANCY_AND_MODULES.md`, `docs/DEPLOYMENT.md`.
+See also: `docs/TENANCY_AND_MODULES.md`, `docs/MODULES_CUSTOMER.md`, `docs/DEPLOYMENT.md`, `docs/PRODUCT_SURFACES_VISION.md`.

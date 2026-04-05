@@ -1,22 +1,33 @@
-import { cookies } from "next/headers";
 import type { AppRole } from "@prisma/client";
 
-/** Demo cookie session — replace with production auth (WorkOS/Auth0/Clerk/custom JWT). */
-export const DEMO_SESSION_COOKIE = "anang_demo_session";
+import { auth } from "@/auth";
 
-export type DemoSessionPayload = {
+/** @deprecated Legacy cookie names — cleared in `/api/auth/logout` for upgrades */
+export const APP_SESSION_COOKIE = "anang_session";
+export const LEGACY_SESSION_COOKIE = "anang_demo_session";
+export const SESSION_COOKIES = [APP_SESSION_COOKIE, LEGACY_SESSION_COOKIE] as const;
+
+export type SessionPayload = {
   userId: string;
   email: string;
   appRole: AppRole;
 };
 
-export async function getDemoSession(): Promise<DemoSessionPayload | null> {
-  const jar = await cookies();
-  const raw = jar.get(DEMO_SESSION_COOKIE)?.value;
-  if (!raw) return null;
-  try {
-    return JSON.parse(decodeURIComponent(raw)) as DemoSessionPayload;
-  } catch {
-    return null;
-  }
+/** @deprecated Use SessionPayload */
+export type DemoSessionPayload = SessionPayload;
+
+/** Server-only session from Auth.js (OIDC or staging credentials). */
+export async function getSession(): Promise<SessionPayload | null> {
+  const s = await auth();
+  if (!s?.user?.id || !s.user.email) return null;
+  return {
+    userId: s.user.id,
+    email: s.user.email,
+    appRole: s.user.appRole,
+  };
+}
+
+/** @deprecated Use getSession */
+export async function getDemoSession(): Promise<SessionPayload | null> {
+  return getSession();
 }

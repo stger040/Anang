@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Card, PageHeader, StatCard, Badge } from "@anang/ui";
+import { Card, PageHeader, StatCard } from "@anang/ui";
 
 export default async function InsightPage({
   params,
@@ -32,16 +32,18 @@ export default async function InsightPage({
     ["DENIED", "APPEALED", "SUBMITTED"].includes(c.status),
   ).length;
 
-  const topDenials = [
-    { reason: "CO-16 documentation", pct: 34 },
-    { reason: "CO-50 non-covered", pct: 22 },
-    { reason: "CO-97 bundling / CCI", pct: 18 },
-  ];
-
-  const stmtBal = await prisma.statement.aggregate({
-    where: { tenantId: tenant.id },
-    _sum: { balanceCents: true },
-  });
+  const [stmtBal, fhirFixtureStatementCount] = await Promise.all([
+    prisma.statement.aggregate({
+      where: { tenantId: tenant.id },
+      _sum: { balanceCents: true },
+    }),
+    prisma.statement.count({
+      where: {
+        tenantId: tenant.id,
+        number: { startsWith: "FHIR-" },
+      },
+    }),
+  ]);
   const balance = stmtBal._sum.balanceCents ?? 0;
   const arDays = Math.min(56, 28 + Math.round(balance / 5000000));
 
@@ -49,19 +51,19 @@ export default async function InsightPage({
     <div className="space-y-8">
       <PageHeader
         title="Insight — revenue intelligence"
-        description="Executive-friendly KPIs from seeded operational data. Production would warehouse remittance, contracts, and mid-cycle feeds."
+        description="Operational KPIs from current Postgres data. Production feeds: warehouse remittance, contracts, and mid-cycle analytics."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Denial rate"
           value={`${denialRate}%`}
-          hint="Synthetic claim mix for this tenant"
+          hint="Current claim mix for this tenant"
         />
         <StatCard
           label="First-pass clean paid (proxy)"
           value={`${firstPass}%`}
-          hint="Paid / submitted-ish — demo shorthand"
+          hint="Paid / submitted proxy until remittance warehouse exists"
         />
         <StatCard
           label="Revenue leakage signal"
@@ -81,35 +83,31 @@ export default async function InsightPage({
         <StatCard
           label="Statements open balance"
           value={usd(stmtBal._sum.balanceCents ?? 0)}
-          hint="Patient AR proxy from Pay"
+          hint={
+            fhirFixtureStatementCount > 0
+              ? `Patient AR from Pay · ${fhirFixtureStatementCount} statement(s) from FHIR bundle import (FHIR-… numbers)`
+              : "Patient AR from Pay"
+          }
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="text-sm font-semibold text-slate-900">
-            Top denial themes (mock)
+            Denial taxonomy
           </h2>
-          <ul className="mt-4 space-y-3">
-            {topDenials.map((d) => (
-              <li
-                key={d.reason}
-                className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2"
-              >
-                <span className="text-sm text-slate-800">{d.reason}</span>
-                <Badge tone="warning">{d.pct}%</Badge>
-              </li>
-            ))}
-          </ul>
+          <p className="mt-3 text-sm text-slate-600">
+            Payer denial rollups and CARC/RARC groupings will appear here after
+            remittance and claim-status data are integrated.
+          </p>
         </Card>
         <Card className="p-5">
           <h2 className="text-sm font-semibold text-slate-900">
-            Recent trends (placeholder chart)
+            Recent trends (chart — upcoming)
           </h2>
           <p className="mt-3 text-sm text-slate-600">
-            Wire to your charting library of choice (e.g. Recharts) once event
-            streams land in warehouse. For pilots, narrative KPIs above carry
-            the story.
+            Wire to your charting library once time-series metrics are available
+            from your warehouse.
           </p>
           <div className="mt-6 h-40 rounded-lg border border-dashed border-slate-200 bg-gradient-to-tr from-brand-sky/80 to-white" />
         </Card>

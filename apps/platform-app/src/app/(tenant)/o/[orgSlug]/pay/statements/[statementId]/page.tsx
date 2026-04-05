@@ -1,7 +1,17 @@
+import { PatientPayLinkCard } from "@/components/patient-pay-link-card";
+import { StatementPaymentPlanStaffForm } from "@/components/statement-payment-plan-staff-form";
+import { PayWithStripeButton } from "@/components/pay-with-stripe-button";
+import { StatementLineExplain } from "@/components/statement-line-explain";
+import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
 import { prisma } from "@/lib/prisma";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
+import {
+  BillingSmsConsentForms,
+  InstallmentMarkPaidRow,
+} from "./statement-sms-and-installment-forms";
 
 export default async function StatementDetailPage({
   params,
@@ -14,9 +24,25 @@ export default async function StatementDetailPage({
 
   const stmt = await prisma.statement.findFirst({
     where: { id: statementId, tenantId: tenant.id },
-    include: { patient: true, lines: true, payments: true },
+    include: {
+      patient: {
+        include: {
+          coverages: { orderBy: [{ priority: "asc" }, { id: "asc" }] },
+        },
+      },
+      lines: true,
+      payments: true,
+      paymentPlan: {
+        include: {
+          installments: { orderBy: { sequence: "asc" } },
+        },
+      },
+    },
   });
   if (!stmt) notFound();
+
+  const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+  const fromFhirFixture = isFhirFixtureImportStatementNumber(stmt.number);
 
   return (
     <div className="space-y-6">
@@ -31,6 +57,24 @@ export default async function StatementDetailPage({
           </Link>
         }
       />
+
+      {fromFhirFixture ? (
+        <Card className="border-violet-100 bg-violet-50/50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-violet-800">
+            FHIR-imported statement
+          </p>
+          <p className="mt-1 text-sm text-slate-800">
+            This balance was created from a pasted FHIR R4 Bundle (Settings →
+            Implementation). Line items mirror R4 Claim{" "}
+            <span className="font-mono text-xs">item.net</span> when present;
+            otherwise a single fallback line is used. Validate against your
+            billing source of truth.
+          </p>
+          <div className="mt-3">
+            <Badge tone="default">Verify before production use</Badge>
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
@@ -72,22 +116,38 @@ export default async function StatementDetailPage({
           </dl>
 
           <h3 className="mt-8 text-sm font-semibold text-slate-900">Lines</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Plain-language education per line (Medical AI). With an outbound LLM
+            enabled, do not use real PHI unless your vendor path is
+            HIPAA-appropriate (see{" "}
+            <span className="font-mono">OPENAI_DISABLE_BILL_EXPLAIN</span> /{" "}
+            <span className="font-mono">OPENAI_BILL_EXPLAIN_MINIMAL_PAYLOAD</span>{" "}
+            in deployment docs). Not clinical or legal advice.
+          </p>
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[520px] text-sm">
               <thead className="border-b border-slate-200 text-xs text-slate-500">
                 <tr>
                   <th className="py-2 text-left">Code</th>
                   <th className="py-2 text-left">Description</th>
                   <th className="py-2 text-right">Amount</th>
+                  <th className="py-2 text-left">Education</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {stmt.lines.map((l) => (
-                  <tr key={l.id}>
+                  <tr key={l.id} className="align-top">
                     <td className="py-2 font-mono text-xs">{l.code}</td>
                     <td className="py-2 text-slate-700">{l.description}</td>
                     <td className="py-2 text-right tabular-nums font-medium">
                       {usd(l.amountCents)}
+                    </td>
+                    <td className="py-2">
+                      <StatementLineExplain
+                        orgSlug={orgSlug}
+                        statementId={statementId}
+                        lineId={l.id}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -97,6 +157,149 @@ export default async function StatementDetailPage({
         </Card>
 
         <Card className="p-5">
+          <BillingSmsConsentForms
+            orgSlug={orgSlug}
+            statementId={statementId}
+            patientId={stmt.patientId}
+            optInAt={stmt.patient.billingSmsOptInAt}
+            optOutAt={stmt.patient.billingSmsOptOutAt}
+          />
+
+          <PatientPayLinkCard
+            orgSlug={orgSlug}
+            statementId={statementId}
+            balanceCents={stmt.balanceCents}
+          />
+
+          {stmt.paymentPlan ? (
+            <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-xs font-medium uppercase text-slate-600">
+                Active plan offer
+              </p>
+              <p className="mt-1 text-sm text-slate-800">
+                {stmt.paymentPlan.label} · {stmt.paymentPlan.installmentCount}{" "}
+                installments · {stmt.paymentPlan.status}
+              </p>
+              <ul className="mt-2 max-h-48 space-y-3 overflow-y-auto text-xs text-slate-600">
+                {stmt.paymentPlan.installments.map((i) => (
+                  <InstallmentMarkPaidRow
+                    key={i.id}
+                    orgSlug={orgSlug}
+                    installmentId={i.id}
+                    balanceCents={stmt.balanceCents}
+                    amountCents={i.amountCents}
+                    satisfiedCents={i.satisfiedCents}
+                    status={i.status}
+                    sequence={i.sequence}
+                    dueDateLabel={i.dueDate.toLocaleDateString(undefined, {
+                      dateStyle: "medium",
+                    })}
+                  />
+                ))}
+              </ul>
+              {stmt.paymentPlan.patientAcknowledgedAt ? (
+                <p className="mt-2 text-xs text-emerald-800">
+                  Patient acknowledged{" "}
+                  {stmt.paymentPlan.patientAcknowledgedAt.toLocaleString()}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <StatementPaymentPlanStaffForm
+            orgSlug={orgSlug}
+            statementId={statementId}
+            balanceCents={stmt.balanceCents}
+          />
+
+          <h3 className="mt-6 text-sm font-semibold text-slate-900">
+            Coverage on file
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Canonical payer rows (seed or EHR ingest). Not a coverage
+            determination.
+          </p>
+          <ul className="mt-3 space-y-3 text-sm">
+            {stmt.patient.coverages.length === 0 ? (
+              <li className="text-slate-500">No coverage rows yet.</li>
+            ) : (
+              stmt.patient.coverages.map((c) => (
+                <li
+                  key={c.id}
+                  className="rounded-lg border border-slate-100 bg-slate-50/80 p-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone="info">{c.priority}</Badge>
+                    <Badge tone="default">{c.status}</Badge>
+                  </div>
+                  <p className="mt-2 font-medium text-slate-900">
+                    {c.payerName}
+                    {c.planName ? ` · ${c.planName}` : ""}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {c.memberId ? (
+                      <span className="font-mono">Member {c.memberId}</span>
+                    ) : (
+                      <span>Member id —</span>
+                    )}
+                    {c.groupNumber ? (
+                      <span className="ml-2 font-mono">
+                        Group {c.groupNumber}
+                      </span>
+                    ) : null}
+                  </p>
+                  {(c.effectiveFrom || c.effectiveTo) && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      {c.effectiveFrom
+                        ? `From ${c.effectiveFrom.toLocaleDateString()}`
+                        : ""}
+                      {c.effectiveTo
+                        ? ` · To ${c.effectiveTo.toLocaleDateString()}`
+                        : ""}
+                    </p>
+                  )}
+                </li>
+              ))
+            )}
+          </ul>
+
+          {stripeConfigured && stmt.balanceCents > 0 ? (
+            <div className="mb-6 rounded-lg border border-teal-100 bg-teal-50/60 p-4">
+              <p className="text-xs font-medium text-teal-900">
+                Pay online (Stripe test mode)
+              </p>
+              <p className="mt-1 text-xs text-teal-800/90">
+                Uses your platform Stripe keys and webhook — see deployment
+                docs.
+              </p>
+              <div className="mt-3">
+                <PayWithStripeButton
+                  orgSlug={orgSlug}
+                  statementId={statementId}
+                />
+              </div>
+            </div>
+          ) : null}
+          <div className="mb-6 rounded-lg border border-slate-100 bg-slate-50/90 p-4">
+            <p className="text-xs font-medium text-slate-800">Staff shortcuts</p>
+            <p className="mt-1 text-xs text-slate-600">
+              Jump to Cover or Support with this patient in context.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href={`/o/${orgSlug}/cover?patientId=${stmt.patientId}`}
+                className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-50"
+              >
+                New Cover case
+              </Link>
+              <Link
+                href={`/o/${orgSlug}/support`}
+                className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-50"
+              >
+                Support queue
+              </Link>
+            </div>
+          </div>
           <h3 className="text-sm font-semibold text-slate-900">
             Payment activity
           </h3>

@@ -1,6 +1,8 @@
 # Path to “full” product — Cedar benchmark vs Anang
 
-**Purpose:** Clarify what **“full software”** means next to a Cedar-class platform, what **you can do in this repo**, and what **only your organization** can unlock (contracts, compliance, vendor access). Use this with [`CLIENT_SHOWCASE.md`](./CLIENT_SHOWCASE.md) for demos and [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) for depth.
+**Purpose:** Clarify what **“full software”** means next to a Cedar-class platform, what **you can do in this repo**, and what **only your organization** can unlock (contracts, compliance, vendor access). Use this with [`CLIENT_SHOWCASE.md`](./CLIENT_SHOWCASE.md) for pilot runs and [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) for depth.
+
+**Foundation docs (2026+):** **[`CORE_DATA_MODEL.md`](./CORE_DATA_MODEL.md)** (canonical RCM data), **[`CONNECTOR_STRATEGY.md`](./CONNECTOR_STRATEGY.md)** (integrations + Greenway research), **[`MEDICAL_AI_AND_EXPLANATION_LAYER.md`](./MEDICAL_AI_AND_EXPLANATION_LAYER.md)** (Build vs Support; bill explain evolution).
 
 **External reference:** [The Brand Hopper — Cedar: founders, business model, funding & competitors](https://thebrandhopper.com/featured-startups/cedar-founders-business-model-funding-competitors/) (summarizes Cedar’s B2B SaaS model, Pay/Cover/Support/Pre positioning, EHR and payer data integration, outcome-linked pricing themes, and competitive set). This is **secondary analysis**, not Cedar’s official financial statements — use it for **positioning and checklist completeness**, not for investment or legal decisions.
 
@@ -24,12 +26,12 @@ The article stresses: **EHR + claims/EOB + patient account data** in one **consu
 
 | Theme (Cedar-class) | Article / market signal | Anang today | Build next (engineering) | Your end (non-code) |
 |----------------------|-------------------------|-------------|---------------------------|----------------------|
-| **Enterprise B2B SaaS** | Hospitals contract; scale per system | Multi-tenant ✅; demo auth only | SSO (SAML/OIDC), org provisioning API, audit | MSAs, pricing, SOC2/HIPAA roadmap |
+| **Enterprise B2B SaaS** | Hospitals contract; scale per system | Multi-tenant ✅; staging password + cookie auth | SSO (SAML/OIDC), org provisioning API, audit | MSAs, pricing, SOC2/HIPAA roadmap |
 | **EHR / PM integration** | Real-time retrieval of visits, charges, demographics | Seed-only synthetic data | Ingestion workers, FHIR/HL7 adapters, mapping UI, replay DLQ | Epic/athena/Cerner **sandbox + prod** access, **BAA**, interface analysts |
-| **Cedar Pay — digital bill + options** | EOB/HSA-aware billing, plans, omnichannel | Pay **MVP** (statements/lines, no live gateway) | Stripe Connect or enterprise gateway, statement PDF, plans, comms prefs | Merchant agreements, **PCI** counsel, brand/comms legal |
+| **Cedar Pay — digital bill + options** | EOB/HSA-aware billing, plans, omnichannel | Pay **MVP**: statements/lines + **Stripe Checkout + webhook** when **`STRIPE_*`** env is set (test mode by default; posts **`Payment`**, updates balance) | Stripe Connect or enterprise gateway, statement PDF, payment plans, comms prefs — deeper than single-session checkout | Merchant agreements, **PCI** counsel, brand/comms legal, live keys + webhook URL in prod |
 | **Cedar Cover — affordability** | Medicaid/ACA, denials resolution positioning | **Scaffold** UI | Eligibility vendors, workflow engine, policy configs per tenant | Payer/navigator partnerships, policy content |
 | **Cedar Support — ops + AI** | Kora-style voice, copilot, queues | **Scaffold** + mock KPIs | Ticketing integration, voice (e.g. Twilio + LLM), agent workspace | Call center SOWs, TCPA/consent |
-| **Pre-visit** | Estimates, reminders, deposits | Not a first-class module yet | Pre module: estimates API, appointment hooks | **GFE / transparency** counsel (state/federal) |
+| **Pre-visit** | Estimates, reminders, deposits | **Grouped with Pay** in the customer story ([`MODULES_CUSTOMER.md`](./MODULES_CUSTOMER.md)); optional explicit `PRE` **`ModuleKey`** later | Estimates API, appointment hooks, deposits in **Pay** surfaces (web + native) | **GFE / transparency** counsel (state/federal) |
 | **Data / personalization** | ML on outreach timing/channel | Insight **MVP** | Event store, warehouse sync, experiments | Data science hires, governance |
 | **Cedar Connect / EDI** (market expectation for “serious RCM”) | Clearinghouse, 837/835/277 | Connect **MVP** (timelines, seeded claims) | Partner certification, submission/recon jobs | Clearinghouse contract, enrollment |
 | **Claims Build** (Anang differentiator) | Proactive denial prevention — **not** Cedar’s headline | **MVP** (drafts, AI copy HITL) | Stronger rules engine, evidence linking, submit gates | Payer policy licenses, clinical SME |
@@ -41,13 +43,13 @@ The article stresses: **EHR + claims/EOB + patient account data** in one **consu
 
 These are the kinds of things **we can implement in-repo** (subject to your priorities and review):
 
-- **Integration readiness (shipped):** each tenant’s **Settings** page includes an **Integration readiness** card (EHR, payments, comms, clearinghouse) driven only by **optional env vars** — plus **`GET /api/integrations/status`** for the same JSON. No secrets exposed; use it in demos to show what’s mock vs ready.
+- **Integration readiness (shipped):** each tenant’s **Settings** page includes an **Integration readiness** card (EHR, payments, comms, clearinghouse) driven only by **optional env vars** — plus **`GET /api/integrations/status`** for the same JSON. No secrets exposed; use it in pilots to show what’s wired vs still mock.
 - **Product surface:** Flesh out Cover, Support, Pre flows; patient-facing portal route group; richer Insight.
 - **Integrations (code + patterns):** FHIR sync jobs, webhook receivers, idempotent upserts into Prisma models, admin screens for “last sync / errors”.
-- **Payments:** Server-side payment intents, webhooks, reconciliation tables — **after** you choose Stripe vs bank gateway and get keys.
-- **Auth:** Replace demo cookie with **NextAuth / Auth0 / Azure AD** patterns, session hardening, RBAC refinements.
+- **Payments:** **Checkout session + idempotent webhook** for statement pay are in-repo; **you** add keys, Dashboard webhook to **`/api/webhooks/stripe`**, and **`NEXT_PUBLIC_APP_ORIGIN`** (see [`MANUAL_SETUP_CHECKLIST.md`](./MANUAL_SETUP_CHECKLIST.md)). Further: Connect, plans/installments, richer reconciliation — **after** gateway and product choices.
+- **Auth:** Replace staging cookie sessions with **NextAuth / Auth0 / Azure AD** patterns, session hardening, RBAC refinements.
 - **Ops:** Feature flags per tenant, `/api/health` / version (done), CI, migrations discipline.
-- **Docs:** Pilot runbooks, data mapping templates, demo scripts.
+- **Docs:** Pilot runbooks, data mapping templates, session scripts for stakeholders.
 
 ---
 
@@ -69,8 +71,8 @@ Use this when kicking off a pilot:
 
 | Phase | Outcome your buyers feel |
 |-------|---------------------------|
-| **A — Now** | Credible **demo** (already): modules, synthetic data, honest scaffolds — [`CLIENT_SHOWCASE.md`](./CLIENT_SHOWCASE.md). |
-| **B — Pilot** | **One** EHR sandbox → **read** patients/encounters/charges into Postgres; **one** payment path in **test** mode; SSO for pilot users. |
+| **A — Now** | Working **product shell**: modules, synthetic seed data, honest scaffolds — [`CLIENT_SHOWCASE.md`](./CLIENT_SHOWCASE.md). |
+| **B — Pilot** | **One** EHR sandbox → **read** patients/encounters/charges into Postgres; **one** payment path (**Stripe test** Checkout + webhook, or your bank stack); SSO for pilot users. |
 | **C — Revenue** | Production BAAs, prod EHR feed, live payments (PCI-minimal), basic monitoring and on-call. |
 | **D — Scale** | Full Pay/Cover/Support depth, clearinghouse production, analytics warehouse, optional vertical packs. |
 
@@ -85,6 +87,6 @@ The Brand Hopper piece lists **RevSpring/AccuReg, Experian/Patientco, Paytient, 
 ## Summary
 
 - **“Full software”** = **product + integrations + compliance + GTM** together; the repo can grow toward **feature-complete** and **integration-ready**, but **you** unlock data, money movement, and trust boundaries.
-- Compared to the **Cedar story** in [The Brand Hopper](https://thebrandhopper.com/featured-startups/cedar-founders-business-model-funding-competitors/), the **largest remaining build blocks** are: **real EHR ingestion**, **production Pay**, **Cover/Support depth**, **pre-visit**, and **warehouse-grade intelligence** — plus **your** vendor and legal stack.
+- Compared to the **Cedar story** in [The Brand Hopper](https://thebrandhopper.com/featured-startups/cedar-founders-business-model-funding-competitors/), the **largest remaining build blocks** are: **real EHR ingestion**, **production-hardened Pay** (live gateway, plans, omnichannel — beyond test Checkout), **Cover/Support depth**, **pre-visit**, and **warehouse-grade intelligence** — plus **your** vendor and legal stack.
 
 When you’re ready to prioritize one pillar (e.g. “Pilot B: Epic sandbox only”), say so and work can focus on a **narrow vertical slice** instead of boiling the ocean.

@@ -5,6 +5,7 @@ export function PlatformShell({
   orgSlug,
   tenantName,
   enabledModules,
+  showTenantAdminNav,
   userEmail,
   extraTopActions,
   children,
@@ -12,6 +13,8 @@ export function PlatformShell({
   orgSlug: string;
   tenantName: string;
   enabledModules: ModuleKey[];
+  /** Org-level Admin rail (`/settings`): tenant admins + platform super-admins only. */
+  showTenantAdminNav: boolean;
   userEmail: string;
   extraTopActions?: React.ReactNode;
   children: React.ReactNode;
@@ -21,6 +24,7 @@ export function PlatformShell({
       orgSlug={orgSlug}
       tenantName={tenantName}
       enabledModules={enabledModules}
+      showTenantAdminNav={showTenantAdminNav}
       userEmail={userEmail}
       extraTopActions={extraTopActions}
     >

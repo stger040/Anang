@@ -3,6 +3,7 @@ import {
   ModuleKey,
   AppRole,
   ClaimLifecycleStatus,
+  ClaimIssueSource,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -23,21 +24,31 @@ function entitlementsForTenant(slug: string): ModuleKey[] {
     // Selective deployment: no Connect / Support / Cover in this pilot-shaped tenant
     return [ModuleKey.CORE, ModuleKey.BUILD, ModuleKey.PAY, ModuleKey.INSIGHT];
   }
-  // Demo tenant: operations + analytics only
+  // Pilot tenant (narrow module mix)
   return [ModuleKey.CORE, ModuleKey.PAY, ModuleKey.INSIGHT];
 }
 
 async function main() {
+  await prisma.externalIdentifier.deleteMany();
+  await prisma.sourceArtifact.deleteMany();
+  await prisma.ingestionBatch.deleteMany();
+  await prisma.buildRulePack.deleteMany();
+  await prisma.buildDraftEvent.deleteMany();
+  await prisma.buildKnowledgeChunk.deleteMany();
+  await prisma.supportTask.deleteMany();
+  await prisma.coverAssistanceCase.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.claimTimelineEvent.deleteMany();
   await prisma.claim.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.statementLine.deleteMany();
   await prisma.statement.deleteMany();
+  await prisma.coverage.deleteMany();
   await prisma.claimIssue.deleteMany();
   await prisma.claimDraftLine.deleteMany();
   await prisma.claimDraft.deleteMany();
   await prisma.encounter.deleteMany();
+  await prisma.patientPortalIdentity.deleteMany();
   await prisma.patient.deleteMany();
   await prisma.moduleEntitlement.deleteMany();
   await prisma.membership.deleteMany();
@@ -76,6 +87,15 @@ async function main() {
     },
   });
 
+  /** Restricted staff: patient-facing modules only (no Build / Connect / Insight). */
+  const userLcoFrontline = await prisma.user.create({
+    data: {
+      email: "support-frontline@lco.anang.demo",
+      name: "Riley Park",
+      appRole: AppRole.STAFF,
+    },
+  });
+
   const tenantLco = await prisma.tenant.create({
     data: {
       slug: "lco",
@@ -84,7 +104,15 @@ async function main() {
       primaryColor: "#13264C",
       settings: {
         timezone: "America/Chicago",
-        emrConnection: "demo_synthetic",
+        emrConnection: "greenway_intergy_pilot",
+        implementation: {
+          version: 1,
+          ehrVendor: "Greenway / Intergy",
+          integrationPattern: "FHIR R4 (Greenway Developer Platform)",
+          milestoneNotes:
+            "Pilot 1 EHR lane — see docs/PILOT_CONNECTOR_ROADMAP.md",
+          checklist: { billing: {}, it: {} },
+        },
       },
     },
   });
@@ -98,7 +126,7 @@ async function main() {
       settings: {
         timezone: "America/Los_Angeles",
         site: "hayward",
-        emrConnection: "demo_synthetic",
+        emrConnection: "pending_ehr",
       },
     },
   });
@@ -112,7 +140,15 @@ async function main() {
       settings: {
         timezone: "America/Los_Angeles",
         site: "ashland",
-        emrConnection: "demo_synthetic",
+        emrConnection: "epic_planned",
+        implementation: {
+          version: 1,
+          ehrVendor: "Epic",
+          integrationPattern: "SMART on FHIR / Bulk Data (planned)",
+          milestoneNotes:
+            "Pilot 2 — Tamarack; docs/EPIC_FHIR_INTEGRATION_PLAN.md",
+          checklist: { billing: {}, it: {} },
+        },
       },
     },
   });
@@ -120,11 +156,11 @@ async function main() {
   const tenantDemo = await prisma.tenant.create({
     data: {
       slug: "demo",
-      name: "Demo Tenant",
-      displayName: "Demo Tenant (Investor Sandbox)",
+      name: "Pilot Regional Medical Group",
+      displayName: "Pilot Regional",
       primaryColor: "#E24E42",
       settings: {
-        isSandbox: true,
+        environment: "staging",
       },
     },
   });
@@ -141,7 +177,7 @@ async function main() {
         data: { tenantId: t.id, module: m, enabled: true },
       });
     }
-    // Explicitly record disabled modules for demo clarity (optional rows, all disabled)
+    // Record disabled modules explicitly for entitlement audits
     const all = Object.values(ModuleKey);
     for (const m of all) {
       if (!mods.includes(m)) {
@@ -156,6 +192,16 @@ async function main() {
     data: [
       { userId: userLco.id, tenantId: tenantLco.id, role: AppRole.TENANT_ADMIN },
       {
+        userId: userLcoFrontline.id,
+        tenantId: tenantLco.id,
+        role: AppRole.STAFF,
+        staffModuleAllowList: [
+          ModuleKey.PAY,
+          ModuleKey.COVER,
+          ModuleKey.SUPPORT,
+        ],
+      },
+      {
         userId: userTamarack.id,
         tenantId: tenantTamarackHayward.id,
         role: AppRole.STAFF,
@@ -168,6 +214,51 @@ async function main() {
       { userId: userDemo.id, tenantId: tenantDemo.id, role: AppRole.STAFF },
     ],
   });
+
+  const pilotKnowledgeChunks = (tenantId: string) => [
+    {
+      tenantId,
+      kind: "cpt",
+      lookupKey: "93015",
+      title: "CPT 93015 — cardiovascular stress testing",
+      body: "Often describes supervised exercise (or pharmacologic) cardiovascular stress testing with ECG monitoring. Medical necessity and complete report documentation are common payer targets; NCCI bundling with same-day E/M may apply depending on payer edits.",
+      sourceLabel: "Seed · education only",
+    },
+    {
+      tenantId,
+      kind: "cpt",
+      lookupKey: "99214",
+      title: "CPT 99214 — office/outpatient E/M, established patient",
+      body: "Office or other outpatient visit for an established patient; moderate level of MDM or time. Frequently paired with diagnostic testing on the same date — payers may require distinct diagnoses or modifiers when multiple services are reported.",
+      sourceLabel: "Seed · education only",
+    },
+    {
+      tenantId,
+      kind: "icd10",
+      lookupKey: "I20.9",
+      title: "ICD-10-CM I20.9 — angina pectoris, unspecified",
+      body: "Unspecified angina; coders may prefer a more specific angina subtype when documented. Specificity can affect medical necessity narratives for cardiology testing.",
+      sourceLabel: "Seed · education only",
+    },
+    {
+      tenantId,
+      kind: "icd10",
+      lookupKey: "I10",
+      title: "ICD-10-CM I10 — essential hypertension",
+      body: "Essential (primary) hypertension; common secondary diagnosis in E/M claims. Ensure documentation supports any reported chronic-condition management complexity.",
+      sourceLabel: "Seed · education only",
+    },
+  ];
+  for (const tid of [
+    tenantLco.id,
+    tenantTamarackHayward.id,
+    tenantTamarackAshland.id,
+  ]) {
+    await prisma.buildKnowledgeChunk.createMany({
+      data: pilotKnowledgeChunks(tid),
+      skipDuplicates: true,
+    });
+  }
 
   // --- Patients & Build (LCO + Tamarack) ---
   const patLco1 = await prisma.patient.create({
@@ -198,6 +289,47 @@ async function main() {
       lastName: "Vargas",
       dob: new Date("1955-07-21"),
     },
+  });
+
+  await prisma.coverage.createMany({
+    data: [
+      {
+        tenantId: tenantLco.id,
+        patientId: patLco1.id,
+        payerName: "Regional Payer Alliance",
+        memberId: "RPA-77881234",
+        groupNumber: "GRP-44001",
+        planName: "PPO Gold",
+        priority: "primary",
+        subscriberRel: "self",
+        status: "active",
+        effectiveFrom: new Date("2025-01-01"),
+      },
+      {
+        tenantId: tenantLco.id,
+        patientId: patLco1.id,
+        payerName: "Auto Injury Liability (seed)",
+        memberId: "AIL-00921",
+        planName: "Third-party — demo only",
+        priority: "secondary",
+        subscriberRel: "self",
+        status: "inactive",
+        effectiveFrom: new Date("2025-12-01"),
+        effectiveTo: new Date("2026-02-01"),
+        rawMetadata: { note: "Seed secondary for dual-coverage example" },
+      },
+      {
+        tenantId: tenantLco.id,
+        patientId: patLco2.id,
+        payerName: "State Medicaid (seed)",
+        memberId: "MCO-99201-AA",
+        planName: "Managed Medicaid",
+        priority: "primary",
+        subscriberRel: "self",
+        status: "active",
+        effectiveFrom: new Date("2024-06-01"),
+      },
+    ],
   });
 
   const visitSummaryLco = `Chief complaint: episodic chest tightness on exertion over 2 weeks.
@@ -284,6 +416,8 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
           "Payer may deny 93015 without finalized stress test interpretation attached to encounter.",
         explainability:
           "Our documentation matcher found plan language referencing a stress test but no signed report artifact in the linked media slot used for cardiology diagnostics.",
+        issueSource: ClaimIssueSource.SEED,
+        citations: [],
       },
       {
         draftId: draftLco.id,
@@ -294,6 +428,8 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
           "National Correct Coding Initiative (NCCI) edits may apply between E/M and same-day cardiology testing.",
         explainability:
           "When 99214 and 93015 share a date, payers often require distinct diagnoses or APP modifiers; NCCI bundles are frequent in this pairing unless record supports separate, significant service.",
+        issueSource: ClaimIssueSource.SEED,
+        citations: [],
       },
       {
         draftId: draftLco.id,
@@ -303,6 +439,8 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
         detail: "Consider I20.89 vs I20.9 if anginal equivalent is better documented.",
         explainability:
           "Clinical text mentions 'tightness on exertion' without unstable features — coders often prefers specificity when EHR documents angina type.",
+        issueSource: ClaimIssueSource.SEED,
+        citations: [],
       },
     ],
   });
@@ -366,7 +504,7 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
     submittedAt: new Date(t0.getTime() + 86400000),
     timeline: [
       { label: "Draft created", at: new Date(t0.getTime()) },
-      { label: "Submitted (837P)", at: new Date(t0.getTime() + 3600000) },
+      { label: "Submitted to payer", at: new Date(t0.getTime() + 3600000) },
       { label: "277CA accepted", at: new Date(t0.getTime() + 86400000) },
       { label: "835 remittance posted", at: new Date(t0.getTime() + 86400000 * 10) },
     ],
@@ -397,7 +535,7 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
     patientId: patTam1.id,
     claimNumber: "CLM-TAM-4401",
     status: ClaimLifecycleStatus.SUBMITTED,
-    payerName: "Pacific Clearinghouse / Demo Payer",
+    payerName: "Pacific Payer Network",
     billedCents: 210000,
     submittedAt: new Date(t0.getTime() + 86400000 * 4),
     timeline: [
@@ -429,6 +567,7 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
     data: {
       tenantId: tenantLco.id,
       patientId: patLco1.id,
+      encounterId: encLco1.id,
       number: "STMT-LCO-12001",
       totalCents: 125000,
       balanceCents: 42000,
@@ -469,6 +608,54 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
       method: "card",
       paidAt: new Date("2026-03-22"),
     },
+  });
+
+  await prisma.coverAssistanceCase.createMany({
+    data: [
+      {
+        tenantId: tenantLco.id,
+        patientId: patLco1.id,
+        track: "financial_assistance",
+        status: "in_review",
+        householdSize: 2,
+        annualIncomeCents: 42_000_00,
+        notes:
+          "Seed: financial assistance inquiry after cardiology statement.",
+      },
+      {
+        tenantId: tenantLco.id,
+        patientId: patLco2.id,
+        track: "coverage_marketplace",
+        status: "submitted",
+        notes:
+          "Seed: uninsured — marketplace / Medicaid screening requested.",
+      },
+    ],
+  });
+
+  await prisma.supportTask.createMany({
+    data: [
+      {
+        tenantId: tenantLco.id,
+        patientId: patLco1.id,
+        statementId: stmt1.id,
+        title: "Callback — payment plan options",
+        detail:
+          "Patient asked for a longer plan on remaining balance.",
+        status: "open",
+        priority: "normal",
+        category: "payment_plan",
+        dueAt: new Date("2026-03-28T17:00:00Z"),
+      },
+      {
+        tenantId: tenantLco.id,
+        patientId: patLco2.id,
+        title: "EOB mismatch — coinsurance line",
+        status: "in_progress",
+        priority: "high",
+        category: "billing_question",
+      },
+    ],
   });
 
   const patDemo = await prisma.patient.create({
@@ -531,8 +718,8 @@ Plan: stress test scheduled; continue antihypertensive; counsel on exertion limi
 
   // eslint-disable-next-line no-console
   console.log("Seed complete.", {
-    tenants: ["lco", "hayward", "ashland", "demo"],
-    demoUsers: [
+    tenants: ["lco", "hayward", "ashland", "pilot"],
+    operatorAccounts: [
       userSuper.email,
       userLco.email,
       userTamarack.email,

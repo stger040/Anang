@@ -10,7 +10,7 @@
 
 ## 1. What we are building (one paragraph)
 
-**Anang** is building an **enterprise, multi-tenant SaaS platform** for **U.S. healthcare providers** (health systems, hospitals, large groups) that **unifies the patient financial journey** with **provider-side revenue cycle tools**: digital billing and payments, coverage and affordability programs, communications, optional contact center / voice AI, **clearinghouse-style claim connectivity**, **proactive claims-building / denial prevention** for staff, and **medical-context AI** so patients understand bills and staff ship cleaner claims. It is **one platform** with **many modules** (not separate unrelated products), sharing tenants, identity boundaries, and analytics.
+**Anang** is building an **enterprise, multi-tenant SaaS platform** for **U.S. healthcare providers** (health systems, hospitals, large groups) that **unifies the patient financial journey** with a **revenue-cycle intelligence layer** (not an EHR): digital billing and payments, coverage and affordability programs, communications, optional contact center / voice AI, **clearinghouse-style claim connectivity**, and **Build** — **deterministic-first** validation, retrieval, narrow scoring, and **optional** LLM explanations so staff ship cleaner claims. Patients get **Pay / Cover / Support / Core**; staff get **Build / Connect / Insight**. It is **one platform** with **many modules**, sharing tenants, identity boundaries, and analytics.
 
 ---
 
@@ -20,9 +20,17 @@
 - **Delivery:** Primarily **multi-tenant cloud SaaS**; optional dedicated environments for large deals. **White-label** per client (logo, colors, domains) on top of shared code.
 - **Distribution:** Direct enterprise sales + long implementations (EHR integration, clearinghouse enrollment). See `BUILD_PLAN.md` §11.
 
+### Product surfaces (where people use the platform)
+
+**Vision:** Deliver **patient** and **staff** experiences on **desktop web**, **mobile web / PWA**, and **native iOS & Android** as modules mature—**one backend**, **parity** for patient Pay / Cover / Support / Core over time. **Transaction / success-fee** economics tie to **Pay** and **attribution**, not to whether the patient used Safari or the store app. Full rationale and a **web vs native** capability framing: **[`PRODUCT_SURFACES_VISION.md`](./PRODUCT_SURFACES_VISION.md)**.
+
+**Today’s repo** still centers on **`apps/platform-app`** (authenticated staff web workspace) plus marketing; **patient** Pay flows use **`/p/*`** (token/cookie gate) separate from staff NextAuth. **Roles, route separation, and module-vs-user access** are documented in **[`ACCESS_MODEL.md`](./ACCESS_MODEL.md)**.
+
 ---
 
 ## 3. Product modules (conceptual — names in code: `packages/brand`)
+
+**Buyer-friendly module list** aligned with Cedar naming (Pay, Cover, Support, Pre) plus Build / Connect / Insight: **[`MODULES_CUSTOMER.md`](./MODULES_CUSTOMER.md)**.
 
 | Module | Role |
 |--------|------|
@@ -39,10 +47,10 @@
 | **Intelligence** | Events, dashboards, propensity models, personalization, experiments. |
 | **Platform** | Multi-tenant admin, **API + webhooks**, consent, i18n/a11y, feature flags per tenant. |
 
-**AI differentiation (two tracks):**
+**AI differentiation (two tracks — neither is “LLM decides everything”):**
 
-1. **Patient:** Explain line items and coverage in plain language (“medical library” RAG + LLM).  
-2. **Provider:** Claims Build / copilot — suggestions **accepted by a human** before submit (no silent auto-submit of claims).
+1. **Patient / Support:** Plain-language billing education and **guardrailed** support (retrieval + tools + escalation); templates / minimal-payload modes for sensitive text — see **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**.  
+2. **Staff / Build:** **Rules + retrieval + narrow models** first; LLM as **explanation layer**; human acceptance **before** submit (no silent auto-submit). Core **`docs/CORE_DATA_MODEL.md`** and **`docs/CONNECTOR_STRATEGY.md`**.
 
 ---
 
@@ -64,13 +72,13 @@
 
 - **Monorepo:** two Next.js 15 apps — `apps/marketing-site` (public) and `apps/platform-app` (authenticated product at `/o/[orgSlug]/…` plus `/admin`).
 - **Shared packages:** `@anang/brand`, `@anang/config`, `@anang/types`, `@anang/ui`, `packages/tsconfig`, etc.
-- **Data:** Prisma + **PostgreSQL** (`docker-compose` for local); seed includes **LCO Health Center**, **Tamarack Health**, and **Demo Tenant** with different `ModuleEntitlement` mixes.
-- **Implemented (starter):** Demo cookie auth, Build / Pay / Connect / Insight MVPs, Support & Cover scaffolds, tenant settings + audit placeholders, super-admin tenant index.
-- **Not yet built:** Real SSO, Stripe, FHIR/EHR feeds, production clearinghouse, full breadth in **`IMPLEMENTATION_PLAN.md`** — see **`docs/FULL_PLATFORM_CHECKLIST.md`**.
+- **Data:** Prisma + **PostgreSQL** (`docker-compose` for local); seed includes **LCO Health Center**, **Tamarack Health**, and **Pilot Regional** (`slug: demo`) with different `ModuleEntitlement` mixes.
+- **Implemented (starter):** **Auth.js** — optional **platform OIDC** (`AUTH_OIDC_*`) + **per-tenant OIDC** (admin UI + env secret pattern) + staging **Credentials**; policy **`local_only` / `sso_allowed` / `sso_required`** per tenant (`docs/DEPLOYMENT.md`, `docs/CLIENT_IT_OIDC_ONBOARDING.md`), Build / Pay / Connect / Insight MVPs, **Cover** (**`CoverAssistanceCase`** intake + status) and **Support** (**`SupportTask`** queue) staff workspaces, Pay **pre-visit hub** route (`/pay/pre`), tenant settings + audit, super-admin index; **optional Stripe Checkout + webhook** for Pay when env vars are set (see **`DEPLOYMENT.md`**). **Dental** is a **documented vertical** (Cedar Orthodontics–class): same module spine, dental-tuned UX and integrations — see **`docs/MODULES_CUSTOMER.md`**; optional future **`DENTAL`** `ModuleKey` not in schema yet.
+- **Not yet built:** SCIM / platform-wide OIDC JIT, **dedicated patient PWA / native billing apps** (see **`docs/PRODUCT_SURFACES_VISION.md`**, **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`**), production **SMS / magic-link** orchestration, FHIR/EHR feeds-in-production, production clearinghouse, full breadth in **`IMPLEMENTATION_PLAN.md`** — **`docs/FULL_PLATFORM_CHECKLIST.md`**.
 
 **Rule:** Do **not** scatter “Anang” or product copy across random files — use **`getBrand()`** from `@anang/brand` or edit **`packages/brand/src/config.ts`**.
 
-**Selling / demos:** See **[`CLIENT_SHOWCASE.md`](./CLIENT_SHOWCASE.md)** for URLs, demo script, seeded logins, and current bottlenecks.
+**Pilot / customer sessions:** See **[`CLIENT_SHOWCASE.md`](./CLIENT_SHOWCASE.md)** for URLs, operator sign-in, checks, and current gaps before production.
 
 ---
 
@@ -79,7 +87,7 @@
 - **HIPAA:** PHI only in governed environments with **BAAs**; audit logging and encryption expected for production.
 - **PCI:** Prefer hosted payment fields (e.g. Stripe); minimize card data scope.
 - **TCPA / CAN-SPAM / NSA transparency:** Apply as features go live; **legal review** for GFEs and state balance-billing rules.
-- **AI:** Human review for coding suggestions; log model/version where required.
+- **AI:** Build outputs are **auditable** (rule IDs, retrieval, scores); generative APIs are **swappable**; human review before claim submit; template / minimal-payload paths for PHI-adjacent text — **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**.
 
 Details: `IMPLEMENTATION_PLAN.md` Part 6, `BUILD_PLAN.md` §5–6.
 
@@ -90,9 +98,18 @@ Details: `IMPLEMENTATION_PLAN.md` Part 6, `BUILD_PLAN.md` §5–6.
 | Order | File | Contents |
 |-------|------|----------|
 | 1 | **`docs/PLATFORM_OVERVIEW.md`** (this file) | Vision, modules, Cedar comparison, repo reality |
-| 2 | **`docs/ARCHITECTURE.md`** | Two-app split, tenancy, mock vs prod |
+| 1b | **`docs/PRODUCT_SURFACES_VISION.md`** | Desktop / mobile web / native parity; take-rate vs channel; engineering north star |
+| 1c | **`docs/MODULES_CUSTOMER.md`** | Cedar-aligned **Pay / Cover / Support / Pre** + **Build / Connect / Insight / Core / Dental** — same `ModuleKey` set, buyer language |
+| 1d | **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`** | Patient vs staff scenarios; SMS → web → verify; app mapping |
+| 1e | **`docs/FOUNDER_BUILD_GUIDE.md`** | Neon, seed vs PHI, what non-engineers configure |
+| 1f | **`docs/CORE_DATA_MODEL.md`** | Canonical RCM entities, raw vs normalized, module needs, Prisma gaps |
+| 1g | **`docs/CONNECTOR_STRATEGY.md`** | Connector categories, Greenway/Intergy research gate, CSV fallback, mapping; commercial pilot table → **`PILOT_CONNECTOR_ROADMAP.md`** / **`EPIC_FHIR_INTEGRATION_PLAN.md`** |
+| 1h | **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`** | Bill explain evolution; Build vs Support; provider abstraction |
+| 1i | **`docs/ENGINEERING_BACKLOG.md`** | Foundational tickets (data model, Build rules, connectors, AI adapters) |
+| 2 | **`docs/ARCHITECTURE.md`** | Marketing + **staff** platform apps today; **patient** shells per roadmap |
 | 3 | **`docs/DEPLOYMENT.md`** | Vercel projects, Postgres, env vars |
 | 4 | **`docs/TENANCY_AND_MODULES.md`** | Entitlements, seeds, adding clients |
+| 4b | **`docs/FIRST_CLIENT_ONBOARDING_6W.md`** | Six-week pilot rhythm; links to in-app **Implementation hub** |
 | 5 | **`docs/ROADMAP.md`** | Phased rollout after this starter |
 | 6 | **`IMPLEMENTATION_PLAN.md`** | Phased delivery, architecture diagram, regulatory checklist |
 | 7 | **`BUILD_PLAN.md`** | Repo layout, CI/cadence, quality, distribution alignment |

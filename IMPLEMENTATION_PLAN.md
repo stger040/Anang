@@ -1,6 +1,6 @@
 # Anang — Patient Financial & Revenue Cycle Platform — Implementation Plan
 
-**Company:** **Anang** — [anang.ai](https://anang.ai). **Cedar-class** capabilities plus **Anang differentiators** (Claims Build, medical-context AI, full RCM scope including Connect).
+**Company:** **Anang** — [anang.ai](https://anang.ai). **Cedar-class** breadth with Anang’s focus as an **RCM intelligence layer** (not an EHR): **Build** (deterministic-first + retrieval + narrow ML + optional explanations), **Connect**, **Insight**, patient **Pay / Cover / Support / Core**, and full RCM scope including clearinghouse-style connectivity.
 
 **Onboarding summary:** [`docs/PLATFORM_OVERVIEW.md`](docs/PLATFORM_OVERVIEW.md). **Branding in code:** [`packages/brand/src/config.ts`](packages/brand/src/config.ts). **EHR test data:** [`docs/EPIC_AND_TEST_DATA.md`](docs/EPIC_AND_TEST_DATA.md). **Checklist:** [`docs/FULL_PLATFORM_CHECKLIST.md`](docs/FULL_PLATFORM_CHECKLIST.md). **Needs from principals:** [`docs/DEVELOPMENT_NEEDS.md`](docs/DEVELOPMENT_NEEDS.md). **Naming / env overrides:** [`docs/BRANDING.md`](docs/BRANDING.md).
 
@@ -40,16 +40,47 @@ Cedar.com offers a **unified patient financial experience platform** that combin
 **Important clarification — Cedar’s Denials approach:** Cedar Cover provides **reactive** denials resolution: *after* a claim is denied, it helps *patients* resolve issues (e.g., coordination of benefits, dual coverage) so the claim can be reprocessed. Cedar does **not** offer provider-side tools to **prevent** denials before submission.
 
 **Our differentiation:**
-1. **Claims Build Assistant** — Medical-library-trained AI that assists providers and scribes *before* claims are submitted. Suggests CPT/ICD codes, flags documentation gaps, checks medical necessity—**reducing the denial rate at the source**. This is proactive; Cedar does not offer this.
-2. **Medical-context AI for patients** — Explains charges in plain language, bridges clinical and financial understanding.
+1. **Build (Claims Build Assistant)** — **Not LLM-first:** a **multi-layer intelligence system** — (1) deterministic validation and payer-aware rules that run with **models disabled**, (2) **retrieval** over code sets, payer bulletins, and tenant SOPs, (3) **narrow predictive** scores when data and governance allow, (4) **optional LLM** layer for explanations and staff-facing language only. Reduces denials *before* submission; Cedar does not headline this.
+2. **Patient experience + Support** — Plain-language billing education (e.g. statement lines), **guardrailed** Support tools and escalation — **separate** from Build’s core logic. See **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**.
 
 This document provides:
 1. **EHR Integration** — How the platform connects to Epic, athena, Oracle Health, and what data flows.
 2. **Client Experience** — What clinics/hospitals see and use (patient portal, provider dashboards, claims build workflow).
-3. **Claims Build Assistant** — Proactive denial prevention for providers and scribes.
+3. **Build** — Proactive denial prevention: **deterministic rules + retrieval + narrow ML + optional LLM explanations** for providers/scribes (**not** LLM-first).
 4. **Long-term roadmap** — Phased implementation for the full platform.
 
 **How we execute engineering** (repo shape, CI/CD, quality, teams): see **`BUILD_PLAN.md`**.
+
+---
+
+## Strategic architecture — RCM intelligence layer (authoritative)
+
+**Positioning:** Anang is an **AI-powered healthcare revenue cycle platform**: workflow and **intelligence** that integrates with **existing** EHRs, PM, clearinghouses, and payer processes. It is **not** an EHR replacement.
+
+### Build — four layers (do not collapse into “the LLM”)
+
+1. **Layer 1 — Deterministic engine** — Claim validation, missing-field checks, coding consistency, payer-specific edits, denial-reason normalization, underbilling heuristics, pre-submit warnings, severity/confidence scores. **Must operate with external LLMs disabled.**
+2. **Layer 2 — Retrieval / grounding** — CPT/HCPCS/ICD references, payer bulletins, internal SOPs, clinic guidance, historical denial patterns — **structured knowledge**, not pure generation.
+3. **Layer 3 — Narrow predictive models** — Denial likelihood, underbilling opportunity, reimbursement variance, workqueue prioritization, collection prioritization — **classical/ML**, not required to be LLMs.
+4. **Layer 4 — Generative explanation** — Summaries, conversational wording, UI copy — **on top of** Layers 1–3, never the sole source of billing truth.
+
+**Planning:** [`docs/CORE_DATA_MODEL.md`](docs/CORE_DATA_MODEL.md), [`docs/CONNECTOR_STRATEGY.md`](docs/CONNECTOR_STRATEGY.md), [`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`](docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md).
+
+### Support — separate AI system
+
+**Support** is a **tool-driven**, **retrieval-grounded**, **heavily guardrailed** assistant for **billing support** (statements, balances, payment paths, assistance workflows) with **human escalation**. It must **not** give medical advice, definitive coverage determinations, reimbursement promises, or unconstrained autonomous agency. **Do not** share Build’s rule engine or “coding authority” prompts with Support.
+
+### Onboarding — calibration, not naive foundation-model training
+
+Onboarding means **system mapping**, **schema mapping**, **workflow discovery**, **rule calibration**, **retrieval source setup**, **shadow mode**, **instrumentation**, **threshold tuning**, and **evaluation** before promoting automation — a **client-tuned intelligence layer**, not “train a new general model from scratch in six weeks.”
+
+### Connect integration — connectors first-class
+
+**Connectors** (EHR/PM, claims/remittance, CSV fallback, future clearinghouse) are **product infrastructure**. First concrete integration target: **Greenway** (product/SKU TBD); **Intergy** may appear — **research** documented in **`docs/CONNECTOR_STRATEGY.md`** before locking one API style.
+
+### HIPAA / PHI and AI boundaries
+
+Treat billing and claim line **descriptions** as **sensitive**. Architecture must support **template-only** and **minimal-payload** modes, migration to **BAA-covered** inference, and **provider swap** without rewriting core product logic.
 
 ---
 
@@ -322,7 +353,7 @@ A **medical-context AI assistant** (trained or prompted with medical terminology
 
 **Our positioning:** Full patient financial experience (Pay, Cover, Support, Pre) **plus** Claims Build Assistant (proactive denial prevention) and medical-context AI. No competitor offers the full combination.
 
-**Future verticals (Cedar precedent):** Cedar launched Cedar Orthodontics (dental) in 2024. We could add specialized modules for dental, behavioral health, or other verticals once the core platform is stable.
+**Future verticals (Cedar precedent):** Cedar launched **Cedar Orthodontics** (dental) in 2024. **Anang Dental** is defined as a **vertical package**, not a forked codebase: same Pay / Cover / Support / Build / Connect / Insight / Core spine, tuned for **CDT**, **treatment plans / installments**, **family/guarantor** billing, and **DMS/PMS** paths (e.g. Dentrix-class) — full buyer + engineering story in **`docs/MODULES_CUSTOMER.md`** § *Dental vertical* and checklist items in **`docs/FULL_PLATFORM_CHECKLIST.md`**. Optional Prisma **`DENTAL`** `ModuleKey` can follow when contracts need an explicit entitlement bit; **behavioral health** or other verticals would follow the same pattern once core RCM + patient financial depth is stable.
 
 ---
 
@@ -469,20 +500,22 @@ Start here if you want to validate the product quickly, then evolve toward the f
 
 ---
 
-### Phase 4A: Claims Build Assistant — Proactive Denial Prevention (Months 10–16)
+### Phase 4A: Build — Proactive Denial Prevention (Months 10–16)
 
-**Goal:** Medical-library AI that helps providers and scribes build claims correctly *before* submission.
+**Goal:** **Layered intelligence** so providers and scribes ship cleaner claims *before* submission — **core logic works with LLMs disabled**.
 
 | # | Task | Deliverables |
 |---|------|--------------|
-| 4A.1 | Encounter ingestion | Pull encounters + clinical docs from EHR (FHIR or HL7) |
-| 4A.2 | CPT/ICD suggestion engine | AI suggests codes from documentation using medical knowledge base |
-| 4A.3 | Documentation gap detection | “Add X to support medical necessity” |
-| 4A.4 | Prior auth alerts | “Procedure X often requires prior auth for Payer Y” |
-| 4A.5 | Denial-risk scoring | Pre-submission risk based on payer rules, coding patterns |
-| 4A.6 | Claims Build UI | Provider/scribe interface: encounter queue, suggestions, one-click apply |
-| 4A.7 | EHR integration options | Standalone app, embedded widget (Epic Smart App / athena), or API to billing system |
-| 4A.8 | Medical library / RAG | CPT/ICD, payer rules, medical necessity criteria for AI context |
+| 4A.0 | Core data + connector readiness | Canonical entities per **`docs/CORE_DATA_MODEL.md`**; ingest/mapping per **`docs/CONNECTOR_STRATEGY.md`** |
+| 4A.1 | Encounter + charge ingestion | Encounters + clinical/charge sources from EHR/PM (FHIR, HL7, API, or batch per tenant) |
+| 4A.2 | **Rules engine v1** | Missing-field checks, coding consistency, payer edits, pre-submit warnings, severity scores — **persisted with rule IDs** |
+| 4A.3 | **Retrieval / knowledge** | Grounding for CPT/ICD, payer bulletins, SOPs — **citations** surfaced in UI where possible |
+| 4A.4 | Documentation gap detection | Deterministic + retrieval-backed “add X for medical necessity” (LLM may **phrase** only) |
+| 4A.5 | Prior auth alerts | Rule + retrieval: “procedure X often requires PA for payer Y” |
+| 4A.6 | **Narrow scores (shadow)** | Denial likelihood / underbilling heuristics — **evaluate before promotion** |
+| 4A.7 | Build UI | Encounter queue, issues with explainability, human accept/reject, **no silent auto-submit** |
+| 4A.8 | **Optional LLM explanation layer** | Paraphrase rule outputs + staff UX copy; **separate** from Support assistant design |
+| 4A.9 | Recommendation / outcome logging | Audit trail: what fired, what staff did — supports compliance and model iteration |
 
 ---
 
@@ -693,22 +726,25 @@ Start here if you want to validate the product quickly, then evolve toward the f
 
 ## Part 8: Suggested Build Order
 
-1. **Phase 0 (1 Week)** — Presentation MVP: patient portal, medical AI chat, Stripe payments, PWA.
-2. **Phase 0 (Production)** — Foundation: data model, auth, multi-tenancy, EHR integration skeleton, HIPAA baseline.
-3. **Phase 12 (early slices)** — White-label basics, audit logging, consent flags (grow with each release).
-4. **Phase 1** — Core Pay + thin Pre (estimates/deposit placeholder).
-5. **Medical AI 1.0** — Bill explain + chat (patient).
-6. **Phase 3** — Omnichannel communications.
-7. **Phase 9 (pilot)** — Connect with one clearinghouse + one tenant (required for “real” RCM stories).
-8. **Phase 4A** — Claims Build Assistant (proactive denials).
+*Prioritize **auditability** and **connector + canonical data** foundations before expanding generative surfaces.*
+
+1. **Phase 0 (Production)** — **Anang core data model** (normalized entities, external ID maps), auth, multi-tenancy, **connector interface + CSV/FHIR paths**, HIPAA baseline — see **`docs/CORE_DATA_MODEL.md`**, **`docs/CONNECTOR_STRATEGY.md`**.
+2. **Phase 12 (early slices)** — White-label basics, audit logging, consent flags (grow with each release).
+3. **Phase 1** — Core Pay + thin Pre (estimates/deposit placeholder).
+4. **Build scaffolding** — **Rules engine v1** + recommendation/outcome persistence on existing `ClaimDraft` / issues (**LLMs optional**).
+5. **Medical AI 1.x (Pay)** — Bill line **explanation** with template + provider abstraction evolution — **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**.
+6. **Phase 9 (pilot)** — Connect with one clearinghouse + one tenant (required for “real” RCM stories).
+7. **Phase 4A** — Build depth: retrieval, shadow scoring, payer calibration per onboarding philosophy.
+8. **Phase 3** — Omnichannel communications.
 9. **Phase 10** — Eligibility, Prior Auth, RCM denials inbox (start with eligibility + denial import).
 10. **Phase 7** — Intelligence (propensity, dashboards, denial root-cause).
 11. **Phase 2** — Advanced Pay (payers, HSA/FSA, ML discounts).
 12. **Phase 11** — Cash/credits, GFE/financial assistance depth, collections rules.
-13. **Phase 5** — Support + agent copilot.
+13. **Phase 5** — Support: **guardrailed**, tool-driven assistant + escalation (**not** Build’s engine).
 14. **Phase 6** — Voice AI.
 15. **Phase 4B** — Cover (Medicaid/ACA, reactive patient denials).
 16. **Phase 8** — Scale implementation playbooks as customer count grows.
+17. **Phase 0 (1 Week)** — *Optional legacy demo slice* — only if needed for fundraising; do not confuse with production foundation.
 
 ---
 
@@ -748,4 +784,4 @@ Start here if you want to validate the product quickly, then evolve toward the f
 
 ---
 
-*Document Version: 5.0 | Full service catalog (Part 2D–2E), Connect/EDI, RCM denials, Prior Auth, Eligibility, cash/credits, collections, transparency, platform API—see BUILD_PLAN.md for execution*
+*Document Version: 5.1 | Strategic architecture: Build = layered intelligence (not LLM-first); Support = separate guardrailed assistant; connectors + core data model — see `docs/CORE_DATA_MODEL.md`, `docs/CONNECTOR_STRATEGY.md`, `docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`. Full service catalog (Part 2D–2E), Connect/EDI, RCM denials, Prior Auth, Eligibility, cash/credits, collections, transparency, platform API — see BUILD_PLAN.md for execution.*

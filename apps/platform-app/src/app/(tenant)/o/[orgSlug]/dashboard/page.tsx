@@ -42,7 +42,7 @@ export default async function DashboardPage({
     <div className="space-y-8">
       <PageHeader
         title="Overview"
-        description="Cross-module snapshot for this organization. Metrics blend seeded claims and synthetic statements for pilot demos."
+        description="Cross-module snapshot for this organization — driven by current ledger and claims data in Postgres."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -52,14 +52,14 @@ export default async function DashboardPage({
           hint="Entitlements on this tenant"
         />
         <StatCard
-          label="Denial rate (seeded)"
+          label="Denial rate"
           value={`${denialRate}%`}
-          hint="From synthetic claim mix in Connect"
+          hint="From claim rows in Connect"
         />
         <StatCard
           label="Encounters in review"
           value={openBuild.toString()}
-          hint="Build queue (mock clinical pipeline)"
+          hint="Build queue"
         />
         <StatCard
           label="Open patient balance"

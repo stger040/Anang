@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { getBrand } from "@anang/brand";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 /** Tenant-scoped pages use Prisma + cookies — avoid SSG without DATABASE_URL at build time. */
@@ -24,7 +25,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={inter.variable}>
-      <body className="min-h-screen font-sans">{children}</body>
+      <body className="min-h-screen font-sans">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

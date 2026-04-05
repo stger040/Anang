@@ -1,3 +1,4 @@
+import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
 import { prisma } from "@/lib/prisma";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
 import Link from "next/link";
@@ -27,10 +28,35 @@ export default async function PayStatementsPage({
     <div className="space-y-8">
       <PageHeader
         title="Pay — patient financials"
-        description="Statements, balances, and payment status for revenue staff. Data is synthetic and safe for investor demos."
+        description="Statements, balances, and payment activity. Rows come from seed or your ledger integration — not production PHI until feeds are live."
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="p-5 lg:col-span-3 border-teal-100 bg-gradient-to-r from-teal-50/60 to-white">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex-1">
+              <h2 className="text-sm font-semibold text-slate-900">
+                Pre-visit &amp; estimates (Pay + Pre)
+              </h2>
+              <p className="mt-1 text-xs text-slate-600">
+                Deposits, GFE-aware flows, and appointment hooks — same Pay module,
+                staff configuration surface.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/o/${orgSlug}/pay/patient-preview`}>
+                <Button type="button" size="sm" variant="secondary">
+                  Patient experience preview
+                </Button>
+              </Link>
+              <Link href={`/o/${orgSlug}/pay/pre`}>
+                <Button type="button" size="sm" variant="primary">
+                  Open pre-visit hub
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
         <Card className="p-5 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">Statements</h2>
           <div className="mt-4 overflow-x-auto">
@@ -49,7 +75,14 @@ export default async function PayStatementsPage({
               <tbody className="divide-y divide-slate-100">
                 {statements.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50/80">
-                    <td className="py-3 pr-4 font-mono text-xs">{s.number}</td>
+                    <td className="py-3 pr-4">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-mono text-xs">{s.number}</span>
+                        {isFhirFixtureImportStatementNumber(s.number) ? (
+                          <Badge tone="default">FHIR</Badge>
+                        ) : null}
+                      </div>
+                    </td>
                     <td className="py-3 pr-4 font-medium text-slate-900">
                       {s.patient.lastName}, {s.patient.firstName}
                     </td>

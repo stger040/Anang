@@ -1,38 +1,98 @@
-import { Card, EmptyState, PageHeader, Badge, Button } from "@anang/ui";
+import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
+import { prisma } from "@/lib/prisma";
+import { PageHeader } from "@anang/ui";
+import { SupportAssistantPanel } from "./support-assistant-panel";
+import { SupportWorkspace } from "./support-workspace";
 
-export default async function SupportPage() {
+export default async function SupportPage({
+  params,
+}: {
+  params: Promise<{ orgSlug: string }>;
+}) {
+  const { orgSlug } = await params;
+
+  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  if (!tenant) return null;
+
+  const [patients, statements, tasks] = await Promise.all([
+    prisma.patient.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      take: 80,
+    }),
+    prisma.statement.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: { dueDate: "desc" },
+      take: 40,
+      select: { id: true, number: true, balanceCents: true },
+    }),
+    prisma.supportTask.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
+      include: { patient: true, statement: true },
+    }),
+  ]);
+
+  const openCount = tasks.filter((t) => t.status === "open").length;
+  const urgentOpen = tasks.filter(
+    (t) => t.status === "open" && t.priority === "urgent",
+  ).length;
+
+  const patientOptions = patients.map((p) => ({
+    id: p.id,
+    label: `${p.lastName}, ${p.firstName}${p.mrn ? ` · ${p.mrn}` : ""}`,
+  }));
+
+  const statementOptions = statements.map((s) => {
+    const fhirFixture = isFhirFixtureImportStatementNumber(s.number);
+    return {
+      id: s.id,
+      label: `${s.number} · ${usd(s.balanceCents)} bal${fhirFixture ? " · FHIR import" : ""}`,
+    };
+  });
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Support — operations workspace"
-        description="Staff queues for billing follow-ups, worklists, and SLA tracking. Scaffold only — workflows land after CRM/ERP hooks."
+        description="Queues for billing follow-up, payment plans, and escalations. Add ticketing or voice when you need full CRM depth."
       />
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="p-5">
-          <h2 className="text-sm font-semibold text-slate-900">Today&apos;s queue</h2>
-          <EmptyState
-            title="No tasks seeded"
-            description="Create work templates or import from PM to populate this surface."
-          />
-        </Card>
-        <Card className="p-5 lg:col-span-2">
-          <h2 className="text-sm font-semibold text-slate-900">SLA preview (mock)</h2>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Badge tone="success">Within target · 92%</Badge>
-            <Badge tone="warning">Risk · 6%</Badge>
-            <Badge tone="danger">Breached · 2%</Badge>
-          </div>
-          <p className="mt-4 text-sm text-slate-600">
-            Replace with real task timestamps once ticketing or work queue API is
-            connected.
-          </p>
-          <Button type="button" className="mt-4" variant="secondary" disabled>
-            Configure queues (soon)
-          </Button>
-        </Card>
-      </div>
+      <SupportAssistantPanel
+        orgSlug={orgSlug}
+        openTaskCount={openCount}
+        urgentOpenCount={urgentOpen}
+      />
+      <SupportWorkspace
+        orgSlug={orgSlug}
+        patients={patientOptions}
+        statements={statementOptions}
+        tasks={tasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          detail: t.detail,
+          status: t.status,
+          priority: t.priority,
+          category: t.category,
+          dueAt: t.dueAt,
+          patient: t.patient,
+          statement: t.statement
+            ? {
+                number: t.statement.number,
+                fhirFixture: isFhirFixtureImportStatementNumber(
+                  t.statement.number,
+                ),
+              }
+            : null,
+        }))}
+      />
     </div>
   );
+}
+
+function usd(cents: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
 }

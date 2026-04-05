@@ -13,6 +13,8 @@ export type NavItem = {
   href: string;
   label: string;
   module?: ModuleKey;
+  /** Hide from staff; show for tenant admins and platform super-admins. */
+  tenantAdminOnly?: boolean;
   icon: ReactNode;
   iconTone: string;
 };
@@ -111,6 +113,7 @@ const ALL: NavItem[] = [
   {
     href: "settings",
     label: "Admin",
+    tenantAdminOnly: true,
     icon: <span className="text-base">⚙</span>,
     module: undefined,
     iconTone: "text-slate-500",
@@ -120,6 +123,7 @@ const ALL: NavItem[] = [
 export function AppSidebar({
   orgSlug,
   enabledModules,
+  showTenantAdminNav,
   tenantName,
   widthPx,
   collapsed,
@@ -127,6 +131,7 @@ export function AppSidebar({
 }: {
   orgSlug: string;
   enabledModules: ModuleKey[];
+  showTenantAdminNav: boolean;
   tenantName: string;
   widthPx: number;
   collapsed: boolean;
@@ -138,6 +143,7 @@ export function AppSidebar({
   const slugAbbrev = abbrevOrgSlugForSidebar(orgSlug);
 
   const items = ALL.filter((n) => {
+    if (n.tenantAdminOnly && !showTenantAdminNav) return false;
     if (!n.module) return true;
     return enabled.has(n.module);
   });
@@ -270,7 +276,7 @@ export function AppSidebar({
             collapsed ? "hidden" : "block"
           }`}
         >
-          Synthetic demo data · not PHI
+          Pilot seed data · not PHI · EHR replaces
         </div>
       </div>
     </aside>

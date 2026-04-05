@@ -6,11 +6,13 @@ This document is the **engineering and delivery playbook** companion to `IMPLEME
 
 ## 1. Principles
 
-1. **One platform, many modules** — Shared auth, tenant model, events, and UI patterns; avoid one-off silos per product line.
-2. **HIPAA-by-design** — No PHI in non-production without BAAs; audit every read/write of PHI; encryption default.
-3. **Vertical slice delivery** — Each milestone produces a demoable path (e.g., “mock EHR → statement → pay → post event”), not a layer of empty services.
-4. **Buy the commodity, build the differentiator** — Payments (Stripe), SMS (Twilio), clearinghouse (partner EDI), LLM (Azure OpenAI with BAA); build patient UX, workflows, and orchestration.
-5. **Pilot then scale** — One health system shape (e.g., multi-hospital IDN vs. large specialty group) per early phase; generalize after two customers.
+1. **One platform, many modules** — Shared auth, tenant model, events, and UI patterns; avoid one-off silos per product line. **Dental** is a **vertical slice** on that platform (same module keys, dental-tuned UX and connectors) — see **`docs/MODULES_CUSTOMER.md`** (*Dental vertical*); ship dental pilots as **config + integration** milestones, not a second codebase.
+2. **One backend, many surfaces** — Patient journeys should converge on the **same Pay / Cover / Support / Core APIs** whether the shell is **desktop web, mobile web (PWA), or native iOS/Android**; see **`docs/PRODUCT_SURFACES_VISION.md`** for parity and take-rate implications.
+3. **HIPAA-by-design** — No PHI in non-production without BAAs; audit every read/write of PHI; encryption default.
+4. **Vertical slice delivery** — Each milestone produces a demoable path (e.g., “mock EHR → statement → pay → post event”), not a layer of empty services.
+5. **Buy the commodity, build the differentiator** — Payments (Stripe), SMS (Twilio), clearinghouse (partner EDI), **BAA-covered inference when needed**; build patient UX, **RCM intelligence** (rules + retrieval + narrow models), workflows, and orchestration.
+6. **Pilot then scale** — One health system shape (e.g., multi-hospital IDN vs. large specialty group) per early phase; generalize after two customers.
+7. **Deterministic-first Build; separate Support AI** — **Build** must deliver value with **LLMs off** (rules + retrieval + scores); **LLMs** explain and converse on top. **Support** is its own **tool-driven, guardrailed** assistant — not the same design as Build. See **`docs/CORE_DATA_MODEL.md`**, **`docs/CONNECTOR_STRATEGY.md`**, **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**, **`IMPLEMENTATION_PLAN.md`** (strategic architecture).
 
 ---
 
@@ -82,7 +84,7 @@ This document is the **engineering and delivery playbook** companion to `IMPLEME
 | **Security** | Dependency scan, SAST, annual pen test before large enterprise deals |
 | **HIPAA** | Annual risk assessment; access review; incident response drill |
 
-**AI-specific:** Human review path for coding suggestions in Claims Build; never auto-submit claim without explicit user acceptance; log model version and prompt hash for audit.
+**AI-specific:** Human-in-the-loop for all claim-impacting Build outputs; never auto-submit a claim without explicit user acceptance. **Prefer logging rule IDs, retrieval citations, and model/provider version** — not only prompt hashes. Template-only and minimal-payload paths for PHI-adjacent flows must remain first-class (`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`).
 
 ---
 
@@ -114,7 +116,7 @@ This document is the **engineering and delivery playbook** companion to `IMPLEME
 | **Q0** | 1-week MVP | Deployed demo; stakeholder feedback |
 | **Q1** | Production foundation + Pay v0 | Multi-tenant auth; HIPAA baseline; one real integration path behind NDA |
 | **Q2** | Pay v1 + comms + Eligibility pilot | Statements from real or sandbox EHR feed; SMS/email: opt-in compliant |
-| **Q3** | Connect pilot + Claims Build v0 | First 837 test submission; AI suggestions in shadow mode |
+| **Q3** | Connect pilot + Build v0 | First 837 test submission; **rules + shadow scoring**; LLM explanations optional |
 | **Q4** | RCM denials inbox + cash reconciliation v0 | Denials imported; manual appeal task; deposit reconciliation report |
 | **Year 2** | Cover, Support, Voice, depth | Per IMPLEMENTATION_PLAN Phases 4B–6 |
 

@@ -28,6 +28,7 @@ export function TenantWorkspace({
   orgSlug,
   tenantName,
   enabledModules,
+  showTenantAdminNav,
   userEmail,
   extraTopActions,
   children,
@@ -35,6 +36,7 @@ export function TenantWorkspace({
   orgSlug: string;
   tenantName: string;
   enabledModules: ModuleKey[];
+  showTenantAdminNav: boolean;
   userEmail: string;
   extraTopActions?: React.ReactNode;
   children: React.ReactNode;
@@ -70,6 +72,7 @@ export function TenantWorkspace({
       <AppSidebar
         orgSlug={orgSlug}
         enabledModules={enabledModules}
+        showTenantAdminNav={showTenantAdminNav}
         tenantName={tenantName}
         widthPx={sidebarWidth}
         collapsed={collapsed}

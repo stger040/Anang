@@ -21,7 +21,7 @@ export default async function TenantSettingsPage({
   const laneTone = (lane: string) => {
     if (lane === "live") return "success" as const;
     if (lane === "test_ready") return "info" as const;
-    if (lane === "mock") return "warning" as const;
+    if (lane === "local") return "warning" as const;
     return "default" as const;
   };
 
@@ -101,6 +101,67 @@ export default async function TenantSettingsPage({
           </li>
           <li className="border-t border-slate-100 pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium text-slate-800">
+                Greenway / Intergy FHIR (pilot 1)
+              </span>
+              <Badge tone={laneTone(integration.greenwayFhir.lane)}>
+                {integration.greenwayFhir.lane}
+              </Badge>
+            </div>
+            <p className="mt-1 text-slate-600">{integration.greenwayFhir.detail}</p>
+          </li>
+          <li className="border-t border-slate-100 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium text-slate-800">
+                Epic on FHIR (pilot 2 — planned)
+              </span>
+              <Badge tone={laneTone(integration.epicFhir.lane)}>
+                {integration.epicFhir.lane}
+              </Badge>
+            </div>
+            <p className="mt-1 text-slate-600">{integration.epicFhir.detail}</p>
+          </li>
+          <li className="border-t border-slate-100 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium text-slate-800">
+                FHIR bundle import
+              </span>
+              <Badge tone={laneTone(integration.fhirFixtureImport.lane)}>
+                {integration.fhirFixtureImport.lane}
+              </Badge>
+            </div>
+            <p className="mt-1 text-slate-600">
+              {integration.fhirFixtureImport.detail}
+            </p>
+            <p className="mt-2 font-mono text-[10px] text-slate-500">
+              Sample bundle (repo):{" "}
+              <span className="break-all">
+                apps/platform-app/
+                {integration.fhirFixtureImport.exampleBundlePath}
+              </span>
+            </p>
+            <Link
+              href={`/o/${orgSlug}/settings/implementation`}
+              className="mt-2 inline-block text-xs font-medium text-brand-navy underline"
+            >
+              Implementation hub — paste R4 Bundle →
+            </Link>
+          </li>
+          <li className="border-t border-slate-100 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium text-slate-800">
+                Medical AI — bill line explain (Pay)
+              </span>
+              <Badge tone={laneTone(integration.medicalAiBillExplain.lane)}>
+                {integration.medicalAiBillExplain.lane}
+              </Badge>
+            </div>
+            <p className="mt-1 text-slate-600">
+              {integration.medicalAiBillExplain.detail}
+            </p>
+          </li>
+          <li className="border-t border-slate-100 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-medium text-slate-800">Payments</span>
               <Badge tone={laneTone(integration.payments.lane)}>
                 {integration.payments.lane}
@@ -126,10 +187,41 @@ export default async function TenantSettingsPage({
             </div>
             <p className="mt-1 text-slate-600">{integration.clearinghouse.detail}</p>
           </li>
+          <li className="border-t border-slate-100 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium text-slate-800">
+                Pharmacy / NCPDP (optional)
+              </span>
+              <Badge tone={laneTone(integration.pharmacyClaims.lane)}>
+                {integration.pharmacyClaims.lane}
+              </Badge>
+            </div>
+            <p className="mt-1 text-slate-600">
+              {integration.pharmacyClaims.detail}
+            </p>
+          </li>
         </ul>
         <p className="mt-3 text-xs text-slate-500">
           Machine-readable:{" "}
           <code className="rounded bg-slate-100 px-1">GET /api/integrations/status</code>
+        </p>
+      </Card>
+
+      <Card className="p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">
+            Implementation (first client)
+          </h2>
+          <Link
+            href={`/o/${orgSlug}/settings/implementation`}
+            className="text-sm font-medium text-brand-navy underline"
+          >
+            Implementation hub →
+          </Link>
+        </div>
+        <p className="mt-2 text-sm text-slate-600">
+          Billing and IT discovery checklists, contacts, and optional FHIR R4
+          bundle paste when your feed is not wired yet.
         </p>
       </Card>
 

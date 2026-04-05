@@ -12,7 +12,7 @@ export default async function AdminAuditPage() {
     <div className="space-y-6">
       <PageHeader
         title="Global audit stream"
-        description="Latest platform events across tenants (demo volume only). Filter and export should map to SOC2 control narratives later."
+        description="Latest platform events across tenants. Filter/export map to SOC2 control narratives as you harden operations."
       />
 
       <Card className="overflow-hidden p-0">

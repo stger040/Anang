@@ -1,4 +1,4 @@
-import { requireModule } from "@/lib/module-guard";
+import { requireModuleForSession } from "@/lib/module-guard";
 
 export default async function PayModuleLayout({
   children,
@@ -8,6 +8,6 @@ export default async function PayModuleLayout({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  await requireModule(orgSlug, "PAY");
+  await requireModuleForSession(orgSlug, "PAY");
   return children;
 }

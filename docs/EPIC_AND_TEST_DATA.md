@@ -20,8 +20,8 @@
 
 ## Practical order for *this* codebase
 
-1. Keep **SQLite / fixtures** for local dev (current `seed.ts`).
-2. Add **FHIR fixture folder** (`apps/web/fixtures/fhir/` or `packages/fixtures/`) with anonymized JSON for tests.
+1. Keep **SQLite / Postgres + `prisma/seed.ts`** for local dev and demo tenants.
+2. **`apps/platform-app/fixtures/fhir/`** — paste-ready R4 Bundles (e.g. `minimal-patient-encounter-claim.example.json`) for **Settings → Implementation hub** import; same folder is covered by **`normalizeFhirBundlePayload`** tests. FX / strict flags: **`docs/DEPLOYMENT.md`** (`FHIR_IMPORT_*`). Week-1 rhythm: **`docs/FIRST_CLIENT_ONBOARDING_6W.md`**.
 3. When ready, **one** vendor sandbox (Epic *or* athena *or* Cerner) for certification — chosen by first paying pilot, not “all Epic data first.”
 
 ## Summary

@@ -7,12 +7,20 @@
     "build": "prisma generate && next build",
     "start": "next start --port 3001",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:push:neon": "node --env-file=.env.neon ../../node_modules/prisma/build/index.js db push",
+    "db:push:neon:force": "node --env-file=.env.neon ../../node_modules/prisma/build/index.js db push --accept-data-loss",
     "db:seed:neon": "node --env-file=.env.neon ../../node_modules/tsx/dist/cli.mjs prisma/seed.ts",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:deploy:neon": "node --env-file=.env.neon ../../node_modules/prisma/build/index.js migrate deploy",
     "db:seed": "npx tsx prisma/seed.ts",
+    "db:import:xlsx": "npx tsx prisma/import-realistic-xlsx.ts",
+    "db:import:xlsx:neon": "node --env-file=.env.neon ../../node_modules/tsx/dist/cli.mjs prisma/import-realistic-xlsx.ts",
+    "db:import:xlsx:enrich:neon": "node --env-file=.env.neon ../../node_modules/tsx/dist/cli.mjs prisma/import-realistic-xlsx.ts --enrich-only",
     "db:studio": "prisma studio",
     "db:validate": "prisma validate",
     "postinstall": "prisma generate"
@@ -22,19 +30,23 @@
     "@anang/config": "*",
     "@anang/types": "*",
     "@anang/ui": "*",
+    "@aws-sdk/client-s3": "^3.1024.0",
     "@prisma/client": "^6.3.1",
     "next": "^15.1.8",
+    "next-auth": "^5.0.0-beta.30",
+    "oauth4webapi": "^3.8.5",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "stripe": "^17.7.0"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
     "@types/node": "^22.10.10",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.4",
-    "@eslint/eslintrc": "^3.2.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.19.0",
     "eslint-config-next": "^15.1.8",
@@ -42,6 +54,8 @@
     "prisma": "^6.3.1",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.2",
+    "xlsx": "^0.18.5"
   }
 }

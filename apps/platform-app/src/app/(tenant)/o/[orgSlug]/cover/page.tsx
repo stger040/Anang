@@ -1,40 +1,64 @@
-import { Card, EmptyState, PageHeader, Badge } from "@anang/ui";
+import { PageHeader } from "@anang/ui";
+import { prisma } from "@/lib/prisma";
+import { CoverWorkspace } from "./cover-workspace";
 
-export default async function CoverPage() {
+export default async function CoverPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ orgSlug: string }>;
+  searchParams: Promise<{ patientId?: string }>;
+}) {
+  const { orgSlug } = await params;
+  const { patientId: patientIdParam } = await searchParams;
+
+  const tenant = await prisma.tenant.findUnique({ where: { slug: orgSlug } });
+  if (!tenant) return null;
+
+  const [patients, cases] = await Promise.all([
+    prisma.patient.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      take: 80,
+    }),
+    prisma.coverAssistanceCase.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: { updatedAt: "desc" },
+      include: { patient: true },
+    }),
+  ]);
+
+  const patientOptions = patients.map((p) => ({
+    id: p.id,
+    label: `${p.lastName}, ${p.firstName}${p.mrn ? ` · ${p.mrn}` : ""}`,
+  }));
+
+  const defaultPatientId =
+    patientIdParam && patients.some((p) => p.id === patientIdParam)
+      ? patientIdParam
+      : undefined;
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Cover — affordability & coverage"
-        description="Eligibility checks, estimates, charity care routing, and patient-friendly payment paths. Scaffold for future integration with clearinghouse + EDI 270/271."
+        description="Financial assistance, marketplace / Medicaid routing, and charity-care intake. Staff workspace below; patient self-service lands on the future patient app + SMS journeys."
       />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <h2 className="text-sm font-semibold text-slate-900">
-            Coverage verification (mock)
-          </h2>
-          <div className="mt-4 space-y-2 text-sm text-slate-600">
-            <p>
-              <Badge tone="info">270/271</Badge> stub — wire to payer APIs or
-              delegated vendor.
-            </p>
-            <EmptyState
-              title="No active verifications"
-              description="Queues appear when patient access journeys are enabled."
-            />
-          </div>
-        </Card>
-        <Card className="p-5">
-          <h2 className="text-sm font-semibold text-slate-900">
-            Affordability workflows
-          </h2>
-          <p className="mt-3 text-sm text-slate-600">
-            Payment plans, HBP/FAP policy routing, and propensity-informed offers
-            belong here — keep policy text configurable per tenant for
-            white-label rollouts.
-          </p>
-        </Card>
-      </div>
+      <CoverWorkspace
+        orgSlug={orgSlug}
+        patients={patientOptions}
+        cases={cases.map((c) => ({
+          id: c.id,
+          track: c.track,
+          status: c.status,
+          householdSize: c.householdSize,
+          annualIncomeCents: c.annualIncomeCents,
+          notes: c.notes,
+          updatedAt: c.updatedAt,
+          patient: c.patient,
+        }))}
+        defaultPatientId={defaultPatientId}
+      />
     </div>
   );
 }

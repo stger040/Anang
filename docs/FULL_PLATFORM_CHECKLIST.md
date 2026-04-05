@@ -2,7 +2,9 @@
 
 **Company:** Anang — [anang.ai](https://anang.ai). This is the **master execution list**. Detail: **`IMPLEMENTATION_PLAN.md`**; engineering: **`BUILD_PLAN.md`**; context for new contributors: **`PLATFORM_OVERVIEW.md`**.
 
-**Business / ops:** [`DEVELOPMENT_NEEDS.md`](DEVELOPMENT_NEEDS.md).
+**Modules & vision:** [`MODULES_CUSTOMER.md`](./MODULES_CUSTOMER.md) · [`PRODUCT_SURFACES_VISION.md`](./PRODUCT_SURFACES_VISION.md) · [`PATIENT_SCENARIOS_AND_MOBILE_APP.md`](./PATIENT_SCENARIOS_AND_MOBILE_APP.md).
+
+**Business / ops:** [`DEVELOPMENT_NEEDS.md`](./DEVELOPMENT_NEEDS.md).
 
 ## Foundation
 
@@ -14,16 +16,28 @@
 
 ## Patient experience (Pay + Pre)
 
-- [ ] Statements from charges / EHR feed
-- [ ] Patient portal + PWA
-- [ ] Payments (Stripe or enterprise gateway)
+- [ ] Statements from charges / EHR feed (today: seed / demo data in platform-app)
+- [ ] **Patient billing web** — magic links, calming layout, verify-by-SMS/email-on-file (**`PATIENT_SCENARIOS_AND_MOBILE_APP`**)
+- [ ] Patient portal + **installable PWA** + **native** iOS / Android (store distribution) — **parity** with Pay / Cover / Support per **`PRODUCT_SURFACES_VISION`**
+- [ ] Payments (**Stripe** test path + webhook in **platform-app** when env set; extend to patient shell + enterprise gateway)
 - [ ] Plans, discounts, HSA/FSA display
-- [ ] Pre-visit estimates + **GFE / transparency** (legal review)
-- [ ] Omnichannel: email, SMS, paper (TCPA/CAN-SPAM)
+- [x] Staff **pre-visit hub** route (`/pay/pre`) — placeholder until appointment feed
+- [ ] Pre-visit estimates + **GFE / transparency** (legal review) — product story **with Pay** (`MODULES_CUSTOMER`); optional future `PRE` key
+- [ ] Omnichannel: email, **SMS (short code / 10DLC)**, paper (TCPA/CAN-SPAM)
 - [ ] Medical AI: explain line items + chat (**patient assistant** name from brand)
+
+## Dental vertical (Cedar Orthodontics–class)
+
+**Definition:** Same platform modules as acute care, **packaged and configured** for dental / ortho: **DMS/PMS** integrations, **CDT**-aligned billing and claim thinking, **treatment-plan** and **installment** patterns, **family/guarantor** statements — see **`docs/MODULES_CUSTOMER.md`** § *Dental vertical* and **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`** (dental patient slice).
+
+- [ ] **Entitlement** — optional dedicated **`DENTAL`** `ModuleKey` + admin UI (today: **`Tenant.settings`** / flags only)
+- [ ] **Connectors** — Dentrix-class and peer **dental PM** ingest paths (FHIR/export) documented beyond generic EHR; CDT line mapping in Build / Pay where needed
+- [ ] **Patient & staff UX** — dental-specific **Pay** copy/layout, schedule/installment overlays per **`PRODUCT_SURFACES_VISION`**
+- [ ] **GTM** — dental SKU / pilot SOW template distinct from hospital **`BUILD_PLAN.md` §11** when you open ortho/dental
 
 ## Coverage & aid (Cover)
 
+- [x] Staff intake queue + case statuses (`CoverAssistanceCase` — demo)
 - [ ] Medicaid / ACA workflows
 - [ ] Renewals + financial assistance screening
 - [ ] **Reactive** patient denials (CoB, dual coverage)
@@ -40,6 +54,7 @@
 
 ## Support & voice
 
+- [x] Support task queue + priorities (`SupportTask` — demo)
 - [ ] Agent workspace + copilot
 - [ ] Early-out / outbound campaigns
 - [ ] **Voice agent** (name from brand)

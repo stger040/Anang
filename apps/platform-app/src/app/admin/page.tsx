@@ -15,7 +15,15 @@ export default async function AdminHomePage() {
     <div className="space-y-6">
       <PageHeader
         title="Tenants"
-        description="Cross-tenant operator view. Add a new client by inserting a Tenant + ModuleEntitlement rows (or future admin API), then invite users."
+        description="Create organizations, set purchased modules, and add members. Staging sign-in uses the platform password until SSO is wired."
+        actions={
+          <Link
+            href="/admin/tenants/new"
+            className="inline-flex items-center justify-center rounded-lg border border-brand-coral-hover/30 bg-brand-coral px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-coral-hover"
+          >
+            New tenant
+          </Link>
+        }
       />
 
       <div className="grid gap-4">
@@ -38,11 +46,18 @@ export default async function AdminHomePage() {
                   {t._count.memberships} membership(s)
                 </p>
               </div>
-              <Link href={`/o/${t.slug}/dashboard`}>
-                <Button type="button" variant="secondary">
-                  Open workspace
-                </Button>
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link href={`/admin/tenants/${t.slug}`}>
+                  <Button type="button" variant="secondary">
+                    Manage
+                  </Button>
+                </Link>
+                <Link href={`/o/${t.slug}/dashboard`}>
+                  <Button type="button" variant="secondary">
+                    Open workspace
+                  </Button>
+                </Link>
+              </div>
             </div>
           </Card>
         ))}

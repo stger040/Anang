@@ -1,11 +1,22 @@
+import { auth } from "@/auth";
 import { SignOutButton } from "@/components/sign-out-button";
+import { AppRole } from "@prisma/client";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+  if (session.user.appRole !== AppRole.SUPER_ADMIN) {
+    redirect("/login?error=forbidden");
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">

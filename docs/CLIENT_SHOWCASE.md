@@ -1,121 +1,113 @@
-# Client showcase — demo the product today
+# Pilot runbook — access, URLs, smoke checks
 
-**Purpose:** Give founders and sales a **single place** for URLs, logins, a short demo path, and **honest** notes on what is product-ready vs scaffold — so you can meet clients without guessing.
+**Purpose:** Single reference for **staging / pilot** URLs, how operators sign in, and what to verify before a customer session. This is **not** a “demo-only” artifact — it matches how the platform runs while EHR and SSO are still being wired.
 
-**Related:** [`PLATFORM_OVERVIEW.md`](./PLATFORM_OVERVIEW.md) · [`PATH_TO_FULL_PRODUCT.md`](./PATH_TO_FULL_PRODUCT.md) (Cedar-class gap list + what you supply vs what we build) · [`TENANCY_AND_MODULES.md`](./TENANCY_AND_MODULES.md) · [`DEPLOYMENT.md`](./DEPLOYMENT.md) · [`EPIC_AND_TEST_DATA.md`](./EPIC_AND_TEST_DATA.md)
+**Related:** [`PLATFORM_OVERVIEW.md`](./PLATFORM_OVERVIEW.md) · [`MODULES_CUSTOMER.md`](./MODULES_CUSTOMER.md) · [`DEPLOYMENT.md`](./DEPLOYMENT.md) · [`MANUAL_SETUP_CHECKLIST.md`](./MANUAL_SETUP_CHECKLIST.md) · [`FOUNDER_BUILD_GUIDE.md`](./FOUNDER_BUILD_GUIDE.md) · [`EPIC_AND_TEST_DATA.md`](./EPIC_AND_TEST_DATA.md)
 
 ---
 
-## 1. What to show (public + product)
+## 1. Surfaces
 
 | Surface | Default URL | Role |
 |--------|-------------|------|
-| Marketing | `https://anang.ai` (or your Vercel URL) | Positioning, modules, pilot CTA |
-| Platform login | `https://app.anang.ai/login` | Demo auth + tier picker |
-| Platform health | `https://app.anang.ai/api/health` | JSON `{ ok, serviceId, ts }` — “is deploy alive?” |
-| Platform version | `https://app.anang.ai/api/version` | JSON `{ version, serviceId, commit? }` |
-| Integration snapshot | `https://app.anang.ai/api/integrations/status` | JSON lanes for EHR / payments / comms / clearinghouse (env-driven, no secrets) |
-
-Replace hosts with your real Vercel domains if different.
+| Marketing | `https://anang.ai` (or your Vercel URL) | Positioning, pilots |
+| Platform login | `https://app.anang.ai/login` (customer: `…/login?org={slug}`) | Auth.js: optional global OIDC + optional per-tenant OIDC + password policy |
+| Health | `https://app.anang.ai/api/health` | `{ ok, serviceId, ts }` |
+| Version | `https://app.anang.ai/api/version` | Build identity |
+| Integrations | `https://app.anang.ai/api/integrations/status` | Env-driven lanes (no secrets) |
 
 ---
 
-## 2. Prerequisites (non-negotiable for a real demo)
+## 2. Prerequisites
 
-| Requirement | Why it matters |
-|---------------|----------------|
-| **Postgres + `DATABASE_URL`** on the **platform** Vercel project | Without it, tenant routes error after login. |
-| **`npm run db:push`** (or migrate) **+ `npm run db:seed`** against **that same DB** once | Otherwise tables or demo rows are missing. |
-| **Marketing + platform** builds using monorepo root `npm ci` + workspace build (see `DEPLOYMENT.md`) | Wrong install dir = broken deploy. |
+| Requirement | Why |
+|-------------|-----|
+| **`DATABASE_URL`** (e.g. Neon) on the platform deploy | Tenant routes need Postgres. |
+| Schema + seed (or migrations) applied to **that** database | See [`FOUNDER_BUILD_GUIDE.md`](./FOUNDER_BUILD_GUIDE.md). |
+| Monorepo `npm ci` + workspace build on Vercel | See `DEPLOYMENT.md`. |
 
-These are the **main bottlenecks** if someone opens the app and sees errors: almost always missing DB URL, stale deploy, or seed not run.
+### Stripe (optional — test checkout)
 
----
-
-## 3. Demo logins (seeded)
-
-**Demo password:** whatever you set as `DEMO_LOGIN_PASSWORD` (default in docs is often `demo`). **Do not** use defaults in production without rotating.
-
-### Tier picker (`demo@anang.ai` + password + choose tier)
-
-Uses [`apps/platform-app/src/lib/demo-tiers.ts`](../apps/platform-app/src/lib/demo-tiers.ts) — maps tier → seeded user email.
-
-| Tier | Lands as | Story |
-|------|----------|--------|
-| **Enterprise** | LCO admin | All modules (`/o/lco/...`) |
-| **Growth** | Tamarack staff | Subset; first membership → **`/o/hayward/...`** (see below) |
-| **Essentials** | Demo tenant staff | Pay + Insight + Core (`/o/demo/...`) |
-| **Platform admin** | Super admin | `/admin` (tenant list, audit) |
-
-### Direct seeded emails (same demo password)
-
-| Email | Role | Typical first URL after login |
-|-------|------|-------------------------------|
-| `super@anang.internal` | Platform super admin | `/admin` |
-| `admin@lco.anang.demo` | Tenant admin (LCO) | `/o/lco/dashboard` |
-| `rcm@tamarack.anang.demo` | Staff (Tamarack) | `/o/hayward/dashboard` (Hayward row created before Ashland in seed) |
-| `viewer@demo.anang.demo` | Staff (demo tenant) | `/o/demo/dashboard` |
-
-**Tamarack two sites:** same display name **Tamarack Health**; slugs **`hayward`** and **`ashland`**. Same RCM user can open either: `/o/hayward/...` or `/o/ashland/...`.
-
-### Synthetic data
-
-All demo patients, encounters, claims, statements, etc. come from **[`apps/platform-app/prisma/seed.ts`](../apps/platform-app/prisma/seed.ts)** — **not PHI**. Say clearly: *“This is synthetic seed data for evaluation.”*
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_APP_ORIGIN` → Pay **Pay with Stripe (test)** on statements with balance. Production posture is counsel + live keys.
 
 ---
 
-## 4. Suggested 12‑minute demo script
+## 3. Sign-in
 
-1. **Marketing (1 min)** — Problem, modules, book a call / sign in.
-2. **Login (1 min)** — `demo@anang.ai`, pick **Enterprise**, land LCO.
-3. **Overview dashboard (1 min)** — `.../dashboard` — oriented around modules.
-4. **Build (3 min)** — Encounters list → open an encounter → claim draft / AI rationale copy (your differentiator vs “portal only”).
-5. **Pay (2 min)** — Statements → drill to balance / lines (no real card processing yet).
-6. **Connect (2 min)** — Claims list → one claim detail / timeline.
-7. **Insight (1 min)** — KPI-style page (depth varies).
-8. **Cover / Support (1 min)** — Open each; **say explicitly:** *“Workflow scaffold — roadmap matches Cedar-class coverage and ops surfaces.”*
-9. **Admin / settings (1 min)** — Tenant settings or `/admin` if super admin — entitlements, audit story.
+**Auth:** [Auth.js](https://authjs.dev) + **`/api/auth/[...nextauth]`**. Configure **`AUTH_SECRET`** everywhere. **Global** OIDC: **`AUTH_OIDC_*`**. **Per-tenant** OIDC + policy (`local_only` / `sso_allowed` / `sso_required`): admin UI + **`AUTH_OIDC_CLIENT_SECRET__…`**; see [`CLIENT_IT_OIDC_ONBOARDING.md`](./CLIENT_IT_OIDC_ONBOARDING.md). Staging password path remains for pilots without an IdP yet.
 
-**If the room is RCM-heavy:** spend more time on Build + Connect; if patient-experience-heavy, Pay + cover roadmap.
+**Virtual mailbox** (one email, profile picker → seeded operator row): set `PLATFORM_VIRTUAL_EMAIL` / `NEXT_PUBLIC_PLATFORM_VIRTUAL_EMAIL` (or legacy `DEMO_*` during migration). Default example: `access@anang.ai`.
 
----
+Profile mapping lives in [`apps/platform-app/src/lib/login-routing.ts`](../apps/platform-app/src/lib/login-routing.ts).
 
-## 5. Capability reality (set expectations)
+| Profile | Lands as | Tenant / scope |
+|---------|----------|----------------|
+| Health system | LCO admin | All modules — `/o/lco/...` |
+| Regional group | Tamarack staff | Subset — first membership → `/o/hayward/...` |
+| Pilot tenant | Pilot staff | Pay + Insight + Core — `/o/demo/...` |
+| Platform operator | Super admin | `/admin` |
 
-| Area | Today | Client message |
-|------|--------|----------------|
-| Multi-tenant shell, module gating | ✅ Working | “SKU honesty — you only buy what you use.” |
-| Build / Pay / Connect / Insight | ✅ MVP with seeded depth | “Live product shape; integrations come next.” |
-| Cover / Support | 🔲 Scaffold UI | “Same platform contract; workflows next.” |
-| Auth | Demo cookie / password | “SSO + IdP is the production path.” |
-| EHR / FHIR / clearinghouse | Not wired | “Your feed design during implementation.” |
-| Payments | Not production Stripe | “Gateway in pilot phase.” |
-| HIPAA / BAAs | Your legal/infra process | “Demo environment is not a HIPAA production.” |
+**Direct emails** (same staging password `PLATFORM_LOGIN_PASSWORD`, or legacy `DEMO_LOGIN_PASSWORD`):  
+`super@anang.internal`, `admin@lco.anang.demo`, `rcm@tamarack.anang.demo`, `viewer@demo.anang.demo`
 
-This is **enough to sell discovery and pilot**; it is **not** a go-live RCM replacement until integrations and compliance work are done.
+**Seed data** in `prisma/seed.ts` is **synthetic** (not PHI) until an EHR feed lands. Tenant **`settings.implementation`** in seed reflects **pilot 1** (LCO → Greenway/Intergy) vs **pilot 2** (Hayward/Ashland → Epic planned); see **`docs/PILOT_CONNECTOR_ROADMAP.md`**.
 
 ---
 
-## 6. Bottlenecks checklist (before a big meeting)
+## 4. Suggested walkthrough (product review)
 
-- [ ] `GET https://app.../api/health` returns `"ok": true`
-- [ ] Login works; `/o/lco/dashboard` loads without DB error
-- [ ] Seed has been run against **production** Neon (or demo DB), not only localhost
-- [ ] Decide whether to **rotate** demo password and share credentials **outside email** (1Password, etc.)
-- [ ] Calendly / contact links on marketing match your real booking flow (`NEXT_PUBLIC_ANANG_CALENDLY` etc.)
-
----
-
-## 7. After the demo (typical next steps)
-
-1. **Pilot SOW** — modules, sites, timeline (see `BUILD_PLAN.md` GTM sections).
-2. **Data** — which EHR, sandbox vs prod PHI, interface specs (`EPIC_AND_TEST_DATA.md`).
-3. **Environments** — staging tenant, SSO test, BAA package.
+1. Login → **Health system** profile → LCO dashboard  
+2. **Build** — encounter → draft / issues  
+3. **Pay** — statements → detail → optional Stripe test  
+4. **Cover** — assistance cases  
+5. **Support** — task queue  
+6. **Connect** — claim timeline  
+7. **Insight** — KPIs  
+8. **Settings / admin** — entitlements, audit  
 
 ---
 
-## 8. Cedar-aligned story (one sentence)
+## 5. Capability snapshot
 
-*“One patient financial platform: Pay-style billing, Cover-style coverage/denials positioning, Support-style ops — plus our Claims Build and Connect depth; demo shows the shell and the richest MVP routes.”*
+| Area | Status |
+|------|--------|
+| Multi-tenant + module gating | Shipped |
+| Per-staff module caps | Shipped — super-admin invite/add + **tenant admin Settings → Users** |
+| Build / Pay / Connect / Insight | Shipped (MVP depth) |
+| Cover / Support | Staff queues + intake (DB-backed) |
+| Auth | Auth.js — password + optional global / per-tenant OIDC |
+| EHR / clearinghouse | **Greenway / Intergy** FHIR lane env-scaffold + hub test (**pilot 1**); **Epic** (**pilot 2**, e.g. Tamarack) — plan only until App Orchard; clearinghouse still contract-gated — [`PILOT_CONNECTOR_ROADMAP.md`](./PILOT_CONNECTOR_ROADMAP.md) |
+| Stripe | Optional test Checkout + webhook |
 
-For more Cedar comparison, see **`IMPLEMENTATION_PLAN.md`** Part 0A and Cedar reference section.
+---
+
+## 6. GitHub, deploy, and testing as you (super-admin + staff + patient)
+
+**Push to GitHub (once):** Monorepo root is the git root (`DEPLOYMENT.md` § source control). Ensure **`.env`** files are **not** committed; use **`.env.example`** as the template. After `git push`, connect **two Vercel projects** (marketing + platform) with **Root Directory** `apps/marketing-site` / `apps/platform-app` and root **`npm ci`** / workspace **`build`** commands — **`DEPLOYMENT.md`** § Vercel.
+
+**Personal super-admin:** Add a `User` with `appRole: SUPER_ADMIN` (seed example: `super@anang.internal`, or create via Prisma admin path in **`FOUNDER_BUILD_GUIDE.md`**). Sign in at **`/login`** → **`/admin`** to create tenants, toggle **module entitlements**, invite staff, and inspect data you care about.
+
+**Clinic staff view:** Create or use a seeded **tenant admin** / **staff** user with **membership** on a tenant (e.g. `lco` seed: `admin@lco.anang.demo`). Open **`/o/{slug}/…`** — Build, Pay, Connect, Insight, Cover, Support, Settings — depending on that tenant’s **`ModuleEntitlement`** rows and any **staff module cap** (`TENANCY_AND_MODULES.md`).
+
+**Patient-style testing:** Patient flows use **magic links** and **`/p/{orgSlug}/…`** (and related APIs), not the staff workspace. Use seeded **Patient** + **statement** data and staff actions in **Pay** (“Create patient link” / similar) to generate URLs; second **email** is fine for **Auth.js staff** accounts, but **patient** sessions are **portal-cookie / link** based — see **`PATIENT_SCENARIOS_AND_MOBILE_APP.md`**.
+
+**PHI posture:** Treat any deploy with **real** clinic integrations or **live** Greenway tokens as **governed** (BAA, retention, no casual logging of payloads) — **`PLATFORM_LOGGING.md`**, **`DEPLOYMENT.md`**.
+
+**Greenway pilot ops:** **Settings → Implementation hub** shows **Recent Greenway activity** (audit). Scheduled **`/api/cron/greenway-fhir-sync`** (see **`apps/platform-app/vercel.json`**) can run **bulk** sync when **`GREENWAY_FHIR_CRON_PATIENT_IDS`** + tenant slug env are set — **`PILOT_CONNECTOR_ROADMAP.md`**.
+
+---
+
+## 7. Pre-flight checklist
+
+- [ ] `/api/health` OK  
+- [ ] Login → dashboard without DB errors  
+- [ ] Strong `PLATFORM_LOGIN_PASSWORD` on any shared environment  
+- [ ] Neon (or prod DB) has current schema  
+
+---
+
+## 8. Cedar-aligned positioning
+
+*Patient financial platform (Pay, Cover, Support, Pre) plus **Build** (denial prevention) and **Connect** (payer / EDI depth).*  
+
+Depth comparison: `IMPLEMENTATION_PLAN.md`, `PATH_TO_FULL_PRODUCT.md`.

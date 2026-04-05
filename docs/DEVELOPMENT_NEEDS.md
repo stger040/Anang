@@ -19,7 +19,8 @@ Use this as a working checklist. None of this blocks local coding on the repo; e
 
 - [ ] **Signed BAAs** with subprocessors you’ll use with PHI (hosting, DB, email/SMS, LLM if patient data hits the model).
 - [ ] **Domain strategy** — primary **anang.ai**; later customer vanity domains (e.g. `pay.healthsystem.org`) as needed.
-- [ ] **Stripe** (or chosen gateway) **business** account and test keys in `apps/web/.env`.
+- [ ] **Stripe** (or chosen gateway) **business** account and test keys in **`apps/platform-app/.env`** (and Vercel env for deploys).
+- [ ] **SMS / voice** vendor (e.g. **Twilio**) when you run **billing SMS** (short code / 10DLC, TCPA) — see `MANUAL_SETUP_CHECKLIST.md` and `PATIENT_SCENARIOS_AND_MOBILE_APP.md`.
 
 ---
 

@@ -1,3 +1,4 @@
+import { parseFhirVisitSummaryMeta } from "@/lib/fhir-visit-summary-meta";
 import { prisma } from "@/lib/prisma";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
 import Link from "next/link";
@@ -27,19 +28,20 @@ export default async function BuildQueuePage({
         description="AI-assisted claims preparation with documentation gaps, denial risk signals, and human approval before submission."
         actions={
           <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
-            Service layer mock · future: ICD/CPT models + payer rules
+            Rules + retrieval today · payer policy models ship with your rulesets
           </span>
         }
       />
 
       <Card className="overflow-hidden p-0">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-medium uppercase text-slate-500">
               <tr>
                 <th className="px-4 py-3">Patient</th>
                 <th className="px-4 py-3">DOS</th>
                 <th className="px-4 py-3">Chief complaint</th>
+                <th className="px-4 py-3">Source</th>
                 <th className="px-4 py-3">Review</th>
                 <th className="px-4 py-3">Draft</th>
                 <th className="px-4 py-3"></th>
@@ -48,6 +50,7 @@ export default async function BuildQueuePage({
             <tbody className="divide-y divide-slate-100">
               {encounters.map((e) => {
                 const d = e.drafts[0];
+                const fixtureMeta = parseFhirVisitSummaryMeta(e.visitSummary);
                 return (
                   <tr key={e.id} className="hover:bg-slate-50/80">
                     <td className="px-4 py-3 font-medium text-slate-900">
@@ -61,6 +64,21 @@ export default async function BuildQueuePage({
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       {e.chiefComplaint ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {fixtureMeta.isFhirFixtureImport ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge tone="default">FHIR import</Badge>
+                          {fixtureMeta.explanationOfBenefitResourceCount !=
+                          null ? (
+                            <Badge tone="info">
+                              EOB × {fixtureMeta.explanationOfBenefitResourceCount}
+                            </Badge>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <Badge

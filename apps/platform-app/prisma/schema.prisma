@@ -33,6 +33,23 @@ enum ClaimLifecycleStatus {
   APPEALED
 }
 
+/// Provenance for Build findings — rules must stay auditable without LLMs.
+enum ClaimIssueSource {
+  RULE
+  RETRIEVAL
+  MODEL
+  SEED
+}
+
+/// Internal canonical resource type for external identifier map (connector idempotency).
+enum CanonicalResourceType {
+  PATIENT
+  ENCOUNTER
+  CLAIM
+  STATEMENT
+  CLAIM_DRAFT
+}
+
 model Tenant {
   id           String   @id @default(cuid())
   slug         String   @unique
@@ -53,6 +70,91 @@ model Tenant {
   payments             Payment[]
   auditEvents          AuditEvent[]
   claimDrafts          ClaimDraft[]
+  coverAssistanceCases CoverAssistanceCase[]
+  supportTasks         SupportTask[]
+  userInvites          UserInvite[]
+  externalIdentifiers  ExternalIdentifier[]
+  ingestionBatches     IngestionBatch[]
+  sourceArtifacts      SourceArtifact[]
+  coverages            Coverage[]
+  buildRulePack        BuildRulePack?
+  buildKnowledgeChunks BuildKnowledgeChunk[]
+  buildDraftEvents     BuildDraftEvent[]
+  claim837EdiSubmissions Claim837EdiSubmission[]
+  remittance835s          Remittance835[]
+  claimAdjudications      ClaimAdjudication[]
+  remittanceAdjudicationLines RemittanceAdjudicationLine[]
+  remittanceAdjudicationAdjustments RemittanceAdjudicationAdjustment[]
+  statementPaymentPlans   StatementPaymentPlan[]
+  patientPushSubscriptions PatientPushSubscription[]
+  patientPortalIdentities  PatientPortalIdentity[]
+}
+
+/// Per-tenant calibration for deterministic Build rules (onboarding / shadow tuning).
+model BuildRulePack {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique
+  /// See `parseBuildRulePackConfig` — disabledRuleKeys, severityOverrides, optional notes.
+  config    Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/// Retrieval / reference text for Build (CPT/ICD education — not payer policy truth).
+model BuildKnowledgeChunk {
+  id          String   @id @default(cuid())
+  tenantId    String
+  /// cpt | icd10
+  kind        String
+  /// Normalized code, e.g. 93015 or I20.9
+  lookupKey   String
+  title       String
+  body        String   @db.Text
+  sourceLabel String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, kind, lookupKey])
+  @@index([tenantId, kind])
+}
+
+/// Audit trail for Build draft: rule syncs, approvals (B4).
+model BuildDraftEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  draftId     String
+  /// rules_synced | draft_approved
+  eventType   String
+  payload     Json     @default("{}")
+  actorUserId String?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  draft  ClaimDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, draftId])
+  @@index([draftId, createdAt])
+}
+
+/// One-time invite link: adds (or updates) tenant membership after sign-in. Token stored as hash only.
+model UserInvite {
+  id              String    @id @default(cuid())
+  tenantId        String
+  email           String
+  membershipRole  AppRole   @default(STAFF)
+  /// Copied to Membership.staffModuleAllowList when invite is fulfilled as STAFF. Empty = full module access for staff.
+  staffModuleAllowList ModuleKey[] @default([])
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([email])
 }
 
 model User {
@@ -70,6 +172,8 @@ model Membership {
   userId    String
   tenantId  String
   role      AppRole  @default(STAFF)
+  /// For STAFF only: optional subset of modules this user may use (intersected with tenant entitlements). Empty = all entitled modules.
+  staffModuleAllowList ModuleKey[] @default([])
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -94,13 +198,76 @@ model Patient {
   firstName String
   lastName  String
   dob       DateTime?
+  /// Administrative sex (EHR-style — not clinical gender identity).
+  sex                String?
+  phone              String?
+  email              String?
+  addressLine1       String?
+  addressLine2       String?
+  city               String?
+  state              String?
+  postalCode         String?
+  preferredLanguage  String?
+  /// Patient consented to transactional billing SMS (staff capture or future self-serve).
+  billingSmsOptInAt   DateTime?
+  /// Stops transactional billing SMS (STOP / staff).
+  billingSmsOptOutAt DateTime?
+  /// middle_initial, marital_status, deceased_flag, import metadata, etc.
+  demographicsExtra  Json     @default("{}")
+
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   encounters Encounter[]
-  statements Statement[]
-  claims     Claim[]
+  statements           Statement[]
+  claims               Claim[]
+  coverAssistanceCases CoverAssistanceCase[]
+  supportTasks         SupportTask[]
+  coverages            Coverage[]
+  portalIdentity       PatientPortalIdentity?
 
   @@index([tenantId])
+}
+
+/// Billing-portal actor for a patient — **not** a staff `User`. Magic-link session today; anchor for future passkeys / OIDC.
+model PatientPortalIdentity {
+  id        String @id @default(cuid())
+  tenantId  String
+  patientId String @unique
+  /// Last successful `patient-verify` step-up (DOB / account last-4) for portal cookie session.
+  lastSessionVerifiedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+/// Normalized payer / plan coverage row (Connect, Cover, estimates, Support).
+model Coverage {
+  id        String    @id @default(cuid())
+  tenantId  String
+  patientId String
+  /// self | spouse | child | other
+  subscriberRel String  @default("self")
+  payerName String
+  memberId  String?
+  groupNumber String?
+  planName  String?
+  /// primary | secondary | tertiary
+  priority    String   @default("primary")
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  /// active | inactive | unknown
+  status        String   @default("unknown")
+  rawMetadata   Json     @default("{}")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, patientId])
 }
 
 model Encounter {
@@ -115,7 +282,8 @@ model Encounter {
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   patient  Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  drafts   ClaimDraft[]
+  drafts    ClaimDraft[]
+  statements Statement[]
 
   @@index([tenantId])
 }
@@ -130,8 +298,9 @@ model ClaimDraft {
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   encounter Encounter  @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  lines     ClaimDraftLine[]
-  issues    ClaimIssue[]
+  lines             ClaimDraftLine[]
+  issues            ClaimIssue[]
+  buildDraftEvents  BuildDraftEvent[]
 
   @@index([tenantId])
 }
@@ -144,7 +313,7 @@ model ClaimDraftLine {
   modifier   String?
   units      Int        @default(1)
   chargeCents Int
-  /// Plain-language reason the mock AI surfaced this code
+  /// Plain-language rationale for the suggested code
   aiRationale String    @db.Text
 
   draft ClaimDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
@@ -158,8 +327,15 @@ model ClaimIssue {
   title           String
   detail          String     @db.Text
   explainability  String     @db.Text
+  /// Stable id for the emitting rule or check (e.g. build.cpt.required).
+  ruleKey         String?
+  issueSource     ClaimIssueSource?
+  /// Retrieval citations: [{ chunkId, title, excerpt, sourceLabel? }]
+  citations       Json     @default("[]")
 
   draft ClaimDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId, issueSource])
 }
 
 model Claim {
@@ -173,12 +349,173 @@ model Claim {
   paidCents    Int?
   denialReason String?
   submittedAt  DateTime?
+  /// Last inbound EDI pointers (277/835 trace, timestamps) — no raw PHI payload.
+  ediRefs      Json                 @default("{}")
 
   tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   patient  Patient?          @relation(fields: [patientId], references: [id])
-  timeline ClaimTimelineEvent[]
+  timeline               ClaimTimelineEvent[]
+  edi837Submissions      Claim837EdiSubmission[]
+  adjudications          ClaimAdjudication[]
 
+  @@unique([tenantId, claimNumber])
   @@index([tenantId])
+}
+
+/// ERA / 835-style remittance header bucket (normalized for Insight Connect QA — not a raw X12 payload).
+model Remittance835 {
+  id              String   @id @default(cuid())
+  tenantId        String
+  /// External stable key from ingestion (e.g. spreadsheet remittance_id).
+  remittanceKey   String
+  eraTraceNumber  String?
+  /// excel_synthetic | edi_835 | partner_api
+  source          String   @default("excel_synthetic")
+  importedAt      DateTime @default(now())
+  metadata        Json     @default("{}")
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  adjudications  ClaimAdjudication[]
+
+  @@unique([tenantId, remittanceKey])
+  @@index([tenantId])
+}
+
+/// Claim-level adjudication slice (paid/denied amounts, CARC-level summary at header where present).
+model ClaimAdjudication {
+  id                          String    @id @default(cuid())
+  tenantId                    String
+  remittance835Id             String
+  adjudicationKey             String
+  claimId                     String
+  encounterKey                String?
+  patientKey                  String?
+  providerKey                 String?
+  payerName                   String?
+  insuranceType               String?
+  claimSubmissionDate         DateTime?
+  adjudicationDate            DateTime?
+  paidDate                    DateTime?
+  adjudicationPhase           String?
+  claimStatusAtAdjudication   String?
+  payerClaimControlNumber     String?
+  allowedCents                Int       @default(0)
+  paidCents                   Int       @default(0)
+  patientResponsibilityCents  Int       @default(0)
+  deductibleCents             Int       @default(0)
+  copayCents                  Int       @default(0)
+  coinsuranceCents            Int       @default(0)
+  adjustmentCents             Int       @default(0)
+  denialCategory              String?
+  finalizedFlag               Boolean   @default(false)
+  appealEligibleFlag          Boolean   @default(false)
+  extra                       Json      @default("{}")
+
+  tenant           Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  remittance835    Remittance835                @relation(fields: [remittance835Id], references: [id], onDelete: Cascade)
+  claim            Claim                        @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  lines            RemittanceAdjudicationLine[]
+
+  @@unique([tenantId, adjudicationKey])
+  @@index([tenantId, claimId])
+  @@index([remittance835Id])
+}
+
+/// Service-line adjudication (CARC/RARC, line paid/allowed — drives denial analytics prototypes).
+model RemittanceAdjudicationLine {
+  id                          String    @id @default(cuid())
+  tenantId                    String
+  claimAdjudicationId         String
+  remittanceLineKey           String
+  claimLineKey                String?
+  encounterKey                String?
+  patientKey                  String?
+  providerKey                 String?
+  adjudicationDate            DateTime?
+  paidDate                    DateTime?
+  procedureCode               String?
+  procedureDescription        String?
+  lineBilledCents             Int       @default(0)
+  lineAllowedCents            Int       @default(0)
+  linePaidCents               Int       @default(0)
+  patientResponsibilityCents Int       @default(0)
+  adjustmentCents             Int       @default(0)
+  carcCode                    String?
+  carcDescription             String?
+  rarcCode                    String?
+  rarcDescription             String?
+  lineAdjudicationStatus      String?
+  denialCategory              String?
+  extra                       Json      @default("{}")
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  adjudication  ClaimAdjudication @relation(fields: [claimAdjudicationId], references: [id], onDelete: Cascade)
+  casAdjustments RemittanceAdjudicationAdjustment[]
+
+  @@unique([tenantId, remittanceLineKey])
+  @@index([tenantId, claimAdjudicationId])
+}
+
+/// CAS tuple / adjustment row (5010 835 — spreadsheet depth for CARC + amount per reason).
+model RemittanceAdjudicationAdjustment {
+  id                          String   @id @default(cuid())
+  tenantId                    String
+  remittanceAdjudicationLineId String
+  sequence                    Int
+  claimAdjustmentGroupCode    String
+  carcCode                    String
+  /// Signed cents as in file (contractual reductions often positive magnitude; PR often patient share).
+  adjustmentAmountCents       Int      @default(0)
+  quantity                    Int?
+  /// RARC codes (LQ*HE*) associated with this adjustment when segments follow CAS order.
+  rarcCodes                   Json     @default("[]")
+
+  tenant Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  line   RemittanceAdjudicationLine @relation(fields: [remittanceAdjudicationLineId], references: [id], onDelete: Cascade)
+
+  @@unique([remittanceAdjudicationLineId, sequence])
+  @@index([tenantId, remittanceAdjudicationLineId])
+}
+
+/// Patient PWA web-push endpoint (optional; enable only after legal / care-team review).
+model PatientPushSubscription {
+  id         String   @id @default(cuid())
+  tenantId   String
+  orgSlug    String
+  endpoint   String
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, endpoint])
+  @@index([tenantId])
+}
+
+/// Outbound 837 correlation (manual or partner-reported) — not a generated X12 payload.
+model Claim837EdiSubmission {
+  id                          String    @id @default(cuid())
+  tenantId                    String
+  claimId                     String
+  interchangeControlNumber    String?
+  groupControlNumber          String?
+  transactionSetControlNumber String?
+  submitterTraceNumber        String?
+  payerClaimControlRef        String?
+  clearinghouseLabel          String?
+  notes                       String?   @db.Text
+  metadata                    Json      @default("{}")
+  recordedAt                  DateTime  @default(now())
+  recordedByUserId            String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  claim  Claim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, claimId])
+  @@index([claimId, recordedAt])
 }
 
 model ClaimTimelineEvent {
@@ -195,6 +532,8 @@ model Statement {
   id           String   @id @default(cuid())
   tenantId     String
   patientId    String
+  /// Optional link to the visit that produced this statement (FHIR import, PM ingest).
+  encounterId  String?
   number       String
   totalCents   Int
   balanceCents Int
@@ -203,10 +542,58 @@ model Statement {
 
   tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   patient  Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  lines    StatementLine[]
-  payments Payment[]
+  encounter Encounter?     @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  lines         StatementLine[]
+  payments      Payment[]
+  supportTasks  SupportTask[]
+  paymentPlan   StatementPaymentPlan?
 
   @@index([tenantId])
+  @@index([encounterId])
+}
+
+/// Staff-offered installment schedule for patient pay (acknowledgement on `/p/...`).
+model StatementPaymentPlan {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  statementId           String    @unique
+  label                 String    @default("Payment plan")
+  /// offered | acknowledged | cancelled
+  status                String    @default("offered")
+  installmentCount      Int
+  intervalWeeks         Int       @default(4)
+  perInstallmentCents   Int
+  firstDueDate          DateTime
+  patientAcknowledgedAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  tenant         Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  statement      Statement                @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  installments   PaymentPlanInstallment[]
+
+  @@index([tenantId])
+}
+
+model PaymentPlanInstallment {
+  id             String   @id @default(cuid())
+  planId         String
+  sequence       Int
+  dueDate        DateTime
+  amountCents    Int
+  /// Cumulative amount applied toward this installment (partial pays).
+  satisfiedCents Int      @default(0)
+  /// Posted payment that satisfied this installment (may be shared intent across lines in future).
+  paymentId      String?
+  /// scheduled | paid | skipped
+  status         String   @default("scheduled")
+
+  plan    StatementPaymentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  payment Payment?            @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@unique([planId, sequence])
+  @@index([planId])
+  @@index([paymentId])
 }
 
 model StatementLine {
@@ -220,16 +607,67 @@ model StatementLine {
 }
 
 model Payment {
-  id          String   @id @default(cuid())
+  id                      String   @id @default(cuid())
+  tenantId                String
+  statementId             String?
+  amountCents             Int
+  status                  String
+  method                  String?
+  paidAt                  DateTime?
+  /// Set when checkout originated from Stripe (webhook idempotency).
+  stripeCheckoutSessionId String?  @unique
+
+  tenant                     Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  statement                  Statement?                @relation(fields: [statementId], references: [id])
+  allocatedPlanInstallments  PaymentPlanInstallment[]
+}
+
+/// Staff queue for Cover — financial assistance, marketplace, Medicaid info, etc.
+model CoverAssistanceCase {
+  id                String   @id @default(cuid())
+  tenantId          String
+  patientId         String
+  /// financial_assistance | coverage_marketplace | medicaid_info | charity_care | other
+  track             String
+  /// submitted | in_review | approved | denied | needs_info | closed
+  status            String   @default("submitted")
+  householdSize     Int?
+  annualIncomeCents Int?
+  notes             String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+/// Staff Support queue — billing follow-ups, callbacks, plan setup.
+model SupportTask {
+  id          String    @id @default(cuid())
   tenantId    String
+  patientId   String?
   statementId String?
-  amountCents Int
-  status      String
-  method      String?
-  paidAt      DateTime?
+  title       String
+  detail      String?   @db.Text
+  /// open | in_progress | waiting_patient | resolved
+  status      String    @default("open")
+  /// low | normal | high | urgent
+  priority    String    @default("normal")
+  /// billing_question | payment_plan | coverage | other
+  category    String?
+  dueAt       DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  statement Statement? @relation(fields: [statementId], references: [id])
+  patient   Patient?   @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  statement Statement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
 }
 
 model AuditEvent {
@@ -242,4 +680,56 @@ model AuditEvent {
   createdAt   DateTime @default(now())
 
   tenant Tenant? @relation(fields: [tenantId], references: [id])
+}
+
+/// Connector / import batch — raw-ingest bookkeeping (expand per CONNECTOR_STRATEGY).
+model IngestionBatch {
+  id            String   @id @default(cuid())
+  tenantId      String
+  connectorKind String
+  note          String?
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sourceArtifact  SourceArtifact?
+
+  @@index([tenantId])
+  @@index([tenantId, connectorKind])
+}
+
+/// Raw ingest fingerprint + optional inline payload (see FHIR_IMPORT_MAX_INLINE_PAYLOAD_BYTES).
+model SourceArtifact {
+  id               String   @id @default(cuid())
+  tenantId         String
+  ingestionBatchId String   @unique
+  /// e.g. fhir_r4_bundle_json | csv_upload
+  kind             String
+  sha256Hex        String
+  byteLength       Int
+  textPayload      String?  @db.Text
+  /// s3://… or vendor handle when inline storage is skipped
+  storageUri       String?
+  createdAt        DateTime @default(now())
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ingestionBatch  IngestionBatch  @relation(fields: [ingestionBatchId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, sha256Hex])
+}
+
+/// Maps vendor/FHIR/source ids to canonical rows for idempotent upserts (expand A3).
+model ExternalIdentifier {
+  id           String               @id @default(cuid())
+  tenantId     String
+  resourceType CanonicalResourceType
+  resourceId   String
+  system       String
+  value        String
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, resourceType, system, value])
+  @@index([tenantId, resourceType, resourceId])
 }

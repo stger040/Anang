@@ -1,6 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
+import { AppRole } from "@prisma/client";
 import Link from "next/link";
+
+import { StaffModuleAccessEditor } from "./staff-module-access-editor";
+
+function staffModuleAccessLabel(
+  role: AppRole,
+  allowList: { length: number },
+): string {
+  if (role !== AppRole.STAFF) return "—";
+  if (allowList.length === 0) return "All entitled modules";
+  return `${allowList.length} module(s) restricted`;
+}
 
 export default async function TenantUsersPage({
   params,
@@ -38,6 +50,7 @@ export default async function TenantUsersPage({
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Tenant role</th>
+              <th className="px-4 py-3">Staff module access</th>
               <th className="px-4 py-3">Global role</th>
             </tr>
           </thead>
@@ -53,6 +66,9 @@ export default async function TenantUsersPage({
                 <td className="px-4 py-3">
                   <Badge tone="teal">{m.role}</Badge>
                 </td>
+                <td className="px-4 py-3 text-xs text-slate-600">
+                  {staffModuleAccessLabel(m.role, m.staffModuleAllowList)}
+                </td>
                 <td className="px-4 py-3">
                   <Badge tone="default">{m.user.appRole}</Badge>
                 </td>
@@ -61,6 +77,32 @@ export default async function TenantUsersPage({
           </tbody>
         </table>
       </Card>
+
+      {memberships.some((m) => m.role === AppRole.STAFF) ? (
+        <Card className="p-5">
+          <h2 className="text-sm font-semibold text-slate-900">
+            Staff module restrictions
+          </h2>
+          <p className="mt-2 text-xs text-slate-600">
+            Limit which product areas each <strong>staff</strong> member can open
+            (sidebar + APIs). Leave all boxes unchecked for full access to every
+            module this tenant has purchased. Tenant admins are not restricted.
+          </p>
+          <div className="mt-4 space-y-4 divide-y divide-slate-100">
+            {memberships
+              .filter((m) => m.role === AppRole.STAFF)
+              .map((m) => (
+                <StaffModuleAccessEditor
+                  key={`${m.id}-${[...m.staffModuleAllowList].sort().join(",")}`}
+                  orgSlug={orgSlug}
+                  membershipId={m.id}
+                  userEmail={m.user.email}
+                  defaultAllowList={[...m.staffModuleAllowList]}
+                />
+              ))}
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }

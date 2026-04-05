@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/greenway-fhir-sync",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}

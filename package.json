@@ -12,9 +12,13 @@
     "dev:platform": "npm run dev -w @anang/platform-app",
     "build": "npm run build -w @anang/marketing-site && npm run build -w @anang/platform-app",
     "lint": "npm run lint -w @anang/marketing-site && npm run lint -w @anang/platform-app",
+    "test": "npm run test -w @anang/platform-app",
     "db:generate": "npm run db:generate -w @anang/platform-app",
     "db:push": "npm run db:push -w @anang/platform-app",
     "db:migrate": "npm run db:migrate -w @anang/platform-app",
+    "db:migrate:deploy": "npm run db:migrate:deploy -w @anang/platform-app",
+    "db:migrate:deploy:neon": "npm run db:migrate:deploy:neon -w @anang/platform-app",
+    "db:import:xlsx:enrich:neon": "npm run db:import:xlsx:enrich:neon -w @anang/platform-app",
     "db:seed": "npm run db:seed -w @anang/platform-app",
     "db:studio": "npm run db:studio -w @anang/platform-app",
     "db:validate": "npm run db:validate -w @anang/platform-app"
