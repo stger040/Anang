@@ -1,7 +1,12 @@
 import { AppRole, type ModuleKey } from "@prisma/client";
+import { unlockAllModulesForTesting } from "@/lib/auth-config";
 import { computeEffectiveModules } from "@/lib/effective-modules";
 import { prisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/session";
+
+function allEntitledModuleKeys(): Set<ModuleKey> {
+  return new Set(Object.values(ModuleKey) as ModuleKey[]);
+}
 
 export type TenantNavContext = {
   tenant: {
@@ -38,10 +43,15 @@ export async function loadTenantNav(
     },
   });
   if (!tenant) return null;
-  const enabledModules = new Set<ModuleKey>();
-  for (const e of tenant.moduleEntitlements) {
-    if (e.enabled) enabledModules.add(e.module);
-  }
+  const enabledModules = unlockAllModulesForTesting()
+    ? allEntitledModuleKeys()
+    : (() => {
+        const set = new Set<ModuleKey>();
+        for (const e of tenant.moduleEntitlements) {
+          if (e.enabled) set.add(e.module);
+        }
+        return set;
+      })();
   return {
     tenant: {
       id: tenant.id,
@@ -68,11 +78,15 @@ export async function assertOrgAccess(
 
   if (session.appRole === AppRole.SUPER_ADMIN) {
     const membershipRole = membership?.role ?? null;
-    const effectiveModules = computeEffectiveModules(session, ctx.enabledModules, membership);
+    const effectiveModules = unlockAllModulesForTesting()
+      ? allEntitledModuleKeys()
+      : computeEffectiveModules(session, ctx.enabledModules, membership);
     return { ...ctx, membershipRole, effectiveModules };
   }
   if (!membership) return null;
-  const effectiveModules = computeEffectiveModules(session, ctx.enabledModules, membership);
+  const effectiveModules = unlockAllModulesForTesting()
+    ? allEntitledModuleKeys()
+    : computeEffectiveModules(session, ctx.enabledModules, membership);
   return {
     ...ctx,
     membershipRole: membership.role,

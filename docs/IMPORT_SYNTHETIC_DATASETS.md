@@ -1,6 +1,6 @@
 # Import synthetic Excel datasets Prisma/Postgres (Neon or local)
 
-This is **reusable testing infrastructure**: the importer targets a tenant (default **`synthetic-rcm`**) and is safe to rerun when you follow the flags below.
+This is **reusable testing infrastructure**: the importer targets a tenant (default **`synthetic-test`**) and is safe to rerun when you follow the flags below.
 
 **Money:** dollar columns in these spreadsheets are treated as **whole USD** integers and stored as **cents** (×100), consistent with the rest of the platform.
 
@@ -118,7 +118,7 @@ This is **reusable testing infrastructure**: the importer targets a tenant (defa
 
 | Variable | Default / fallback |
 |----------|-------------------|
-| `IMPORT_TENANT_SLUG` | `synthetic-rcm` |
+| `IMPORT_TENANT_SLUG` | `synthetic-test` |
 | `REALISTIC_CLAIMS_XLSX` | `%USERPROFILE%\Downloads\claims_data_realistic.xlsx` |
 | `REALISTIC_ENCOUNTERS_XLSX` | `ehr_encounters_realistic.xlsx` |
 | `REALISTIC_LINES_XLSX` | `claim_lines_realistic.xlsx` |
@@ -167,7 +167,7 @@ After a full run you should see log lines similar to:
 - `Creating N patients…`
 - `Demographics: updated X patients; skipped Y …`
 - `Remittance: claim adjudications upserted A, skipped B …; line rows C, skipped D.`
-- `Done. Tenant slug: synthetic-rcm …`
+- `Done. Tenant slug: synthetic-test …`
 
 High **skipped** counts on remittance usually mean claims are not in `Claim` yet (wrong tenant, or import order).
 
@@ -179,28 +179,28 @@ Replace slug if needed.
 
 ```sql
 -- Tenant id
-SELECT id, slug FROM "Tenant" WHERE slug = 'synthetic-rcm';
+SELECT id, slug FROM "Tenant" WHERE slug = 'synthetic-test';
 
 -- Patients with email populated (after demographics)
 SELECT count(*) FROM "Patient" p
 JOIN "Tenant" t ON t.id = p."tenantId"
-WHERE t.slug = 'synthetic-rcm' AND p.email IS NOT NULL;
+WHERE t.slug = 'synthetic-test' AND p.email IS NOT NULL;
 
 -- Remittance headers
 SELECT count(*) FROM "Remittance835" r
 JOIN "Tenant" t ON t.id = r."tenantId"
-WHERE t.slug = 'synthetic-rcm';
+WHERE t.slug = 'synthetic-test';
 
 -- Claim adjudications joined to claim number
 SELECT count(*) FROM "ClaimAdjudication" a
 JOIN "Tenant" t ON t.id = a."tenantId"
 JOIN "Claim" c ON c.id = a."claimId"
-WHERE t.slug = 'synthetic-rcm';
+WHERE t.slug = 'synthetic-test';
 
 -- Line-level CARC presence
 SELECT count(*) FROM "RemittanceAdjudicationLine" l
 JOIN "Tenant" t ON t.id = l."tenantId"
-WHERE t.slug = 'synthetic-rcm' AND l."carcCode" IS NOT NULL;
+WHERE t.slug = 'synthetic-test' AND l."carcCode" IS NOT NULL;
 ```
 
 ---

@@ -335,7 +335,7 @@ If either command errors, read the message: common fixes are a typo in the URL, 
 
 **D. Smoke test**
 
-Open `https://app.anang.ai/login` (or your platform URL) and sign in per [`TENANCY_AND_MODULES.md`](./TENANCY_AND_MODULES.md): virtual mailbox `access@anang.ai` (or your `PLATFORM_VIRTUAL_EMAIL`) with **`PLATFORM_LOGIN_PASSWORD`** (legacy defaults included in dev only — change in deploy).
+Open `https://app.anang.ai/login` (or your platform URL) and sign in per [`TENANCY_AND_MODULES.md`](./TENANCY_AND_MODULES.md): optional virtual mailbox `support@anang.ai` (or your `PLATFORM_VIRTUAL_EMAIL`) with **`PLATFORM_LOGIN_PASSWORD`** for pilot password auth — change in deploy; prefer real user emails from **`/admin`** for day-to-day testing.
 
 ---
 

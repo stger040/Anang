@@ -636,7 +636,7 @@ async function main() {
   const tenantSlug =
     process.env.IMPORT_TENANT_SLUG?.trim() ||
     process.argv.find((a) => a.startsWith("--tenant="))?.slice("--tenant=".length) ||
-    "synthetic-rcm";
+    "synthetic-test";
 
   if (enrichOnly) {
     if (replace) {
@@ -686,7 +686,7 @@ async function main() {
   let tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
   if (!tenant) {
     const display =
-      tenantSlug === "synthetic-rcm"
+      tenantSlug === "synthetic-test"
         ? "Synthetic RCM (Excel import)"
         : `Import tenant (${tenantSlug})`;
     const created = await prisma.tenant.create({

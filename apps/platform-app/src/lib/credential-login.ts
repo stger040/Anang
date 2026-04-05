@@ -35,8 +35,11 @@ export async function resolveCredentialLogin(input: {
 
   if (emailRaw === virtualEmail) {
     if (password !== platformPw) return null;
-    if (!isValidProfile(input.accessProfile)) return null;
-    targetEmail = PROFILE_TO_USER_EMAIL[input.accessProfile];
+    const profile =
+      input.accessProfile && isValidProfile(input.accessProfile)
+        ? input.accessProfile
+        : "enterprise";
+    targetEmail = PROFILE_TO_USER_EMAIL[profile];
   } else {
     if (password !== platformPw) return null;
     targetEmail = emailRaw;

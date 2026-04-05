@@ -1,6 +1,7 @@
 /**
- * Maps the login “profile” picker to seeded operator accounts (pilot / staging).
- * Replace with IdP group → tenant mapping in production.
+ * Virtual-email pilot mapping (`PROFILE_TO_USER_EMAIL`) and optional `accessProfile`
+ * in credentials authorize. The sign-in UI uses real emails only; virtual mailbox
+ * defaults to `enterprise` when no profile is sent.
  */
 
 export const ACCESS_PROFILE_OPTIONS = [
@@ -49,8 +50,8 @@ export const ACCESS_PROFILE_OPTIONS = [
 export type AccessProfileId = (typeof ACCESS_PROFILE_OPTIONS)[number]["id"];
 
 export const PROFILE_TO_USER_EMAIL: Record<AccessProfileId, string> = {
-  enterprise: "admin@lco.anang.demo",
-  growth: "rcm@tamarack.anang.demo",
-  essentials: "viewer@demo.anang.demo",
-  platform_admin: "super@anang.internal",
+  enterprise: "rick@anang.ai",
+  growth: "rick@stginnovation.com",
+  essentials: "rick@stginnovation.com",
+  platform_admin: "rick@anang.ai",
 };

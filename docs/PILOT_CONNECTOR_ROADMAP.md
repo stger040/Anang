@@ -30,12 +30,11 @@
 
 ---
 
-## Seed / demo tenants (storytelling)
+## Seed / demo tenants
 
-| Slug | EHR note in seed `settings.implementation` |
-|------|---------------------------------------------|
-| `lco` | Greenway / Intergy pilot framing |
-| `hayward`, `ashland` | Tamarack — Epic planned (P2) |
+| Slug | Notes |
+|------|--------|
+| `synthetic-test` | Single org in `prisma/seed.ts`; all modules; replace with customer tenant via **`/admin`** for pilots |
 
 ---
 

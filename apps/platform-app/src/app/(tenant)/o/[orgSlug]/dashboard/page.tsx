@@ -1,6 +1,8 @@
-import { prisma } from "@/lib/prisma";
+import { ModuleKey } from "@prisma/client";
 import { PageHeader, StatCard, Card, Badge } from "@anang/ui";
 import Link from "next/link";
+import { unlockAllModulesForTesting } from "@/lib/auth-config";
+import { prisma } from "@/lib/prisma";
 
 export default async function DashboardPage({
   params,
@@ -36,7 +38,9 @@ export default async function DashboardPage({
     _sum: { balanceCents: true },
   });
 
-  const mods = tenant.moduleEntitlements.map((e) => e.module);
+  const mods = unlockAllModulesForTesting()
+    ? (Object.values(ModuleKey) as ModuleKey[])
+    : tenant.moduleEntitlements.map((e) => e.module);
 
   return (
     <div className="space-y-8">

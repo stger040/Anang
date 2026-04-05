@@ -70,26 +70,18 @@ Route groups under `/o/[orgSlug]/*/layout.tsx` call **`requireModuleForSession`*
 
 | Slug | Story |
 |------|--------|
-| `lco` | **LCO Health Center** — all modules enabled for full-platform pilots |
-| `hayward` | **Tamarack Health** (Hayward site) — Build + Pay + Insight + Core (no Connect / Support / Cover) |
-| `ashland` | **Tamarack Health** (Ashland site) — same module mix; distinct org slug for multi-site rollouts |
-| `demo` | **Pilot Regional** — Pay + Insight + Core only (slug is historical; routes live at `/o/demo/...`) |
+| `synthetic-test` | **Synthetic-test** — single seeded org; **all modules** enabled; synthetic clinical/RCM rows only |
 
-**Product sign-in (`/login`)** uses email + password with an **access profile** picker when the email matches the configured **virtual mailbox** (no inbox required):
+**Product sign-in (`/login`)** uses **email + password** (and optional SSO). **Virtual mailbox** (optional): when the email matches `PLATFORM_VIRTUAL_EMAIL` / `NEXT_PUBLIC_PLATFORM_VIRTUAL_EMAIL` (default **`support@anang.ai`**) and the user enters `PLATFORM_LOGIN_PASSWORD`, the server maps to a real `User` via `login-routing.ts` (default profile → super admin in current seed). Prefer **real addresses** registered in the database.
 
-- Virtual email: set `PLATFORM_VIRTUAL_EMAIL` and `NEXT_PUBLIC_PLATFORM_VIRTUAL_EMAIL` (defaults: `access@anang.ai`). Legacy `DEMO_LOGIN_*` / `NEXT_PUBLIC_DEMO_LOGIN_*` still work during migration.
 - Password: `PLATFORM_LOGIN_PASSWORD` (legacy: `DEMO_LOGIN_PASSWORD`). **Change the default** in any shared or production-adjacent deploy.
-- **Enterprise** → LCO (all modules). **Growth** → Tamarack staff. **Essentials** → Pilot Regional (`/o/demo/...`). **Platform admin** → super admin (`/admin`).
 
-Anyone can sign in with a **seeded email** directly (same staging password); the profile picker applies only to the virtual mailbox address.
+**Current seed operator emails** (`prisma/seed.ts`):
 
-Seeded operator emails (`.anang.demo` is a **non-production** domain marker in seed data):
+- **`rick@anang.ai`** — `User.appRole` **SUPER_ADMIN**; **membership** as **tenant admin** on `synthetic-test`
+- **`rick@stginnovation.com`** — **STAFF** on `synthetic-test`
 
-- `super@anang.internal` — platform super admin
-- `admin@lco.anang.demo` — LCO tenant admin
-- `support-frontline@lco.anang.demo` — LCO **restricted staff** (`staffModuleAllowList`: Pay, Cover, Support only — no Build / Connect / Insight)
-- `rcm@tamarack.anang.demo` — Tamarack staff (memberships on **hayward** and **ashland**; first-login redirect uses `/o/hayward/...` by membership order)
-- `viewer@demo.anang.demo` — Pilot Regional staff
+**Patient (not a staff `User`):** e.g. **`stger040@gmail.com`** on **`Patient.email`** for **`Sam TestPatient`** — use Pay / portal links, not `/login`.
 
 ## Patient portal identity (vs staff `User`)
 

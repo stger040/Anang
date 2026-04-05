@@ -36,34 +36,24 @@
 
 **Auth:** [Auth.js](https://authjs.dev) + **`/api/auth/[...nextauth]`**. Configure **`AUTH_SECRET`** everywhere. **Global** OIDC: **`AUTH_OIDC_*`**. **Per-tenant** OIDC + policy (`local_only` / `sso_allowed` / `sso_required`): admin UI + **`AUTH_OIDC_CLIENT_SECRET__…`**; see [`CLIENT_IT_OIDC_ONBOARDING.md`](./CLIENT_IT_OIDC_ONBOARDING.md). Staging password path remains for pilots without an IdP yet.
 
-**Virtual mailbox** (one email, profile picker → seeded operator row): set `PLATFORM_VIRTUAL_EMAIL` / `NEXT_PUBLIC_PLATFORM_VIRTUAL_EMAIL` (or legacy `DEMO_*` during migration). Default example: `access@anang.ai`.
+**Virtual mailbox** (optional pilot: shared password maps to a real `User` row via server default profile): set `PLATFORM_VIRTUAL_EMAIL` / `NEXT_PUBLIC_PLATFORM_VIRTUAL_EMAIL`. Default in repo: `support@anang.ai`.
 
-Profile mapping lives in [`apps/platform-app/src/lib/login-routing.ts`](../apps/platform-app/src/lib/login-routing.ts).
+Server-side profile mapping (virtual mailbox only) lives in [`apps/platform-app/src/lib/login-routing.ts`](../apps/platform-app/src/lib/login-routing.ts). Prefer signing in with **your real user email** (same `PLATFORM_LOGIN_PASSWORD` until SSO).
 
-| Profile | Lands as | Tenant / scope |
-|---------|----------|----------------|
-| Health system | LCO admin | All modules — `/o/lco/...` |
-| Regional group | Tamarack staff | Subset — first membership → `/o/hayward/...` |
-| Pilot tenant | Pilot staff | Pay + Insight + Core — `/o/demo/...` |
-| Platform operator | Super admin | `/admin` |
-
-**Direct emails** (same staging password `PLATFORM_LOGIN_PASSWORD`, or legacy `DEMO_LOGIN_PASSWORD`):  
-`super@anang.internal`, `admin@lco.anang.demo`, `rcm@tamarack.anang.demo`, `viewer@demo.anang.demo`
-
-**Seed data** in `prisma/seed.ts` is **synthetic** (not PHI) until an EHR feed lands. Tenant **`settings.implementation`** in seed reflects **pilot 1** (LCO → Greenway/Intergy) vs **pilot 2** (Hayward/Ashland → Epic planned); see **`docs/PILOT_CONNECTOR_ROADMAP.md`**.
+**Seed (`prisma/seed.ts`):** one tenant **`synthetic-test`** — staff users **`rick@anang.ai`** (super admin + tenant admin membership) and **`rick@stginnovation.com`** (staff). **Patient** row **`stger040@gmail.com`** (Sam TestPatient) for Pay / portal rehearsal. All modules enabled on the tenant. Re-run seed after pulling: `npm run db:seed -w @anang/platform-app` (or your Neon seed script).
 
 ---
 
 ## 4. Suggested walkthrough (product review)
 
-1. Login → **Health system** profile → LCO dashboard  
+1. Sign in → **`rick@anang.ai`** (super admin) → **`/admin`**, or **`rick@stginnovation.com`** → **`/o/synthetic-test/dashboard`**.  
 2. **Build** — encounter → draft / issues  
-3. **Pay** — statements → detail → optional Stripe test  
+3. **Pay** — statements → detail → optional Stripe test (patient with Gmail on file)  
 4. **Cover** — assistance cases  
 5. **Support** — task queue  
 6. **Connect** — claim timeline  
 7. **Insight** — KPIs  
-8. **Settings / admin** — entitlements, audit  
+8. **Settings** (tenant admin) — users, entitlements ; super admin → **`/admin`**  
 
 ---
 
@@ -85,9 +75,9 @@ Profile mapping lives in [`apps/platform-app/src/lib/login-routing.ts`](../apps/
 
 **Push to GitHub (once):** Monorepo root is the git root (`DEPLOYMENT.md` § source control). Ensure **`.env`** files are **not** committed; use **`.env.example`** as the template. After `git push`, connect **two Vercel projects** (marketing + platform) with **Root Directory** `apps/marketing-site` / `apps/platform-app` and root **`npm ci`** / workspace **`build`** commands — **`DEPLOYMENT.md`** § Vercel.
 
-**Personal super-admin:** Add a `User` with `appRole: SUPER_ADMIN` (seed example: `super@anang.internal`, or create via Prisma admin path in **`FOUNDER_BUILD_GUIDE.md`**). Sign in at **`/login`** → **`/admin`** to create tenants, toggle **module entitlements**, invite staff, and inspect data you care about.
+**Personal super-admin:** Seed includes **`rick@anang.ai`** with **`SUPER_ADMIN`**. Sign in at **`/login`** → **`/admin`** to manage tenants, entitlements, and invites. Open **`/o/synthetic-test/...`** from admin when you want the clinic workspace.
 
-**Clinic staff view:** Create or use a seeded **tenant admin** / **staff** user with **membership** on a tenant (e.g. `lco` seed: `admin@lco.anang.demo`). Open **`/o/{slug}/…`** — Build, Pay, Connect, Insight, Cover, Support, Settings — depending on that tenant’s **`ModuleEntitlement`** rows and any **staff module cap** (`TENANCY_AND_MODULES.md`).
+**Clinic staff view:** Seed includes **`rick@stginnovation.com`** as **`STAFF`** on **`synthetic-test`**. After sign-in you land on **`/o/synthetic-test/dashboard`**. Module visibility follows entitlements and optional allow-lists (`TENANCY_AND_MODULES.md`).
 
 **Patient-style testing:** Patient flows use **magic links** and **`/p/{orgSlug}/…`** (and related APIs), not the staff workspace. Use seeded **Patient** + **statement** data and staff actions in **Pay** (“Create patient link” / similar) to generate URLs; second **email** is fine for **Auth.js staff** accounts, but **patient** sessions are **portal-cookie / link** based — see **`PATIENT_SCENARIOS_AND_MOBILE_APP.md`**.
 
