@@ -1,4 +1,4 @@
-import { AppRole, type ModuleKey } from "@prisma/client";
+import { AppRole, ModuleKey } from "@prisma/client";
 import { unlockAllModulesForTesting } from "@/lib/auth-config";
 import { computeEffectiveModules } from "@/lib/effective-modules";
 import { prisma } from "@/lib/prisma";
