@@ -11,12 +11,11 @@ import { postSignInPath } from "@/lib/post-signin-url";
 import { platformLog, readRequestId } from "@/lib/platform-log";
 import { tenantPrisma } from "@/lib/prisma";
 import { validateTenantSlug } from "@/lib/platform-slug";
+import { parseTenantAuthSettings, tenantOidcSecretFromEnv } from "@/lib/tenant-auth-settings";
 import {
   loadTenantAuthRow,
-  parseTenantAuthSettings,
   tenantJitMembershipAppRole,
-  tenantOidcSecretFromEnv,
-} from "@/lib/tenant-auth-settings";
+} from "@/lib/tenant-auth-queries";
 import { AppRole } from "@prisma/client";
 
 export const dynamic = "force-dynamic";

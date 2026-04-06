@@ -3,10 +3,6 @@
  * Client secrets never belong in Tenant.settings — use env vars (see clientSecretEnvKey).
  */
 
-import { AppRole } from "@prisma/client";
-import { tenantPrisma } from "@/lib/prisma";
-import { validateTenantSlug } from "@/lib/platform-slug";
-
 export const TENANT_AUTH_POLICIES = [
   "local_only",
   "sso_allowed",
@@ -79,23 +75,6 @@ export function parseTenantAuthSettings(raw: unknown): TenantAuthSettingsV1 {
   };
 }
 
-export function tenantJitMembershipAppRole(
-  auth: TenantAuthSettingsV1,
-): AppRole {
-  return auth.jitMembershipRole === "TENANT_ADMIN"
-    ? AppRole.TENANT_ADMIN
-    : AppRole.STAFF;
-}
-
-export async function loadTenantAuthRow(slug: string) {
-  const s = validateTenantSlug(slug);
-  if (!s) return null;
-  return tenantPrisma(s).tenant.findUnique({
-    where: { slug: s },
-    select: { id: true, slug: true, displayName: true, settings: true },
-  });
-}
-
 export function globalOidcConfigured(): boolean {
   return !!(
     process.env.AUTH_OIDC_ISSUER?.trim() &&
@@ -125,65 +104,3 @@ export type TenantLoginBranding = {
   /** `sso_required` but no working SSO path for this org */
   missingSsoConfig: boolean;
 };
-
-export async function getTenantLoginBranding(
-  orgSlugRaw: string | undefined,
-): Promise<TenantLoginBranding | null> {
-  if (!orgSlugRaw?.trim()) return null;
-  const row = await loadTenantAuthRow(orgSlugRaw);
-  if (!row) return null;
-  const auth = parseTenantAuthSettings(
-    (row.settings as Record<string, unknown>)?.auth,
-  );
-  const secretPresent = !!tenantOidcSecretFromEnv(row.slug);
-  const tenantOidcReady = !!(
-    auth.oidc?.issuer &&
-    auth.oidc.clientId &&
-    secretPresent
-  );
-  const policy = auth.policy;
-  const global = globalOidcConfigured();
-
-  const showPassword = policy !== "sso_required";
-
-  const showTenantSso =
-    policy !== "local_only" &&
-    tenantOidcReady &&
-    (policy === "sso_allowed" || policy === "sso_required");
-
-  const showGlobalSso =
-    policy !== "local_only" &&
-    global &&
-    (policy === "sso_allowed" || policy === "sso_required");
-
-  const missingSsoConfig =
-    (policy === "sso_allowed" || policy === "sso_required") &&
-    !tenantOidcReady &&
-    !global;
-
-  return {
-    orgSlug: row.slug,
-    displayName: row.displayName,
-    policy,
-    showPassword,
-    showTenantSso,
-    showGlobalSso,
-    tenantOidcReady,
-    tenantSsoPath: `/api/auth/tenant-oidc/${row.slug}`,
-    globalOidcConfigured: global,
-    missingSsoConfig,
-  };
-}
-
-/** For credentials provider: block password when signing into an org that requires SSO. */
-export async function passwordAllowedForTenantSlug(
-  slug: string | undefined,
-): Promise<boolean> {
-  if (!slug?.trim()) return true;
-  const row = await loadTenantAuthRow(slug);
-  if (!row) return true;
-  const auth = parseTenantAuthSettings(
-    (row.settings as Record<string, unknown>)?.auth,
-  );
-  return auth.policy !== "sso_required";
-}

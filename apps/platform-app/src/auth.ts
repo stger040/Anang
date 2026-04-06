@@ -6,7 +6,7 @@ import authConfig from "./auth.config";
 import { resolveCredentialLogin } from "@/lib/credential-login";
 import { platformLog } from "@/lib/platform-log";
 import { prisma } from "@/lib/prisma";
-import { passwordAllowedForTenantSlug } from "@/lib/tenant-auth-settings";
+import { passwordAllowedForTenantSlug } from "@/lib/tenant-auth-queries";
 
 import type { JWT } from "next-auth/jwt";
 

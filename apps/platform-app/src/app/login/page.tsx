@@ -3,10 +3,8 @@ import { getBookMeetingUrl, urls } from "@anang/config";
 import { SignInForm } from "@/components/sign-in-form";
 import { SyncAuthFlowIntent } from "@/components/sync-auth-flow-intent";
 import Link from "next/link";
-import {
-  getTenantLoginBranding,
-  globalOidcConfigured,
-} from "@/lib/tenant-auth-settings";
+import { getTenantLoginBranding } from "@/lib/tenant-auth-queries";
+import { globalOidcConfigured } from "@/lib/tenant-auth-settings";
 
 export default async function LoginPage({
   searchParams,

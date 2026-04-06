@@ -4,11 +4,8 @@ import { NextResponse } from "next/server";
 import { getAppOrigin } from "@/lib/app-origin";
 import { platformLog, readRequestId } from "@/lib/platform-log";
 import { validateTenantSlug } from "@/lib/platform-slug";
-import {
-  loadTenantAuthRow,
-  parseTenantAuthSettings,
-  tenantOidcSecretFromEnv,
-} from "@/lib/tenant-auth-settings";
+import { parseTenantAuthSettings, tenantOidcSecretFromEnv } from "@/lib/tenant-auth-settings";
+import { loadTenantAuthRow } from "@/lib/tenant-auth-queries";
 
 export const dynamic = "force-dynamic";
 
