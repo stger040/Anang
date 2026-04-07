@@ -1,3 +1,4 @@
+import { isBuildAiTestingEnabled } from "@/lib/build/build-ai-env";
 import { parseFhirVisitSummaryMeta } from "@/lib/fhir-visit-summary-meta";
 import { tenantPrisma } from "@/lib/prisma";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
@@ -21,6 +22,8 @@ export default async function BuildQueuePage({
     },
   });
 
+  const buildAiOn = isBuildAiTestingEnabled();
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -33,28 +36,65 @@ export default async function BuildQueuePage({
         }
       />
 
+      {buildAiOn ? (
+        <Card className="border-amber-200 bg-amber-50/60 p-4">
+          <p className="text-sm font-semibold text-amber-950">
+            Build AI (testing) is enabled on this deployment
+          </p>
+          <p className="mt-2 text-sm text-amber-950/90">
+            Open any encounter below with{" "}
+            <span className="font-medium">Review encounter &amp; draft</span> —
+            that page has the clinical note, claim lines, rule findings, and
+            buttons to clear lines, create a blank draft, or{" "}
+            <span className="font-medium">Suggest draft from encounter</span>.
+          </p>
+        </Card>
+      ) : null}
+
       <Card className="overflow-hidden p-0">
+        <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 text-sm text-slate-700">
+          <span className="font-medium text-slate-900">Next step</span>
+          <span className="text-slate-600">
+            {" "}
+            — use <span className="font-medium">Review encounter &amp; draft</span>{" "}
+            on a row to work the claim (codes, charges, rules, approval
+            {buildAiOn ? ", Build AI" : ""}).
+          </span>
+        </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="w-full min-w-[920px] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-medium uppercase text-slate-500">
               <tr>
+                <th className="px-4 py-3 w-[200px]">Actions</th>
                 <th className="px-4 py-3">Patient</th>
                 <th className="px-4 py-3">DOS</th>
                 <th className="px-4 py-3">Chief complaint</th>
                 <th className="px-4 py-3">Source</th>
                 <th className="px-4 py-3">Review</th>
                 <th className="px-4 py-3">Draft</th>
-                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {encounters.map((e) => {
                 const d = e.drafts[0];
                 const fixtureMeta = parseFhirVisitSummaryMeta(e.visitSummary);
+                const encUrl = `/o/${orgSlug}/build/encounters/${e.id}`;
                 return (
                   <tr key={e.id} className="hover:bg-slate-50/80">
+                    <td className="px-4 py-3 align-top">
+                      <Link href={encUrl} className="inline-flex">
+                        <Button type="button" size="sm">
+                          Review encounter &amp; draft
+                        </Button>
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 font-medium text-slate-900">
-                      {e.patient.lastName}, {e.patient.firstName}
+                      <Link
+                        href={encUrl}
+                        className="text-brand-navy underline decoration-slate-300 underline-offset-2 hover:decoration-brand-navy"
+                      >
+                        {e.patient.lastName}, {e.patient.firstName}
+                      </Link>
                       <div className="text-xs font-normal text-slate-500">
                         MRN {e.patient.mrn ?? "—"}
                       </div>
@@ -99,13 +139,6 @@ export default async function BuildQueuePage({
                       ) : (
                         <span className="text-slate-400">—</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link href={`/o/${orgSlug}/build/encounters/${e.id}`}>
-                        <Button type="button" size="sm" variant="secondary">
-                          Open
-                        </Button>
-                      </Link>
                     </td>
                   </tr>
                 );

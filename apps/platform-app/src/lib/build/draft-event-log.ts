@@ -2,7 +2,11 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
-export type BuildDraftEventType = "rules_synced" | "draft_approved";
+export type BuildDraftEventType =
+  | "rules_synced"
+  | "draft_approved"
+  | "ai_suggestion_applied"
+  | "draft_lines_cleared_test";
 
 export async function logBuildDraftEvent(
   db: DbClient,

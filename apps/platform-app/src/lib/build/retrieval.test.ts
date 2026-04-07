@@ -8,7 +8,7 @@ import {
   normalizeIcd10,
 } from "@/lib/build/retrieval";
 
-import type { ClaimDraftLine } from "@prisma/client";
+import { ClaimDraftLineSource, type ClaimDraftLine } from "@prisma/client";
 
 function line(
   partial: Partial<ClaimDraftLine> & Pick<ClaimDraftLine, "id" | "cpt" | "icd10">,
@@ -22,6 +22,7 @@ function line(
     units: partial.units ?? 1,
     chargeCents: partial.chargeCents ?? 10000,
     aiRationale: partial.aiRationale ?? "—",
+    lineSource: partial.lineSource ?? ClaimDraftLineSource.IMPORTED,
   };
 }
 

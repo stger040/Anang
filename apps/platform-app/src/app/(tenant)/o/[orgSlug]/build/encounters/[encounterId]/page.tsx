@@ -1,11 +1,14 @@
 import { approveClaimDraft } from "../../actions";
+import { BuildAiTestingPanel } from "./build-ai-testing-panel";
 import { Preview837pForm } from "./preview-837p-form";
+import { isBuildAiTestingEnabled } from "@/lib/build/build-ai-env";
 import { syncClaimDraftRuleIssues } from "@/lib/build/sync-draft-rules";
 import { parseFhirVisitSummaryMeta } from "@/lib/fhir-visit-summary-meta";
 import { tenantPrisma } from "@/lib/prisma";
 import { Badge, Button, Card, PageHeader } from "@anang/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ClaimDraftLineSource } from "@prisma/client";
 
 type IssueCitation = {
   chunkId?: string;
@@ -16,8 +19,10 @@ type IssueCitation = {
 
 function buildActivityBadgeTone(
   eventType: string,
-): "default" | "teal" | "info" {
+): "default" | "teal" | "info" | "warning" {
   if (eventType === "draft_approved") return "teal";
+  if (eventType === "ai_suggestion_applied") return "info";
+  if (eventType === "draft_lines_cleared_test") return "warning";
   return "default";
 }
 
@@ -54,11 +59,25 @@ export default async function EncounterDetailPage({
           lines: true,
           issues: true,
           buildDraftEvents: { orderBy: { createdAt: "desc" }, take: 30 },
+          buildSuggestionRuns: {
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: {
+              id: true,
+              model: true,
+              promptVersion: true,
+              status: true,
+              createdAt: true,
+              errorMessage: true,
+            },
+          },
         },
       },
     },
   });
   if (!encounter) notFound();
+
+  const buildAiTestingEnabled = isBuildAiTestingEnabled();
 
   const firstDraft = encounter.drafts[0];
   if (firstDraft) {
@@ -76,6 +95,18 @@ export default async function EncounterDetailPage({
             lines: true,
             issues: true,
             buildDraftEvents: { orderBy: { createdAt: "desc" }, take: 30 },
+            buildSuggestionRuns: {
+              orderBy: { createdAt: "desc" },
+              take: 5,
+              select: {
+                id: true,
+                model: true,
+                promptVersion: true,
+                status: true,
+                createdAt: true,
+                errorMessage: true,
+              },
+            },
           },
         },
       },
@@ -130,6 +161,36 @@ export default async function EncounterDetailPage({
         </Card>
       ) : null}
 
+      {buildAiTestingEnabled ? (
+        <Card className="border-amber-100 bg-amber-50/40 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-amber-900">
+            Build AI — testing mode
+          </p>
+          <p className="mt-1 text-sm text-slate-800">
+            The model proposes ICD-10 / CPT / modifiers / units / rationale only.
+            Dollar amounts come from the synthetic{" "}
+            <span className="font-mono text-xs">FeeSchedule</span> for this
+            tenant (see docs/BUILD_AI_TESTING.md). Imported workbook lines are
+            labeled{" "}
+            <Badge tone="default" className="align-middle">
+              IMPORTED
+            </Badge>
+            ; AI-applied rows are{" "}
+            <Badge tone="info" className="align-middle">
+              AI SUGGESTION
+            </Badge>
+            .
+          </p>
+          <div className="mt-4">
+            <BuildAiTestingPanel
+              orgSlug={orgSlug}
+              encounterId={encounter.id}
+              draftId={draft?.id ?? null}
+            />
+          </div>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">
@@ -175,8 +236,35 @@ export default async function EncounterDetailPage({
           <div className="grid gap-4 lg:grid-cols-2">
             <Card className="p-5">
               <h2 className="text-sm font-semibold text-slate-900">
-                AI code suggestions
+                Draft charge lines
               </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Source badges distinguish synthetic import data from Build AI
+                testing runs.
+              </p>
+              {draft.buildSuggestionRuns.length > 0 ? (
+                <div className="mt-3 rounded-md border border-slate-100 bg-white/80 p-3 text-xs text-slate-700">
+                  <p className="font-medium text-slate-900">
+                    Recent suggestion runs (audit)
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {draft.buildSuggestionRuns.map((run) => (
+                      <li key={run.id}>
+                        <span className="font-mono text-[10px] text-slate-500">
+                          {run.createdAt.toLocaleString()}
+                        </span>{" "}
+                        <span className="font-medium">{run.status}</span> ·{" "}
+                        {run.model} · {run.promptVersion}
+                        {run.errorMessage ? (
+                          <span className="block text-red-700">
+                            {run.errorMessage}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <ul className="mt-4 space-y-4">
                 {draft.lines.map((line) => (
                   <li
@@ -184,6 +272,17 @@ export default async function EncounterDetailPage({
                     className="rounded-lg border border-slate-100 bg-slate-50/80 p-4"
                   >
                     <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        tone={
+                          line.lineSource === ClaimDraftLineSource.AI_SUGGESTION
+                            ? "info"
+                            : "default"
+                        }
+                      >
+                        {line.lineSource === ClaimDraftLineSource.AI_SUGGESTION
+                          ? "AI suggestion"
+                          : "Imported"}
+                      </Badge>
                       <Badge tone="teal">CPT {line.cpt}</Badge>
                       <Badge tone="info">ICD-10 {line.icd10}</Badge>
                       {line.modifier ? (

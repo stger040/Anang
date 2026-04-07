@@ -41,6 +41,12 @@ enum ClaimIssueSource {
   SEED
 }
 
+/// How a claim draft line was created (Build AI testing vs spreadsheet/import).
+enum ClaimDraftLineSource {
+  IMPORTED
+  AI_SUGGESTION
+}
+
 /// Internal canonical resource type for external identifier map (connector idempotency).
 enum CanonicalResourceType {
   PATIENT
@@ -88,6 +94,8 @@ model Tenant {
   statementPaymentPlans   StatementPaymentPlan[]
   patientPushSubscriptions PatientPushSubscription[]
   patientPortalIdentities  PatientPortalIdentity[]
+  feeSchedules            FeeSchedule[]
+  buildSuggestionRuns     BuildSuggestionRun[]
 }
 
 /// Per-tenant calibration for deterministic Build rules (onboarding / shadow tuning).
@@ -278,14 +286,104 @@ model Encounter {
   chiefComplaint String?
   /// Mock clinical documentation / provider note for Build MVP
   visitSummary   String   @db.Text
+  /// CMS POS (e.g. 21 inpatient, 11 office) — optional; used for fee lookup + AI context
+  placeOfService   String?
+  visitType        String?
+  assessment       String?  @db.Text
+  providerSpecialty String?
   reviewStatus   String   @default("queued") // queued | in_review | approved
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   patient  Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  drafts    ClaimDraft[]
-  statements Statement[]
+  drafts               ClaimDraft[]
+  statements           Statement[]
+  buildSuggestionRuns BuildSuggestionRun[]
 
   @@index([tenantId])
+}
+
+/// Deterministic fee source for **testing** Build AI — not payer contracts (see docs/BUILD_AI_TESTING.md).
+model FeeSchedule {
+  id          String   @id @default(cuid())
+  tenantId    String
+  /// Stable name per tenant, e.g. SYNTHETIC_BUILD_TESTING_V1
+  name        String
+  /// synthetic_testing | lab derived — documentation
+  purpose     String   @default("synthetic_testing")
+  isSynthetic Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rates  FeeScheduleRate[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model FeeScheduleRate {
+  id                String   @id @default(cuid())
+  feeScheduleId     String
+  /// Normalized CPT/HCPCS (alphanumeric, upper)
+  cptNormalized     String
+  /// CMS place of service or "" = wildcard for that schedule
+  placeOfServiceKey String   @default("")
+  chargeCents       Int
+  /// True when row was populated from imported ClaimDraftLine aggregates
+  derivedFromImport Boolean  @default(true)
+
+  feeSchedule FeeSchedule @relation(fields: [feeScheduleId], references: [id], onDelete: Cascade)
+
+  buildSuggestionLines BuildSuggestionLine[]
+
+  @@unique([feeScheduleId, cptNormalized, placeOfServiceKey])
+  @@index([feeScheduleId, cptNormalized])
+}
+
+/// One LLM invocation for Build AI (testing) — audit / debugging.
+model BuildSuggestionRun {
+  id              String   @id @default(cuid())
+  tenantId        String
+  encounterId     String
+  draftId         String
+  model           String
+  promptVersion   String
+  status          String // completed | failed
+  errorMessage    String?  @db.Text
+  rawResponseJson Json?
+  actorUserId     String?
+  createdAt       DateTime @default(now())
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  encounter Encounter          @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  draft     ClaimDraft         @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  lines     BuildSuggestionLine[]
+
+  @@index([tenantId, encounterId])
+  @@index([draftId, createdAt])
+}
+
+/// Per-line AI output + applied fee (charge is **never** from the model).
+model BuildSuggestionLine {
+  id                 String   @id @default(cuid())
+  runId              String
+  ordinal            Int
+  icd10              String
+  cpt                String
+  modifier           String?
+  units              Int
+  rationale          String   @db.Text
+  feeScheduleRateId  String?
+  chargeCentsApplied Int
+  claimDraftLineId   String?  @unique
+  /// pending | accepted | rejected — for future HITL granularity; v1 mostly pending
+  reviewStatus       String   @default("pending")
+
+  run             BuildSuggestionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  feeScheduleRate FeeScheduleRate?   @relation(fields: [feeScheduleRateId], references: [id], onDelete: SetNull)
+  claimDraftLine  ClaimDraftLine?    @relation(fields: [claimDraftLineId], references: [id], onDelete: SetNull)
+
+  @@index([runId])
 }
 
 model ClaimDraft {
@@ -301,6 +399,7 @@ model ClaimDraft {
   lines             ClaimDraftLine[]
   issues            ClaimIssue[]
   buildDraftEvents  BuildDraftEvent[]
+  buildSuggestionRuns BuildSuggestionRun[]
 
   @@index([tenantId])
 }
@@ -315,8 +414,10 @@ model ClaimDraftLine {
   chargeCents Int
   /// Plain-language rationale for the suggested code
   aiRationale String    @db.Text
+  lineSource  ClaimDraftLineSource @default(IMPORTED)
 
-  draft ClaimDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft            ClaimDraft          @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  buildSuggestionLine BuildSuggestionLine?
 }
 
 model ClaimIssue {

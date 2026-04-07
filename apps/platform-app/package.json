@@ -22,6 +22,8 @@
     "db:import:xlsx": "npx tsx prisma/import-realistic-xlsx.ts",
     "db:import:xlsx:neon": "node --env-file=.env.neon ../../node_modules/tsx/dist/cli.mjs prisma/import-realistic-xlsx.ts",
     "db:import:xlsx:enrich:neon": "node --env-file=.env.neon ../../node_modules/tsx/dist/cli.mjs prisma/import-realistic-xlsx.ts --enrich-only",
+    "db:derive:synthetic-fees": "npx tsx prisma/derive-synthetic-fee-schedule.ts",
+    "db:derive:synthetic-fees:neon": "node --env-file=.env.neon ../../node_modules/tsx/dist/cli.mjs prisma/derive-synthetic-fee-schedule.ts",
     "db:studio": "prisma studio",
     "db:validate": "prisma validate",
     "postinstall": "prisma generate"

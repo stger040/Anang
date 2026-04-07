@@ -24,6 +24,7 @@ import {
   ModuleKey,
   ClaimLifecycleStatus,
   CanonicalResourceType,
+  ClaimDraftLineSource,
 } from "@prisma/client";
 import * as XLSX from "xlsx";
 
@@ -851,6 +852,7 @@ async function main() {
           units: 1,
           chargeCents: dollarsToCents(cr.billed_amount),
           aiRationale: "Imported from synthetic claim header (no lines row).",
+          lineSource: "IMPORTED",
         },
       });
     } else {
@@ -872,6 +874,7 @@ async function main() {
             aiRationale:
               toStr(ln.procedure_description) ||
               "Imported procedure line from synthetic workbook.",
+            lineSource: ClaimDraftLineSource.IMPORTED,
           },
         });
       }

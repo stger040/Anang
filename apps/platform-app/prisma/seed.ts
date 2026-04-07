@@ -4,6 +4,7 @@ import {
   AppRole,
   ClaimLifecycleStatus,
   ClaimIssueSource,
+  ClaimDraftLineSource,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -198,6 +199,7 @@ async function main() {
         units: 1,
         chargeCents: 28500,
         aiRationale: "Seed line — established visit example.",
+        lineSource: ClaimDraftLineSource.IMPORTED,
       },
     ],
   });

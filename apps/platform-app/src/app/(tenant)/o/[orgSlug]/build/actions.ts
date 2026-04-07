@@ -1,6 +1,9 @@
 "use server";
 
+import { isBuildAiTestingEnabled } from "@/lib/build/build-ai-env";
 import { logBuildDraftEvent } from "@/lib/build/draft-event-log";
+import { suggestDraftFromEncounter } from "@/lib/build/suggest-draft-from-encounter";
+import { syncClaimDraftRuleIssues } from "@/lib/build/sync-draft-rules";
 import {
   assemble837pProfessional,
   tradingPartnerFor837pFromTenant,
@@ -182,4 +185,118 @@ export async function preview837pFromDraft(formData: FormData): Promise<
     const message = e instanceof Error ? e.message : "Assembly failed";
     return { ok: false, error: message };
   }
+}
+
+export async function clearDraftLinesForTesting(formData: FormData) {
+  if (!isBuildAiTestingEnabled()) {
+    return { ok: false, error: "Build AI testing is disabled (set BUILD_AI_TESTING_ENABLED=1)." };
+  }
+
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Unauthorized" };
+
+  const orgSlug = String(formData.get("orgSlug") ?? "").trim();
+  const encounterId = String(formData.get("encounterId") ?? "").trim();
+  if (!orgSlug || !encounterId) return { ok: false, error: "Invalid payload" };
+
+  const ctx = await assertOrgAccess(session, orgSlug);
+  if (!ctx || !ctx.effectiveModules.has(ModuleKey.BUILD)) {
+    return { ok: false, error: "Forbidden" };
+  }
+
+  const db = tenantPrisma(orgSlug);
+  const draft = await db.claimDraft.findFirst({
+    where: { encounterId, tenantId: ctx.tenant.id },
+    orderBy: { id: "desc" },
+  });
+  if (!draft) return { ok: false, error: "No draft for this encounter." };
+
+  await db.$transaction(async (tx) => {
+    await tx.claimDraftLine.deleteMany({ where: { draftId: draft.id } });
+    await tx.claimIssue.deleteMany({ where: { draftId: draft.id } });
+    await logBuildDraftEvent(tx, {
+      tenantId: ctx.tenant.id,
+      draftId: draft.id,
+      eventType: "draft_lines_cleared_test",
+      actorUserId: session.userId,
+      payload: { encounterId, reason: "build_ai_testing_manual_clear" },
+    });
+  });
+
+  await syncClaimDraftRuleIssues(db, { tenantId: ctx.tenant.id, draftId: draft.id });
+
+  revalidatePath(`/o/${orgSlug}/build`, "page");
+  revalidatePath(`/o/${orgSlug}/build/encounters/${encounterId}`, "page");
+
+  return { ok: true as const, draftId: draft.id };
+}
+
+export async function createBlankDraftForEncounterTesting(formData: FormData) {
+  if (!isBuildAiTestingEnabled()) {
+    return { ok: false, error: "Build AI testing is disabled (set BUILD_AI_TESTING_ENABLED=1)." };
+  }
+
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Unauthorized" };
+
+  const orgSlug = String(formData.get("orgSlug") ?? "").trim();
+  const encounterId = String(formData.get("encounterId") ?? "").trim();
+  if (!orgSlug || !encounterId) return { ok: false, error: "Invalid payload" };
+
+  const ctx = await assertOrgAccess(session, orgSlug);
+  if (!ctx || !ctx.effectiveModules.has(ModuleKey.BUILD)) {
+    return { ok: false, error: "Forbidden" };
+  }
+
+  const db = tenantPrisma(orgSlug);
+  const enc = await db.encounter.findFirst({
+    where: { id: encounterId, tenantId: ctx.tenant.id },
+    select: { id: true },
+  });
+  if (!enc) return { ok: false, error: "Encounter not found." };
+
+  const draft = await db.claimDraft.create({
+    data: {
+      tenantId: ctx.tenant.id,
+      encounterId: enc.id,
+      status: "draft",
+    },
+  });
+
+  revalidatePath(`/o/${orgSlug}/build`, "page");
+  revalidatePath(`/o/${orgSlug}/build/encounters/${encounterId}`, "page");
+
+  return { ok: true as const, draftId: draft.id };
+}
+
+export async function suggestDraftFromEncounterAction(formData: FormData) {
+  if (!isBuildAiTestingEnabled()) {
+    return { ok: false, error: "Build AI testing is disabled (set BUILD_AI_TESTING_ENABLED=1)." };
+  }
+
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Unauthorized" };
+
+  const orgSlug = String(formData.get("orgSlug") ?? "").trim();
+  const encounterId = String(formData.get("encounterId") ?? "").trim();
+  if (!orgSlug || !encounterId) return { ok: false, error: "Invalid payload" };
+
+  const ctx = await assertOrgAccess(session, orgSlug);
+  if (!ctx || !ctx.effectiveModules.has(ModuleKey.BUILD)) {
+    return { ok: false, error: "Forbidden" };
+  }
+
+  const db = tenantPrisma(orgSlug);
+  const result = await suggestDraftFromEncounter({
+    db,
+    tenantId: ctx.tenant.id,
+    orgSlug,
+    encounterId,
+    actorUserId: session.userId,
+  });
+
+  revalidatePath(`/o/${orgSlug}/build`, "page");
+  revalidatePath(`/o/${orgSlug}/build/encounters/${encounterId}`, "page");
+
+  return result;
 }
