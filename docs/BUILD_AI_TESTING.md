@@ -108,3 +108,9 @@ There is **no** broad unbounded RAG in this phase. Context is bounded to encount
 - Granular **accept/reject** UX per `BuildSuggestionLine` and compliance workflows.
 
 The intent is to **swap** the fee resolution layer (`resolveSyntheticChargeCents` and data sources) while keeping the suggestion → draft line → rules → human approval sequence.
+
+## Troubleshooting: `OpenAI HTTP 400`
+
+- **GPT-5.x / o-series models:** These reasoning models often **reject** a custom `temperature` (only default is allowed) and may expect **`max_completion_tokens`** instead of **`max_tokens`**. The platform Build AI client omits `temperature` and uses the right limit field when the configured model id starts with `gpt-5`, `o1`, `o3`, `o4`, etc.
+- If errors persist, read the **full message** returned in the UI (the API error body is surfaced after fixes) or check Vercel/server logs for `build.ai.openai_http`.
+- **`response_format: json_object`** requires a model that supports JSON mode on Chat Completions; use a current snapshot if you override `BUILD_OPENAI_MODEL`.

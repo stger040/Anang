@@ -27,6 +27,32 @@ export type BuildAiOpenAiResult =
   | { ok: true; lines: BuildAiSuggestedLine[]; rawJson: string }
   | { ok: false; error: string };
 
+/** GPT-5 / o-series reasoning models reject custom `temperature` (HTTP 400). */
+function isReasoningStyleChatModel(model: string): boolean {
+  const m = model.trim().toLowerCase();
+  return (
+    m.startsWith("gpt-5") ||
+    m.startsWith("o1") ||
+    m.startsWith("o3") ||
+    m.startsWith("o4") ||
+    /^o\d/.test(m)
+  );
+}
+
+function openAiHttpErrorMessage(status: number, rawText: string): string {
+  try {
+    const j = JSON.parse(rawText) as { error?: { message?: string } };
+    const msg = j?.error?.message;
+    if (msg && typeof msg === "string") {
+      return `OpenAI HTTP ${status}: ${msg}`;
+    }
+  } catch {
+    /* ignore */
+  }
+  const clip = rawText.trim().slice(0, 240);
+  return clip ? `OpenAI HTTP ${status}: ${clip}` : `OpenAI HTTP ${status}`;
+}
+
 function parseLinesPayload(text: string): BuildAiSuggestedLine[] | null {
   let obj: unknown;
   try {
@@ -69,6 +95,26 @@ export async function fetchBuildAiCodeSuggestions(args: {
 
   const model = buildAiOpenAiModel();
   const userContent = JSON.stringify(args.userPayload, null, 2);
+  const reasoning = isReasoningStyleChatModel(model);
+
+  const body: Record<string, unknown> = {
+    model,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: SYSTEM },
+      {
+        role: "user",
+        content: `Encounter context (testing):\n${userContent}\n\nRemember: respond with JSON only, shape {"lines":[...]} — no charges.`,
+      },
+    ],
+  };
+
+  if (reasoning) {
+    body.max_completion_tokens = 1200;
+  } else {
+    body.temperature = 0.2;
+    body.max_tokens = 1200;
+  }
 
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -77,20 +123,8 @@ export async function fetchBuildAiCodeSuggestions(args: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        max_tokens: 1200,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM },
-          {
-            role: "user",
-            content: `Encounter context (testing):\n${userContent}\n\nRemember: respond with JSON only, shape {"lines":[...]} — no charges.`,
-          },
-        ],
-      }),
-      signal: AbortSignal.timeout(60_000),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
     });
 
     const rawText = await res.text();
@@ -99,7 +133,7 @@ export async function fetchBuildAiCodeSuggestions(args: {
         status: res.status,
         detail: rawText.slice(0, 800),
       });
-      return { ok: false, error: `OpenAI HTTP ${res.status}` };
+      return { ok: false, error: openAiHttpErrorMessage(res.status, rawText) };
     }
 
     const j = JSON.parse(rawText) as {
