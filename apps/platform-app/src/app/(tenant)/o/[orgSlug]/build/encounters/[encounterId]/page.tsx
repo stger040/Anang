@@ -2,6 +2,12 @@ import { approveClaimDraft } from "../../actions";
 import { BuildAiTestingPanel } from "./build-ai-testing-panel";
 import { Preview837pForm } from "./preview-837p-form";
 import { isBuildAiTestingEnabled } from "@/lib/build/build-ai-env";
+import {
+  cptExternalLookupUrl,
+  displayCptDescriptor,
+  displayIcd10Descriptor,
+  icd10ExternalLookupUrl,
+} from "@/lib/build/code-reference";
 import { syncClaimDraftRuleIssues } from "@/lib/build/sync-draft-rules";
 import { parseFhirVisitSummaryMeta } from "@/lib/fhir-visit-summary-meta";
 import { tenantPrisma } from "@/lib/prisma";
@@ -240,7 +246,9 @@ export default async function EncounterDetailPage({
               </h2>
               <p className="mt-1 text-xs text-slate-500">
                 Source badges distinguish synthetic import data from Build AI
-                testing runs.
+                testing runs. Code titles use the assistant output when present,
+                then a small in-app reference list — staff must still confirm
+                against your code book or payer policy.
               </p>
               {draft.buildSuggestionRuns.length > 0 ? (
                 <div className="mt-3 rounded-md border border-slate-100 bg-white/80 p-3 text-xs text-slate-700">
@@ -266,7 +274,16 @@ export default async function EncounterDetailPage({
                 </div>
               ) : null}
               <ul className="mt-4 space-y-4">
-                {draft.lines.map((line) => (
+                {draft.lines.map((line) => {
+                  const icdTitle = displayIcd10Descriptor({
+                    icd10: line.icd10,
+                    persisted: line.icd10Descriptor,
+                  });
+                  const cptTitle = displayCptDescriptor({
+                    cpt: line.cpt,
+                    persisted: line.cptDescriptor,
+                  });
+                  return (
                   <li
                     key={line.id}
                     className="rounded-lg border border-slate-100 bg-slate-50/80 p-4"
@@ -296,14 +313,59 @@ export default async function EncounterDetailPage({
                         }).format(line.chargeCents / 100)}
                       </span>
                     </div>
-                    <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Why suggested
+                    <dl className="mt-3 space-y-2 border-t border-slate-200/80 pt-3 text-sm">
+                      <div>
+                        <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                          ICD-10 title
+                        </dt>
+                        <dd className="mt-0.5 text-slate-800">
+                          {icdTitle ?? (
+                            <span className="text-slate-500">
+                              No short title on file — use lookup.
+                            </span>
+                          )}
+                          {" · "}
+                          <a
+                            href={icd10ExternalLookupUrl(line.icd10)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand-navy underline"
+                          >
+                            NIH ICD-10-CM search
+                          </a>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                          CPT / HCPCS title
+                        </dt>
+                        <dd className="mt-0.5 text-slate-800">
+                          {cptTitle ?? (
+                            <span className="text-slate-500">
+                              No short title on file — use lookup.
+                            </span>
+                          )}
+                          {" · "}
+                          <a
+                            href={cptExternalLookupUrl(line.cpt)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand-navy underline"
+                          >
+                            External CPT reference
+                          </a>
+                        </dd>
+                      </div>
+                    </dl>
+                    <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Why suggested (this encounter)
                     </p>
                     <p className="mt-1 text-sm text-slate-700">
                       {line.aiRationale}
                     </p>
                   </li>
-                ))}
+                );
+                })}
               </ul>
             </Card>
 

@@ -141,6 +141,8 @@ export async function suggestDraftFromEncounter(args: {
           units: row.units,
           chargeCents,
           aiRationale: row.rationale,
+          icd10Descriptor: row.icd10Descriptor,
+          cptDescriptor: row.cptDescriptor,
           lineSource: ClaimDraftLineSource.AI_SUGGESTION,
         },
       });
@@ -154,6 +156,8 @@ export async function suggestDraftFromEncounter(args: {
           modifier: row.modifier,
           units: row.units,
           rationale: row.rationale,
+          icd10Descriptor: row.icd10Descriptor,
+          cptDescriptor: row.cptDescriptor,
           feeScheduleRateId: rateId,
           chargeCentsApplied: chargeCents,
           claimDraftLineId: draftLine.id,

@@ -4,13 +4,15 @@ import { buildAiOpenAiModel } from "@/lib/build/build-ai-env";
 
 const SYSTEM = `You are a U.S. professional medical coding assistant for **testing only**.
 Return **only** valid JSON (no markdown) with this exact shape:
-{"lines":[{"icd10":"string","cpt":"string","modifier":"string or null","units":number,"rationale":"string"}]}
+{"lines":[{"icd10":"string","cpt":"string","icd10Descriptor":"string or null","cptDescriptor":"string or null","modifier":"string or null","units":number,"rationale":"string"}]}
 
 Rules:
-- Suggest **ICD-10** and **CPT or HCPCS** codes that plausibly match the encounter narrative.
+- Suggest **ICD-10-CM** and **CPT or HCPCS** codes that plausibly match the encounter narrative.
+- **icd10Descriptor**: short phrase naming what that ICD-10 code represents (as in a code book index). Use **null** if not confident.
+- **cptDescriptor**: short phrase naming what that CPT/HCPCS code represents. Use **null** if not confident.
 - **modifiers**: use null if none; otherwise a single common modifier or comma-separated if needed.
 - **units**: integer >= 1.
-- **rationale**: short clinical/billing justification per line (1 sentence).
+- **rationale**: short clinical/billing justification for this line on *this encounter* (1 sentence).
 - Do **NOT** include dollar amounts, charges, fees, or allowed/paid amounts.
 - Do **NOT** diagnose the real patient or give medical advice; this is synthetic test data.
 - If unsure, still propose your best single primary line plus secondary lines only when clearly supported by the text.`;
@@ -18,6 +20,8 @@ Rules:
 export type BuildAiSuggestedLine = {
   icd10: string;
   cpt: string;
+  icd10Descriptor: string | null;
+  cptDescriptor: string | null;
   modifier: string | null;
   units: number;
   rationale: string;
@@ -71,6 +75,24 @@ function parseLinesPayload(text: string): BuildAiSuggestedLine[] | null {
     const cpt = typeof r.cpt === "string" ? r.cpt.trim() : "";
     const rationale =
       typeof r.rationale === "string" ? r.rationale.trim() : "";
+    let icd10Descriptor: string | null = null;
+    if (r.icd10Descriptor === null || r.icd10Descriptor === undefined) {
+      icd10Descriptor = null;
+    } else if (
+      typeof r.icd10Descriptor === "string" &&
+      r.icd10Descriptor.trim()
+    ) {
+      icd10Descriptor = r.icd10Descriptor.trim().slice(0, 400);
+    }
+    let cptDescriptor: string | null = null;
+    if (r.cptDescriptor === null || r.cptDescriptor === undefined) {
+      cptDescriptor = null;
+    } else if (
+      typeof r.cptDescriptor === "string" &&
+      r.cptDescriptor.trim()
+    ) {
+      cptDescriptor = r.cptDescriptor.trim().slice(0, 400);
+    }
     let modifier: string | null = null;
     if (r.modifier === null || r.modifier === undefined) modifier = null;
     else if (typeof r.modifier === "string" && r.modifier.trim())
@@ -80,7 +102,15 @@ function parseLinesPayload(text: string): BuildAiSuggestedLine[] | null {
       units = Math.max(1, Math.floor(r.units));
     }
     if (!icd10 || !cpt || !rationale) continue;
-    out.push({ icd10, cpt, modifier, units, rationale });
+    out.push({
+      icd10,
+      cpt,
+      icd10Descriptor,
+      cptDescriptor,
+      modifier,
+      units,
+      rationale,
+    });
   }
   return out.length ? out : null;
 }

@@ -17,7 +17,7 @@ export function buildAiOpenAiModel(): string {
 }
 
 /** Prompt version string stored on BuildSuggestionRun for audits. */
-export const BUILD_AI_PROMPT_VERSION = "build_ai_suggest_codes_v1";
+export const BUILD_AI_PROMPT_VERSION = "build_ai_suggest_codes_v2";
 
 /**
  * When no FeeScheduleRate matches CPT (+ POS), use this charge for testing so rules still run.

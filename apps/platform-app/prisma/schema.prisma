@@ -373,6 +373,9 @@ model BuildSuggestionLine {
   modifier           String?
   units              Int
   rationale          String   @db.Text
+  /// Short phrase naming the code (model or staff-facing note); verify in code book.
+  icd10Descriptor    String?  @db.Text
+  cptDescriptor      String?  @db.Text
   feeScheduleRateId  String?
   chargeCentsApplied Int
   claimDraftLineId   String?  @unique
@@ -414,6 +417,10 @@ model ClaimDraftLine {
   chargeCents Int
   /// Plain-language rationale for the suggested code
   aiRationale String    @db.Text
+  /// Short phrase for the ICD-10-CM code (AI + fallbacks); staff must verify.
+  icd10Descriptor String? @db.Text
+  /// Short phrase for the CPT/HCPCS code (AI + fallbacks); staff must verify.
+  cptDescriptor   String? @db.Text
   lineSource  ClaimDraftLineSource @default(IMPORTED)
 
   draft            ClaimDraft          @relation(fields: [draftId], references: [id], onDelete: Cascade)

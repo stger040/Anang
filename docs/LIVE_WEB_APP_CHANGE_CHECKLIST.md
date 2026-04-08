@@ -91,3 +91,4 @@ There is no separate “publish command” beyond Git + Vercel; Prisma commands 
 
 - [DEPLOYMENT.md](./DEPLOYMENT.md) — Vercel root directory, install command, domains.
 - [BUILD_AI_TESTING.md](./BUILD_AI_TESTING.md) — Build AI behavior, env names, UI locations.
+- [BUILD_MODULE_WORKFLOW.md](./BUILD_MODULE_WORKFLOW.md) — recommended Build queue → encounter → approve order.

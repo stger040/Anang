@@ -28,13 +28,30 @@ Draft activity also logs **`ai_suggestion_applied`** and **`draft_lines_cleared_
 
 ## Encounter fields used as context
 
-The suggestion payload includes what is available on the encounter and patient, for example:
+The model receives **only** the JSON object built in `suggest-draft-from-encounter.ts` (`encounterPayload`). There is no broad chart RAG or live payer policy retrieval in this phase.
 
-- `dateOfService`, `chiefComplaint`, `visitSummary`, `assessment`
-- `placeOfService`, `visitType`, `providerSpecialty`
-- Patient: name, MRN, DOB hint
+**Included when present:**
+
+| Field | Role |
+|--------|------|
+| `dateOfService` | DOS (ISO date) |
+| `chiefComplaint` | Short reason for visit |
+| `visitSummary` | Main clinical note / narrative (often the richest signal) |
+| `assessment` | Assessment text if stored on the encounter |
+| `placeOfService` | POS code/text (also used **after** the call to pick fee-table rows) |
+| `visitType` | Visit type label |
+| `providerSpecialty` | Specialty hint |
+| `patient.firstName`, `patient.lastName`, `patient.mrn`, `patient.ageHint` | Identity context only (no full chart) |
+
+**Not sent to the model:** prior claim dollars, fee schedules, payer contracts, or full problem lists beyond what is in those strings.
+
+**Draft line display:** Each line shows **ICD-10 / CPT short titles** from the model (`icd10Descriptor`, `cptDescriptor`) when returned, then a **small static map** for common testing codes, plus **external lookup links**. Staff must still verify against your **code book and payer policy**.
 
 Narrative quality in synthetic seed data affects suggestion quality; this is expected in testing.
+
+## Build module workflow (staff order)
+
+See **[BUILD_MODULE_WORKFLOW.md](./BUILD_MODULE_WORKFLOW.md)** for the recommended click order (queue → encounter → optional AI → validate → approve).
 
 ## UI: telling import apart from AI
 

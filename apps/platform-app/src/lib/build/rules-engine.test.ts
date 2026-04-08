@@ -15,6 +15,8 @@ function line(partial: Partial<ClaimDraftLine> & Pick<ClaimDraftLine, "id">) {
     units: partial.units ?? 1,
     chargeCents: partial.chargeCents ?? 10000,
     aiRationale: partial.aiRationale ?? "—",
+    icd10Descriptor: partial.icd10Descriptor ?? null,
+    cptDescriptor: partial.cptDescriptor ?? null,
     lineSource: partial.lineSource ?? ClaimDraftLineSource.IMPORTED,
   } satisfies ClaimDraftLine;
 }
