@@ -26,6 +26,7 @@
     "db:derive:synthetic-fees:neon": "node --env-file=.env.neon ../../node_modules/tsx/dist/cli.mjs prisma/derive-synthetic-fee-schedule.ts",
     "db:studio": "prisma studio",
     "db:validate": "prisma validate",
+    "greenway:jwks": "node scripts/generate-greenway-jwks.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {
