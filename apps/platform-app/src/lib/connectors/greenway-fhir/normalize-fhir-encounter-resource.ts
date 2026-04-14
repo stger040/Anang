@@ -8,6 +8,10 @@ export type MappedFhirEncounterFields = {
   dateOfService: Date;
   chiefComplaint: string | null;
   visitSummary: string;
+  /** CMS-style POS (e.g. "11") or descriptive fallback for fee / AI context — conservative extraction. */
+  placeOfService: string | null;
+  /** Short visit class / type label from Encounter.class or Encounter.type. */
+  visitType: string | null;
 };
 
 export type NormalizeFhirEncounterResult =
@@ -68,6 +72,176 @@ function pickChiefComplaint(enc: Record<string, unknown>): string | null {
     const code = c?.code;
     if (typeof code === "string" && code.trim()) return code.trim();
   }
+  return null;
+}
+
+const MAX_LABEL_LEN = 200;
+
+function truncateLabel(s: string, max = MAX_LABEL_LEN): string {
+  const t = s.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+/** High-confidence v3-ActCode → CMS POS (subset only; omit ambiguous codes like AMB). */
+const ACT_CLASS_CODE_TO_CMS_POS: Record<string, string> = {
+  IMP: "21",
+  ACU: "21",
+  EMER: "23",
+  VR: "02",
+  HH: "12",
+};
+
+/**
+ * Two-digit code or POS-flavored coding system → CMS-like POS string.
+ */
+function cmsLikePosFromCoding(c: Record<string, unknown>): string | null {
+  const codeRaw = typeof c.code === "string" ? c.code.trim() : "";
+  if (!codeRaw) return null;
+  const sys = typeof c.system === "string" ? c.system.toLowerCase() : "";
+  const posSystem =
+    sys.includes("placeofservice") ||
+    sys.includes("place-of-service") ||
+    sys.includes("cms.gov") ||
+    sys.includes("medicare.gov");
+  if (/^\d{2}$/.test(codeRaw)) return codeRaw;
+  if (posSystem && /^\d{1,2}$/.test(codeRaw)) {
+    const n = Number.parseInt(codeRaw, 10);
+    if (n >= 1 && n <= 99) return codeRaw.padStart(2, "0");
+  }
+  return null;
+}
+
+function scanServiceTypeAndTypeForCmsPos(
+  enc: Record<string, unknown>,
+): string | null {
+  const buckets: unknown[] = [];
+  if (enc.serviceType) buckets.push(enc.serviceType);
+  if (Array.isArray(enc.type)) {
+    for (const t of enc.type) buckets.push(t);
+  }
+  for (const cc of buckets) {
+    const r = asRecord(cc);
+    if (!r) continue;
+    const codings = r.coding;
+    if (!Array.isArray(codings)) continue;
+    for (const raw of codings) {
+      const c = asRecord(raw);
+      if (!c) continue;
+      const hit = cmsLikePosFromCoding(c);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+function pickClassPrimaryCoding(
+  enc: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const cls = asRecord(enc.class);
+  if (!cls) return null;
+  const codings = cls.coding;
+  if (!Array.isArray(codings) || codings.length === 0) return null;
+  return asRecord(codings[0]);
+}
+
+function pickClassCodeUpper(enc: Record<string, unknown>): string | null {
+  const c0 = pickClassPrimaryCoding(enc);
+  const code = c0?.code;
+  return typeof code === "string" ? code.trim().toUpperCase() : null;
+}
+
+function pickPlaceOfService(enc: Record<string, unknown>): string | null {
+  const fromCc = scanServiceTypeAndTypeForCmsPos(enc);
+  if (fromCc) return fromCc;
+
+  const clsCode = pickClassCodeUpper(enc);
+  if (clsCode && ACT_CLASS_CODE_TO_CMS_POS[clsCode]) {
+    return ACT_CLASS_CODE_TO_CMS_POS[clsCode];
+  }
+
+  const cls = asRecord(enc.class);
+  const clsText = cls && typeof cls.text === "string" ? cls.text.trim() : "";
+  if (clsText) return truncateLabel(clsText);
+
+  const locs = enc.location;
+  if (Array.isArray(locs) && locs.length > 0) {
+    const row = asRecord(locs[0]);
+    const locRef = row?.location;
+    const refRec = asRecord(locRef);
+    const d =
+      refRec && typeof refRec.display === "string"
+        ? refRec.display.trim()
+        : "";
+    if (d) return truncateLabel(d);
+  }
+
+  return null;
+}
+
+function pickVisitType(enc: Record<string, unknown>): string | null {
+  const cls = asRecord(enc.class);
+  if (cls) {
+    const c0 = pickClassPrimaryCoding(enc);
+    if (c0) {
+      const disp = c0.display;
+      if (typeof disp === "string" && disp.trim()) {
+        return truncateLabel(disp);
+      }
+      const code = c0.code;
+      if (typeof code === "string" && code.trim()) {
+        return truncateLabel(code);
+      }
+    }
+    const text = cls.text;
+    if (typeof text === "string" && text.trim()) {
+      return truncateLabel(text);
+    }
+  }
+
+  const types = enc.type;
+  if (Array.isArray(types) && types.length > 0) {
+    const t0 = asRecord(types[0]);
+    if (t0) {
+      const ttext = t0.text;
+      if (typeof ttext === "string" && ttext.trim()) {
+        return truncateLabel(ttext);
+      }
+      const coding = t0.coding;
+      if (Array.isArray(coding) && coding.length > 0) {
+        const c = asRecord(coding[0]);
+        const disp = c?.display;
+        if (typeof disp === "string" && disp.trim()) {
+          return truncateLabel(disp);
+        }
+        const code = c?.code;
+        if (typeof code === "string" && code.trim()) {
+          return truncateLabel(code);
+        }
+      }
+    }
+  }
+
+  const st = asRecord(enc.serviceType);
+  if (st) {
+    const codings = st.coding;
+    if (Array.isArray(codings) && codings.length > 0) {
+      const c = asRecord(codings[0]);
+      const disp = c?.display;
+      if (typeof disp === "string" && disp.trim()) {
+        return truncateLabel(disp);
+      }
+      const code = c?.code;
+      if (typeof code === "string" && code.trim()) {
+        return truncateLabel(code);
+      }
+    }
+    const stext = st.text;
+    if (typeof stext === "string" && stext.trim()) {
+      return truncateLabel(stext);
+    }
+  }
+
   return null;
 }
 
@@ -137,6 +311,8 @@ export function normalizeFhirEncounterResource(
       dateOfService,
       chiefComplaint: pickChiefComplaint(rec),
       visitSummary: pickVisitSummary(rec, fhirLogicalId),
+      placeOfService: pickPlaceOfService(rec),
+      visitType: pickVisitType(rec),
     },
   };
 }

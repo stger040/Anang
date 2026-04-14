@@ -1,12 +1,17 @@
 import {
+  MAX_GREENWAY_CRON_PATIENT_IDS,
   resolveGreenwayFhirEnvConfigAsync,
   resolveGreenwayFhirEnvConfigAsyncForTenant,
+  resolveGreenwayCronBulkPatientIdsEnvOnly,
+  resolveGreenwayCronBulkPatientIdsForTenant,
 } from "@/lib/connectors/greenway-fhir";
 import { GREENWAY_FHIR_CRON_SYNC_AUDIT_ACTION } from "@/lib/connectors/greenway-fhir/audit-actions";
 import { NextResponse } from "next/server";
 
+/** Allow bulk Greenway sync enough time on Vercel (pilot: small allowlist). Tune with plan limits. */
+export const maxDuration = 120;
+
 const PREVIEW_MAX = 8000;
-const MAX_BULK_PATIENT_IDS = 30;
 
 function authorizeCron(req: Request): boolean {
   const secret = process.env.CRON_SECRET?.trim();
@@ -32,15 +37,18 @@ function jsonPreview(body: unknown): string | null {
   }
 }
 
-/** Comma/semicolon/newline-separated FHIR Patient logical ids (pilot backfill). */
-function parseBulkPatientIdsFromEnv(): string[] {
-  const raw = process.env.GREENWAY_FHIR_CRON_PATIENT_IDS?.trim();
-  if (!raw) return [];
-  const ids = raw
-    .split(/[,;\n]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return [...new Set(ids)].slice(0, MAX_BULK_PATIENT_IDS);
+/** Structured log line for operators — no patient identifiers or response bodies. */
+function cronLog(
+  level: "info" | "warn",
+  event: string,
+  fields: Record<string, string | number | boolean | null>,
+): void {
+  const line = JSON.stringify({ ts: new Date().toISOString(), event, ...fields });
+  if (level === "warn") {
+    console.warn(`[greenway-fhir-cron] ${line}`);
+  } else {
+    console.info(`[greenway-fhir-cron] ${line}`);
+  }
 }
 
 /**
@@ -50,18 +58,21 @@ function parseBulkPatientIdsFromEnv(): string[] {
  * - **`?tenantSlug=`** (optional): per-tenant Greenway config. Falls back to
  *   **`GREENWAY_FHIR_SYNC_TENANT_SLUG`**.
  * - **`?patientId=`** + tenant: **single** persist sync (+ audit).
- * - **No `patientId`** but **`GREENWAY_FHIR_CRON_PATIENT_IDS`** env set + tenant:
+ * - **No `patientId`** but bulk allowlist (tenant **`connectors.greenwayFhir.cronSyncPatientIds`**
+ *   when non-empty, else **`GREENWAY_FHIR_CRON_PATIENT_IDS`**) + tenant:
  *   **bulk** sync (+ audit per id).
  * - **`?patientId=`** without tenant slug: **probe-only** Patient read.
  */
 async function handleCron(req: Request) {
   if (!authorizeCron(req)) {
     if (!process.env.CRON_SECRET?.trim()) {
+      cronLog("warn", "auth_missing_cron_secret", {});
       return NextResponse.json(
         { error: "CRON_SECRET is not set on the server." },
         { status: 503 },
       );
     }
+    cronLog("warn", "auth_unauthorized", {});
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -93,6 +104,7 @@ async function handleCron(req: Request) {
       select: { id: true, slug: true, settings: true },
     });
     if (!t) {
+      cronLog("warn", "tenant_slug_not_found", { tenantSlug: syncTenantSlug });
       return NextResponse.json(
         { error: `tenantSlug not found: ${syncTenantSlug}` },
         { status: 400 },
@@ -114,7 +126,62 @@ async function handleCron(req: Request) {
     cfg = tenantCfg;
   }
 
-  const bulkPatientIds = parseBulkPatientIdsFromEnv();
+  const allowlistResolution =
+    syncTenantSlug && tenantRow
+      ? resolveGreenwayCronBulkPatientIdsForTenant({
+          tenantSettings: tenantRow.settings,
+        })
+      : resolveGreenwayCronBulkPatientIdsEnvOnly();
+  const bulkPatientIds = allowlistResolution.ids;
+  const allowlistSource = allowlistResolution.source;
+
+  if (bulkPatientIds.length > 0 && !syncTenantSlug) {
+    cronLog("warn", "bulk_allowlist_missing_tenant", {
+      bulkIdCount: bulkPatientIds.length,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        ranAt,
+        mode: "bulk_missing_tenant",
+        error:
+          "Bulk allowlist is configured (env) but no tenant slug. Set GREENWAY_FHIR_SYNC_TENANT_SLUG or pass ?tenantSlug= on the cron URL.",
+        greenway: {
+          baseConfigured: Boolean(cfg?.baseUrl),
+          tokenConfigured: Boolean(cfg?.accessToken),
+          bulkIdCount: bulkPatientIds.length,
+          allowlistSource,
+        },
+      },
+      { status: 422 },
+    );
+  }
+
+  if (
+    bulkPatientIds.length > 0 &&
+    syncTenantSlug &&
+    tenantRow &&
+    (!cfg?.accessToken || !cfg?.baseUrl)
+  ) {
+    cronLog("warn", "bulk_allowlist_incomplete_greenway_env", {
+      tenantSlug: syncTenantSlug,
+      bulkIdCount: bulkPatientIds.length,
+      baseConfigured: Boolean(cfg?.baseUrl),
+      tokenConfigured: Boolean(cfg?.accessToken),
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        ranAt,
+        mode: "bulk_incomplete_greenway_auth",
+        tenantSlug: syncTenantSlug,
+        bulkIdCount: bulkPatientIds.length,
+        error:
+          "Bulk allowlist is configured but Greenway base URL or access token is not available for this tenant (settings + env).",
+      },
+      { status: 422 },
+    );
+  }
 
   if (
     !patientId &&
@@ -183,6 +250,13 @@ async function handleCron(req: Request) {
     }
 
     const failedCount = results.filter((r) => !r.ok).length;
+    cronLog(failedCount > 0 ? "warn" : "info", "bulk_sync_finished", {
+      tenantSlug: syncTenantSlug ?? "",
+      patientCount: bulkPatientIds.length,
+      failedCount,
+      ok: failedCount === 0,
+      allowlistSource,
+    });
     return NextResponse.json({
       ok: failedCount === 0,
       stub: false,
@@ -191,9 +265,11 @@ async function handleCron(req: Request) {
       ranAt,
       tenantSlug: syncTenantSlug,
       patientCount: bulkPatientIds.length,
+      allowlistSource,
+      allowlistMax: MAX_GREENWAY_CRON_PATIENT_IDS,
       failedCount,
       results,
-      note: "Bulk sync from GREENWAY_FHIR_CRON_PATIENT_IDS. One audit event per id.",
+      note: "Bulk sync from tenant allowlist or GREENWAY_FHIR_CRON_PATIENT_IDS. One audit event per id.",
     });
   }
 
@@ -231,6 +307,9 @@ async function handleCron(req: Request) {
       });
 
       if (!syncResult.ok) {
+        cronLog("warn", "single_patient_sync_failed", {
+          tenantSlug: syncTenantSlug ?? "",
+        });
         return NextResponse.json(
           {
             ok: false,
@@ -242,6 +321,10 @@ async function handleCron(req: Request) {
           { status: 422 },
         );
       }
+      cronLog("info", "single_patient_sync_ok", {
+        tenantSlug: syncTenantSlug ?? "",
+        encountersUpserted: syncResult.encountersUpserted,
+      });
       return NextResponse.json({
         ok: true,
         stub: false,
@@ -277,25 +360,44 @@ async function handleCron(req: Request) {
     });
   }
 
+  const noopReason =
+    patientId && !cfg?.accessToken
+      ? "missing_greenway_token"
+      : patientId
+        ? "patient_probe_incomplete"
+        : bulkPatientIds.length === 0
+          ? "empty_allowlist_no_patientId"
+          : "fallback_noop";
+
+  cronLog("info", "scheduled_noop", {
+    mode: noopReason,
+    tenantSlugSet: Boolean(syncTenantSlug),
+    bulkIdCount: bulkPatientIds.length,
+    patientIdParam: Boolean(patientId),
+  });
+
   return NextResponse.json({
     ok: true,
     stub: true,
     ranAt,
+    mode: noopReason,
     greenway: {
       baseConfigured: Boolean(cfg?.baseUrl),
       tokenConfigured: Boolean(cfg?.accessToken),
       tenantSlug: syncTenantSlug,
       bulkIdsConfigured: bulkPatientIds.length > 0,
       bulkIdCount: bulkPatientIds.length,
+      allowlistSource,
+      allowlistMax: MAX_GREENWAY_CRON_PATIENT_IDS,
     },
     hint:
       patientId && !cfg?.accessToken
         ? "Set GREENWAY_FHIR_ACCESS_TOKEN (global or __SLUG) or OAuth client-credentials env vars."
         : patientId
           ? "Auth/env incomplete for patient probe."
-          : bulkPatientIds.length && !syncTenantSlug
-            ? "Set tenantSlug or GREENWAY_FHIR_SYNC_TENANT_SLUG to run bulk sync from GREENWAY_FHIR_CRON_PATIENT_IDS."
-            : "No patientId and no bulk list — noop. Use ?patientId=, or set GREENWAY_FHIR_CRON_PATIENT_IDS for scheduled backfill.",
+          : bulkPatientIds.length === 0
+            ? "No patientId and bulk allowlist is empty (tenant connectors.greenwayFhir.cronSyncPatientIds and GREENWAY_FHIR_CRON_PATIENT_IDS) — scheduled run did not sync. Use hub manual sync for one-off patients."
+            : "Unexpected noop — check tenant and Greenway configuration.",
   });
 }
 

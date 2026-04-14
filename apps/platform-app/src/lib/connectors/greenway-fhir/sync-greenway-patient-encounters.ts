@@ -265,7 +265,8 @@ export async function syncGreenwayPatientEncounters(
                 dateOfService: e.dateOfService,
                 chiefComplaint: e.chiefComplaint,
                 visitSummary: e.visitSummary,
-                reviewStatus: "queued",
+                placeOfService: e.placeOfService,
+                visitType: e.visitType,
               },
             })
           : await tx.encounter.create({
@@ -275,6 +276,8 @@ export async function syncGreenwayPatientEncounters(
                 dateOfService: e.dateOfService,
                 chiefComplaint: e.chiefComplaint,
                 visitSummary: e.visitSummary,
+                placeOfService: e.placeOfService,
+                visitType: e.visitType,
                 reviewStatus: "queued",
               },
             });

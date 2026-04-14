@@ -1,7 +1,9 @@
 import {
   greenwayEnvKeySuffixForTenantSlug,
   isGreenwayFhirClientCredentialsConfiguredForSuffix,
+  MAX_GREENWAY_CRON_PATIENT_IDS,
   readGreenwayFhirEnvConfigForTenant,
+  resolveGreenwayCronBulkPatientIdsForTenant,
 } from "@/lib/connectors/greenway-fhir";
 import { tenantPrisma } from "@/lib/prisma";
 import { isTenantSettingsEditor } from "@/lib/tenant-admin-guard";
@@ -18,6 +20,7 @@ import { BuildRulePackForm } from "./build-rule-pack-form";
 import { ImplementationForm } from "./implementation-form";
 import { CsvImportForm } from "./csv-import-form";
 import { FhirImportForm } from "./fhir-import-form";
+import { GreenwayCronAllowlistSummary } from "./greenway-cron-allowlist-summary";
 import { GreenwayFhirTestForm } from "./greenway-fhir-test-form";
 import { GreenwayFhirSyncActivity } from "./greenway-sync-activity";
 
@@ -64,6 +67,13 @@ export default async function ImplementationHubPage({
     isGreenwayFhirClientCredentialsConfiguredForSuffix(gwEnvSuffix);
   const greenwayEnvStatus =
     !gwCfg?.baseUrl ? "missing" : !gwHasAuth ? "no_token" : "ready";
+
+  const cronAllowlist = resolveGreenwayCronBulkPatientIdsForTenant({
+    tenantSettings: tenant?.settings,
+  });
+  const cronDefaultTenantSlug =
+    process.env.GREENWAY_FHIR_SYNC_TENANT_SLUG?.trim() || null;
+  const cronSecretConfigured = Boolean(process.env.CRON_SECRET?.trim());
 
   const buildKnowledgeChunks = buildEnabled
     ? await tenantPrisma(orgSlug).buildKnowledgeChunk.findMany({
@@ -195,6 +205,16 @@ export default async function ImplementationHubPage({
             canEdit={canEdit}
             buildEnabled={buildEnabled}
             payEnabled={payEnabled}
+          />
+          <GreenwayCronAllowlistSummary
+            allowlistSource={cronAllowlist.source}
+            allowlistCount={cronAllowlist.ids.length}
+            allowlistMax={MAX_GREENWAY_CRON_PATIENT_IDS}
+            invalidDropped={cronAllowlist.invalidDropped}
+            cronSecretConfigured={cronSecretConfigured}
+            cronDefaultTenantSlug={cronDefaultTenantSlug}
+            orgSlug={orgSlug}
+            greenwayReady={greenwayEnvStatus === "ready"}
           />
           <GreenwayFhirTestForm
             orgSlug={orgSlug}

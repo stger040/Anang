@@ -121,7 +121,6 @@ export async function persistPatientEncounterImport(
               dateOfService: d.dateOfService,
               chiefComplaint: d.chiefComplaint,
               visitSummary: d.visitSummary,
-              reviewStatus: "queued",
             },
           })
         : await tx.encounter.create({

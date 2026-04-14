@@ -13,6 +13,11 @@ export type TenantGreenwayFhirConnectorSettings = {
   fhirTenantId?: string;
   /** staging | production (and aliases) — pairs with fhirTenantId */
   hostEnv?: string;
+  /**
+   * FHIR Patient logical ids for scheduled cron bulk sync (max 30, validated).
+   * When non-empty, overrides `GREENWAY_FHIR_CRON_PATIENT_IDS` for this tenant.
+   */
+  cronSyncPatientIds?: string[];
 };
 
 /** Uppercase slug with non-alphanumeric → underscore (matches OIDC secret env pattern). */

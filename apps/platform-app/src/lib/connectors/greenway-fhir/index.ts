@@ -40,6 +40,15 @@ export {
   type TenantGreenwayFhirConnectorSettings,
 } from "./tenant-greenway-settings";
 export {
+  MAX_GREENWAY_CRON_PATIENT_IDS,
+  parseGreenwayCronPatientIdsFromDelimitedString,
+  parseGreenwayCronPatientIdsFromTenantSettings,
+  resolveGreenwayCronBulkPatientIdsEnvOnly,
+  resolveGreenwayCronBulkPatientIdsForTenant,
+  type GreenwayCronAllowlistResolution,
+  type GreenwayCronAllowlistSource,
+} from "./greenway-cron-allowlist";
+export {
   normalizeFhirPatientResource,
   type MappedFhirPatientFields,
   type NormalizeFhirPatientResult,
