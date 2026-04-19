@@ -63,6 +63,8 @@ npm run build
 npm run lint
 ```
 
+If **`npm run build`** fails with **`Can't resolve '@anang/ui'`**, run **`npm install` or `npm ci` from the repo root** (hoisted workspace deps). Prefer **`npm run build -w @anang/platform-app`** from the root. After a root install, `apps/platform-app` also wires `@anang/*` via **`next.config.ts`** + **`tsconfig.json`** for Windows-style hoisting — see **`docs/DEPLOYMENT.md`** § *Local builds*.
+
 **Prisma:** after you copy `apps\platform-app\.env.example` → `apps\platform-app\.env`, Prisma loads `DATABASE_URL` from that file when run from the platform app:
 
 ```powershell

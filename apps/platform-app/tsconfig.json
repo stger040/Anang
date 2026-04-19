@@ -3,7 +3,11 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@anang/ui": ["../../packages/ui/src/index.ts"],
+      "@anang/brand": ["../../packages/brand/src/index.ts"],
+      "@anang/config": ["../../packages/config/src/index.ts"],
+      "@anang/types": ["../../packages/types/src/index.ts"]
     },
     "plugins": [{ "name": "next" }]
   },

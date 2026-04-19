@@ -1,7 +1,11 @@
 {
   "extends": "../../packages/tsconfig/nextjs.json",
   "compilerOptions": {
-    "paths": { "@/*": ["./src/*"] },
+    "paths": {
+      "@/*": ["./src/*"],
+      "@anang/brand": ["../../packages/brand/src/index.ts"],
+      "@anang/config": ["../../packages/config/src/index.ts"]
+    },
     "plugins": [{ "name": "next" }]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"]

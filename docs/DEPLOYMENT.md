@@ -10,7 +10,7 @@
 
 1. Create an empty GitHub repository (e.g. `Anang`). You may omit “Add README” if this repo already has one locally.
 2. On your machine: `git init` (if needed), `git add`, `git commit`, add `origin`, `git push -u origin main`.
-3. See **README.md** for local setup; confirm `npm run build` passes before pushing.
+3. See **README.md** for local setup; confirm **`npm run build` from the monorepo root** (or `npm run build -w @anang/platform-app`) passes before pushing — not from `apps/platform-app` alone (see **Local builds** below).
 
 Exact PowerShell commands for initialize + push are in the README or your onboarding checklist from the team.
 
@@ -30,6 +30,26 @@ Vercel will build **two separate projects** from the **same** GitHub repository:
 ### Why install from the monorepo root?
 
 Both apps depend on `packages/`* (`@anang/brand`, `@anang/ui`, etc.). npm workspaces resolve those links when `npm install` runs from the **repository root**. If Vercel’s working directory is only `apps/marketing-site`, workspace packages will not link unless you override install.
+
+### Local builds — same rule as Vercel
+
+On your laptop (PowerShell or any shell), **always install and build from the repository root** — the folder that contains the root `package.json` and `package-lock.json`, not only `apps/platform-app`.
+
+**Typical flow (Neon + platform build):**
+
+```powershell
+cd C:\Users\stger\Dev\Enterprises\Medtech_placeholder   # your clone root
+npm ci                                                   # or: npm install
+npm run db:migrate:deploy -w @anang/platform-app         # uses apps\platform-app\.env DATABASE_URL
+npm run build -w @anang/platform-app                     # production Next.js build
+```
+
+**Common mistake:** `cd apps\platform-app` then `npm run build`. Prisma may still find `../../node_modules`, but **Next.js** could fail with **`Module not found: Can't resolve '@anang/ui'`** when npm **hoists** workspace packages only under the **root** `node_modules` (typical on Windows). **Always run `npm install` or `npm ci` from the repo root first.** Then either:
+
+- Stay at root: **`npm run build -w @anang/platform-app`** (or **`npm run build`** to build marketing + platform), or  
+- After a root install, **`npm run build` inside `apps/platform-app`** should work: **`next.config.ts`** maps `@anang/ui`, `@anang/brand`, `@anang/config`, and `@anang/types` into `packages/*`, with matching **`tsconfig.json` `paths`** for typecheck. **`apps/marketing-site`** uses the same pattern for `@anang/brand` and `@anang/config`.
+
+**Optional:** build both apps the way CI does: `npm run build` (root script runs marketing then platform).
 
 ### Recommended Vercel settings (each project)
 
@@ -198,7 +218,7 @@ Pay → statement detail → **Explain charge** may call a **Chat Completions** 
 
 | Variable                              | Purpose                                                                                                                                                                                                                                                                                                                                                    |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BILL_EXPLAIN_LLM_PROVIDER`           | Optional: `**openai`** (default if Azure auto is not satisfied), `**azure**`, or omit for **auto** (Azure when all three `AZURE_OPENAI_*` core vars are set)                                                                                                                                                                                               |
+| `BILL_EXPLAIN_LLM_PROVIDER`           | Optional: `**openai`** (default if Azure auto is not satisfied), `**azure`**, or omit for **auto** (Azure when all three `AZURE_OPENAI_*` core vars are set)                                                                                                                                                                                               |
 | `OPENAI_API_KEY`                      | Enables **consumer OpenAI** explanations on `**POST /api/pay/explain-line`** when this provider is selected and explain is not disabled                                                                                                                                                                                                                    |
 | `OPENAI_CHAT_MODEL`                   | Optional (default `**gpt-4o-mini`**)                                                                                                                                                                                                                                                                                                                       |
 | `AZURE_OPENAI_ENDPOINT`               | Resource URL, e.g. `https://YOUR_RESOURCE.openai.azure.com` (no trailing slash required)                                                                                                                                                                                                                                                                   |
