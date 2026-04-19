@@ -11,6 +11,11 @@ const prisma = new PrismaClient();
 
 const TENANT_SLUG = "synthetic-test";
 
+/** One end-to-end demo: professional claim billed → payer paid portion → patient statement for remainder. */
+const BILL_CENTS = 285_00; // $285.00 — 99214 established office visit
+const INSURANCE_PAID_CENTS = 165_00; // payer allowed + paid (combined demo)
+const PATIENT_RESPONSIBILITY_CENTS = BILL_CENTS - INSURANCE_PAID_CENTS; // $120.00 PR
+
 function allModules(): ModuleKey[] {
   return [
     ModuleKey.CORE,
@@ -117,24 +122,25 @@ async function main() {
       {
         tenantId: tenant.id,
         kind: "cpt",
-        lookupKey: "93015",
-        title: "CPT 93015 — cardiovascular stress testing",
-        body: "Supervised exercise (or pharmacologic) cardiovascular stress testing with ECG. Common payer documentation targets; NCCI may bundle with same-day E/M.",
+        lookupKey: "99214",
+        title: "CPT 99214 — Office/outpatient visit, established patient",
+        body: "Moderate level MDM or 30–39 minutes total time; common primary-care visit. Pair with accurate POS and payer-specific bundling rules.",
         sourceLabel: "Seed · education only",
       },
       {
         tenantId: tenant.id,
-        kind: "cpt",
-        lookupKey: "99214",
-        title: "CPT 99214 — office E/M established",
-        body: "Moderate MDM or time for established outpatient; often paired with diagnostics on same date — payer rules vary.",
+        kind: "icd10",
+        lookupKey: "I10",
+        title: "ICD-10-CM I10 — Essential (primary) hypertension",
+        body: "Often supporting E/M when documented as active problem addressed this visit; payer policy still governs medical necessity.",
         sourceLabel: "Seed · education only",
       },
     ],
     skipDuplicates: true,
   });
 
-  const patientStaff = await prisma.patient.create({
+  // --- Single patient drives Build → Connect → Pay → Support → Cover ---
+  const patientSam = await prisma.patient.create({
     data: {
       tenantId: tenant.id,
       mrn: "SYN-1001",
@@ -146,23 +152,13 @@ async function main() {
     },
   });
 
-  const patientDemo2 = await prisma.patient.create({
-    data: {
-      tenantId: tenant.id,
-      mrn: "SYN-1002",
-      firstName: "Jordan",
-      lastName: "Sample",
-      dob: new Date("1975-11-02"),
-    },
-  });
-
   await prisma.coverage.create({
     data: {
       tenantId: tenant.id,
-      patientId: patientStaff.id,
-      payerName: "Synthetic Payer",
-      memberId: "SYN-M-001",
-      planName: "PPO Test",
+      patientId: patientSam.id,
+      payerName: "Demo Health Plan",
+      memberId: "DHP-M-77821",
+      planName: "Open Access PPO",
       priority: "primary",
       subscriberRel: "self",
       status: "active",
@@ -170,15 +166,24 @@ async function main() {
     },
   });
 
+  const encounterDos = new Date("2026-03-18T15:30:00.000Z");
+  const draftApprovedAt = new Date(encounterDos.getTime() + 86400000);
+  const claim837SubmittedAt = new Date(encounterDos.getTime() + 86400000 * 2);
+  const claim277AcceptedAt = new Date(claim837SubmittedAt.getTime() + 4 * 3600000);
+  const claim835AdjudicatedAt = new Date(claim837SubmittedAt.getTime() + 86400000 * 3);
+  const claimInsurancePaidAt = new Date(claim835AdjudicatedAt.getTime() + 2 * 3600000);
+  const statementDue = new Date(claimInsurancePaidAt.getTime() + 86400000 * 14);
+
   const encounter = await prisma.encounter.create({
     data: {
       tenantId: tenant.id,
-      patientId: patientStaff.id,
-      dateOfService: new Date("2026-03-18T14:00:00Z"),
-      chiefComplaint: "Synthetic demo visit",
+      patientId: patientSam.id,
+      dateOfService: encounterDos,
+      placeOfService: "11",
+      chiefComplaint: "Annual wellness with blood pressure follow-up",
       visitSummary:
-        "Synthetic seed encounter for Build / Pay testing — not real clinical data.",
-      reviewStatus: "in_review",
+        "Established patient seen for scheduled follow-up. Vitals stable. Assessment: hypertension monitored on current meds. Plan: continue lisinopril, return PRN. (Synthetic seed — one visit tied to draft → claim → statement.)",
+      reviewStatus: "approved",
     },
   });
 
@@ -186,7 +191,9 @@ async function main() {
     data: {
       tenantId: tenant.id,
       encounterId: encounter.id,
-      status: "draft",
+      status: "submitted_mock",
+      approvedAt: draftApprovedAt,
+      approvedById: userStaff.id,
     },
   });
 
@@ -195,10 +202,13 @@ async function main() {
       {
         draftId: draft.id,
         cpt: "99214",
+        cptDescriptor: "Office visit, established patient, moderate MDM",
         icd10: "I10",
+        icd10Descriptor: "Essential (primary) hypertension",
         units: 1,
-        chargeCents: 28500,
-        aiRationale: "Seed line — established visit example.",
+        chargeCents: BILL_CENTS,
+        aiRationale:
+          "Seed line — professional charge aligned with Connect claim and Pay statement PR.",
         lineSource: ClaimDraftLineSource.IMPORTED,
       },
     ],
@@ -208,55 +218,87 @@ async function main() {
     data: {
       draftId: draft.id,
       severity: "info",
-      category: "coding",
-      title: "Seed issue",
-      detail: "Documentation reminder for synthetic data.",
-      explainability: "Placeholder for UI testing.",
+      category: "documentation",
+      title: "Pre-submit checklist cleared",
+      detail:
+        "Synthetic seed: POS 11 office, payer Demo Health Plan, single E/M line — ready for mock submit.",
+      explainability: "Demo narrative only.",
       issueSource: ClaimIssueSource.SEED,
+      ruleKey: "seed.lifecycle.ready",
       citations: [],
     },
   });
 
-  const t0 = new Date("2026-03-01T12:00:00Z");
+  const claimNumber = "ST-SYN-2026-00042";
+
   const claim = await prisma.claim.create({
     data: {
       tenantId: tenant.id,
-      patientId: patientStaff.id,
-      claimNumber: "CLM-SYN-9001",
+      patientId: patientSam.id,
+      encounterId: encounter.id,
+      claimDraftId: draft.id,
+      claimNumber,
       status: ClaimLifecycleStatus.PAID,
-      payerName: "Synthetic Payer",
-      billedCents: 98000,
-      paidCents: 87200,
-      submittedAt: new Date(t0.getTime() + 86400000),
+      payerName: "Demo Health Plan",
+      billedCents: BILL_CENTS,
+      paidCents: INSURANCE_PAID_CENTS,
+      submittedAt: claim837SubmittedAt,
+      ediRefs: {
+        syntheticLifecycle: true,
+        encounterId: encounter.id,
+        claimDraftId: draft.id,
+      },
     },
   });
 
   await prisma.claimTimelineEvent.createMany({
     data: [
-      { claimId: claim.id, label: "Draft created", at: t0 },
       {
         claimId: claim.id,
-        label: "Submitted",
-        at: new Date(t0.getTime() + 3600000),
+        at: draftApprovedAt,
+        label: "Draft approved in Build",
+        detail: `Claim draft submitted for billing after encounter review (draft ${draft.id.slice(0, 8)}…).`,
       },
       {
         claimId: claim.id,
-        label: "835 posted",
-        at: new Date(t0.getTime() + 86400000 * 5),
+        at: claim837SubmittedAt,
+        label: "837P submitted to clearinghouse",
+        detail: "Professional claim transmitted (synthetic milestone).",
+      },
+      {
+        claimId: claim.id,
+        at: claim277AcceptedAt,
+        label: "277CA — claim accepted",
+        detail: "Functional acknowledgment received from payer path (demo).",
+      },
+      {
+        claimId: claim.id,
+        at: claim835AdjudicatedAt,
+        label: "835 ERA adjudicated",
+        detail: "Remittance advice processed; allowed amount and PR derived (demo).",
+      },
+      {
+        claimId: claim.id,
+        at: claimInsurancePaidAt,
+        label: "Insurance payment posted",
+        detail: `Payer payment applied: $${(INSURANCE_PAID_CENTS / 100).toFixed(2)} toward billed $${(BILL_CENTS / 100).toFixed(2)}.`,
       },
     ],
   });
 
+  const statementNumber = "STMT-SYN-2026-0042";
+
   const statement = await prisma.statement.create({
     data: {
       tenantId: tenant.id,
-      patientId: patientStaff.id,
+      patientId: patientSam.id,
       encounterId: encounter.id,
-      number: "STMT-SYN-1",
-      totalCents: 45000,
-      balanceCents: 12000,
+      claimId: claim.id,
+      number: statementNumber,
+      totalCents: PATIENT_RESPONSIBILITY_CENTS,
+      balanceCents: PATIENT_RESPONSIBILITY_CENTS,
       status: "open",
-      dueDate: new Date("2026-04-15"),
+      dueDate: statementDue,
     },
   });
 
@@ -265,37 +307,40 @@ async function main() {
       {
         statementId: statement.id,
         code: "Coinsurance",
-        description: "Synthetic balance — patient responsibility",
-        amountCents: 12000,
+        description: "Plan coinsurance after payer allowed amount (99214 visit)",
+        amountCents: 7200,
       },
       {
         statementId: statement.id,
         code: "Copay",
-        description: "Specialist copay",
-        amountCents: 33000,
+        description: "Specialist / PCP copay per benefit design (visit dated Mar 18, 2026)",
+        amountCents: 4800,
       },
     ],
-  });
-
-  await prisma.coverAssistanceCase.create({
-    data: {
-      tenantId: tenant.id,
-      patientId: patientDemo2.id,
-      track: "financial_assistance",
-      status: "in_review",
-      notes: "Synthetic Cover queue item.",
-    },
   });
 
   await prisma.supportTask.create({
     data: {
       tenantId: tenant.id,
-      patientId: patientStaff.id,
+      patientId: patientSam.id,
       statementId: statement.id,
-      title: "Synthetic support task",
+      title: "Patient called about coinsurance on new statement",
+      detail: `Question on ${statementNumber} lines after 835 posted for claim ${claimNumber}.`,
       status: "open",
       priority: "normal",
       category: "billing_question",
+    },
+  });
+
+  await prisma.coverAssistanceCase.create({
+    data: {
+      tenantId: tenant.id,
+      patientId: patientSam.id,
+      track: "financial_assistance",
+      status: "in_review",
+      householdSize: 2,
+      annualIncomeCents: 41_000_00,
+      notes: `Same episode as ${statementNumber}: patient requested assistance review after receiving patient responsibility.`,
     },
   });
 
@@ -306,7 +351,12 @@ async function main() {
         actorUserId: userSuper.id,
         action: "tenant.seed.completed",
         resource: "tenant",
-        metadata: { slug: TENANT_SLUG },
+        metadata: {
+          slug: TENANT_SLUG,
+          lifecycle: "single_patient_build_connect_pay",
+          claimNumber,
+          statementNumber,
+        },
       },
       {
         tenantId: null,
@@ -322,7 +372,9 @@ async function main() {
   console.log("Seed complete.", {
     tenant: TENANT_SLUG,
     users: [userSuper.email, userStaff.email],
-    patientPortalEmail: patientStaff.email,
+    patientPortalEmail: patientSam.email,
+    demoClaim: claimNumber,
+    demoStatement: statementNumber,
   });
 }
 

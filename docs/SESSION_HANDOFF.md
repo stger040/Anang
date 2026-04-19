@@ -52,7 +52,9 @@ Optional FKs (nullable, no forced platform redesign):
 
 ### 3. Doc touch-ups
 
-- `docs/TENANCY_AND_MODULES.md`, `docs/CLIENT_SHOWCASE.md` — describe connected seed for `synthetic-test`.
+- `docs/TENANCY_AND_MODULES.md` — connected seed **and** staff module/data thread (Build → Connect → Pay → Support; Cover patient-scoped).
+- `docs/CLIENT_SHOWCASE.md` — LCO walkthrough order + cross-link capability row.
+- `docs/PLATFORM_OVERVIEW.md`, `docs/ARCHITECTURE.md`, `docs/CORE_DATA_MODEL.md`, `docs/MODULES_CUSTOMER.md` — repo-aligned seed reality (`synthetic-test` only), optional FKs, staff UI navigation.
 - Example Windows `cd` paths in `docs/IMPORT_SYNTHETIC_DATASETS.md`, `docs/FOUNDER_BUILD_GUIDE.md` — use **`Enterprises`** in the path string for consistency with the preferred folder name.
 
 ---
@@ -87,4 +89,4 @@ When you finish a meaningful arc, add a **one-line “Last updated”** note her
 
 ---
 
-*Last updated: 2026-04-19 — session handoff file created; connected synthetic seed + optional Claim/Statement linkage migration.*
+*Last updated: 2026-04-19 — staff UI cross-links (Build ↔ Connect ↔ Pay); docs aligned (`PLATFORM_OVERVIEW`, `TENANCY_AND_MODULES`, `CLIENT_SHOWCASE`, `ARCHITECTURE`, `CORE_DATA_MODEL`, `MODULES_CUSTOMER`); connected synthetic seed + Claim/Statement FK migration.*

@@ -28,7 +28,7 @@ You asked not to rely on “fake data on my local computer.” **Agreed on strat
 From the **repo root**, these are the **Neon** scripts (they read `apps/platform-app/.env.neon`):
 
 ```powershell
-cd c:\Users\stger\Dev\Enterpises\Medtech_placeholder
+cd c:\Users\stger\Dev\Enterprises\Medtech_placeholder
 npm run db:push:neon -w @anang/platform-app
 ```
 

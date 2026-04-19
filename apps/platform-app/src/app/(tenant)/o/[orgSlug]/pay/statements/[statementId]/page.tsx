@@ -30,6 +30,8 @@ export default async function StatementDetailPage({
           coverages: { orderBy: [{ priority: "asc" }, { id: "asc" }] },
         },
       },
+      claim: { select: { id: true, claimNumber: true } },
+      encounter: { select: { id: true, dateOfService: true } },
       lines: true,
       payments: true,
       paymentPlan: {
@@ -57,6 +59,38 @@ export default async function StatementDetailPage({
           </Link>
         }
       />
+
+      {stmt.claim ? (
+        <Card className="border-slate-200 bg-slate-50/80 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+            Connect · Build
+          </p>
+          <p className="mt-1 text-sm text-slate-800">
+            Patient balance ties to claim{" "}
+            <span className="font-mono text-xs">{stmt.claim.claimNumber}</span>
+            {stmt.encounter
+              ? ` · visit DOS ${stmt.encounter.dateOfService.toLocaleDateString()}`
+              : null}
+            .
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href={`/o/${orgSlug}/connect/claims/${stmt.claim.id}`}>
+              <Button type="button" variant="primary" size="sm">
+                View related claim in Connect
+              </Button>
+            </Link>
+            {stmt.encounter ? (
+              <Link
+                href={`/o/${orgSlug}/build/encounters/${stmt.encounter.id}`}
+              >
+                <Button type="button" variant="secondary" size="sm">
+                  View encounter in Build
+                </Button>
+              </Link>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
 
       {fromFhirFixture ? (
         <Card className="border-violet-100 bg-violet-50/50 p-4">

@@ -66,7 +66,7 @@ Names align with common RCM language; Prisma may diverge slightly until migratio
 |--------|------|----------|
 | **Encounter / visit** | DOS, department, ties clinical to financial | Exists: `Encounter`. |
 | **Charge / service line** | Pre-claim line: CPT/HCPCS, mods, DX pointers, units, charge | Today partially embedded in `ClaimDraftLine`; long-term may be separate from **claim** submission. |
-| **Claim** | Institutional/professional header, payer, status | Exists: `Claim`; extend with837-style metadata as needed. |
+| **Claim** | Institutional/professional header, payer, status | Exists: `Claim`; optional **`encounterId`** and **`claimDraftId`** (nullable FKs) link a submitted claim back to the visit and Build draft for demos and pilot mapping. |
 | **Claim line** | Line-level on submitted claim | Distinct from draft lines once 837 / PM export ingestion exists. |
 
 ### 3.4 Financial lifecycle
@@ -82,7 +82,7 @@ Names align with common RCM language; Prisma may diverge slightly until migratio
 
 | Entity | Role | v1 notes |
 |--------|------|----------|
-| **Statement** | Account statement | Exists: `Statement`. |
+| **Statement** | Account statement | Exists: `Statement`; optional **`claimId`** and **`encounterId`** tie patient responsibility to the adjudicated claim and visit. |
 | **Statement line** | Bill line | Exists: `StatementLine`. |
 | **Payment plan / arrangement** | Installments | Future; flags or child of Statement. |
 
@@ -92,7 +92,7 @@ Names align with common RCM language; Prisma may diverge slightly until migratio
 |--------|------|----------|
 | **Work queue item** | Generic task | Map `SupportTask`, Cover cases, future Build queue row to a common pattern or polymorphic type. |
 | **Cover assistance case** | Exists: `CoverAssistanceCase`. | |
-| **Support task** | Exists: `SupportTask`. | |
+| **Support task** | Task queue row for billing follow-ups | Exists: `SupportTask`; optional **`statementId`** / **`patientId`**. |
 
 ### 3.7 Build-specific (today’s schema)
 
@@ -133,7 +133,7 @@ Names align with common RCM language; Prisma may diverge slightly until migratio
 ### First (foundation)
 
 1. **Tenant-scoped canonical keys** — Ensure every new entity has `tenantId` + indexes consistent with existing patterns.
-2. **Encounter ↔ statement ↔ claim** linkage — Foreign keys or explicit `sourceEncounterId` on Statement when ingested.
+2. **Encounter ↔ statement ↔ claim** linkage — **Partially shipped:** optional `Claim.encounterId`, `Claim.claimDraftId`, `Statement.claimId`, `Statement.encounterId` in Prisma; ingestion paths should populate when source data allows. Remaining work: broader backfill, EHR-specific provenance fields, and validation rules.
 3. **External identifier map** — Small table or JSON: `{ system, value }` per patient/claim (FHIR `Identifier` style) for idempotent upserts.
 4. **Recommendation / outcome scaffold** — Even before ML: persist “rule X fired → issue Y” for Build and future Insight.
 
@@ -154,8 +154,8 @@ Names align with common RCM language; Prisma may diverge slightly until migratio
 
 Today’s **`apps/platform-app/prisma/schema.prisma`** already includes `Tenant`, `Patient`, `Encounter`, `Coverage`, `ClaimDraft` (+ lines + issues), `Claim`, `Statement` (+ lines), `Payment`, `IngestionBatch`, `SourceArtifact`, `ExternalIdentifier`, **`BuildRulePack`** (per-tenant rule calibration JSON), `CoverAssistanceCase`, `SupportTask`, `AuditEvent`.  
 
-**Gap list (engineering backlog):** remittance/adjustment/denial normalization, explicit claim lines for submitted claims, recommendation/outcome tables, provider/facility tables, object storage for **`SourceArtifact`** when payloads exceed inline cap. **Shipped:** `Coverage`, `SourceArtifact` + `IngestionBatch` raw fingerprint / optional inline JSON.
+**Gap list (engineering backlog):** remittance/adjustment/denial normalization, explicit claim lines for submitted claims, recommendation/outcome tables, provider/facility tables, object storage for **`SourceArtifact`** when payloads exceed inline cap. **Shipped:** `Coverage`, `SourceArtifact` + `IngestionBatch` raw fingerprint / optional inline JSON; **optional thread FKs** on `Claim` / `Statement` (see §5); **staff UI** reads those links on Build / Connect / Pay detail routes when present.
 
 ---
 
-*Document version: 1.0 — planning only; schema changes go through Prisma migrations and release notes.*
+*Document version: 1.1 — planning + repo-aligned thread FKs and UI; schema changes go through Prisma migrations and release notes.*

@@ -4,6 +4,18 @@
 
 **Related:** [`MODULES_CUSTOMER.md`](./MODULES_CUSTOMER.md) (module names and Cedar alignment) · [`PRODUCT_SURFACES_VISION.md`](./PRODUCT_SURFACES_VISION.md) (desktop + mobile web + native parity; **success fees** live in **Pay**, not in “app vs browser”).
 
+## What this repo implements today (vs “future patient app”)
+
+Use this section so product and engineering do not confuse **vision** (below and in `PRODUCT_SURFACES_VISION.md`) with **shipped code**.
+
+| Area | Shipped in repo | Not in repo |
+|------|-----------------|-------------|
+| **Patient Pay (web)** | Public routes under **`/p/[orgSlug]/…`**: org billing landing, **HMAC magic link** to a statement, optional identity step-up, line explain + **Stripe** patient checkout, paid confirmation pages. Staff mint links and optional email/SMS APIs under `apps/platform-app/src/app/api/pay/`. | Dedicated **`apps/patient-portal`** package (`BUILD_PLAN.md` is still a tree sketch). **No** App Store / Play native project (no React Native, Expo, Flutter, etc.). |
+| **Staff “patient preview”** | **`/o/{org}/pay/patient-preview`** — authenticated staff demo of patient-facing copy/layout. | Not a separate patient product. |
+| **PWA / installable web** | **`/patient-manifest.json`**, `appleWebApp` + manifest in `p/[orgSlug]/layout.tsx`; minimal **`public/patient-sw.js`**; optional **Web Push** subscribe route when `NEXT_PUBLIC_PATIENT_WEB_PUSH_ENABLED=1` (see `PatientWebPushRegister`, Prisma `PatientPushSubscription`). | Full marketing of a store app; push content policy is still an ops/legal decision. |
+| **Cover / Support as patient apps** | **Staff** workflows live under **`/o/…/cover`**, **`/o/…/support`** (authenticated). | **No** public **`/p/…`** Cover intake or patient Help chat matching the future-app table rows below — those rows describe **target** behavior. |
+| **Core (patient accounts)** | Workspace **Core** is staff/admin-oriented in this codebase path. | **No** patient self-serve account enrollment under `/p` beyond statement-scoped magic links. |
+
 ---
 
 ## Who uses which module (quick map)

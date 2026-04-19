@@ -64,6 +64,7 @@ export default async function EncounterDetailPage({
         include: {
           lines: true,
           issues: true,
+          submittedClaim: { select: { id: true, claimNumber: true } },
           buildDraftEvents: { orderBy: { createdAt: "desc" }, take: 30 },
           buildSuggestionRuns: {
             orderBy: { createdAt: "desc" },
@@ -100,6 +101,7 @@ export default async function EncounterDetailPage({
           include: {
             lines: true,
             issues: true,
+            submittedClaim: { select: { id: true, claimNumber: true } },
             buildDraftEvents: { orderBy: { createdAt: "desc" }, take: 30 },
             buildSuggestionRuns: {
               orderBy: { createdAt: "desc" },
@@ -122,6 +124,9 @@ export default async function EncounterDetailPage({
   }
 
   const draft = encounter.drafts[0];
+  const submittedFromDrafts = encounter.drafts
+    .map((d) => d.submittedClaim)
+    .find((c) => c != null);
   const fixtureMeta = parseFhirVisitSummaryMeta(encounter.visitSummary);
 
   return (
@@ -137,6 +142,30 @@ export default async function EncounterDetailPage({
           </Link>
         }
       />
+
+      {submittedFromDrafts ? (
+        <Card className="border-teal-200 bg-teal-50/40 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-teal-900">
+            Connect
+          </p>
+          <p className="mt-1 text-sm text-slate-800">
+            This visit has a claim produced from Build (claim{" "}
+            <span className="font-mono text-xs">
+              {submittedFromDrafts.claimNumber}
+            </span>
+            ).
+          </p>
+          <div className="mt-3">
+            <Link
+              href={`/o/${orgSlug}/connect/claims/${submittedFromDrafts.id}`}
+            >
+              <Button type="button" variant="primary" size="sm">
+                View related claim in Connect
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      ) : null}
 
       {fixtureMeta.isFhirFixtureImport ? (
         <Card className="border-violet-100 bg-violet-50/50 p-4">

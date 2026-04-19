@@ -2,7 +2,7 @@
 
 ## Core idea (one Postgres per deployment)
 
-The platform uses **one `DATABASE_URL` per Vercel deployment** (one Prisma client, one physical Postgres). **Tenants** (`Tenant` rows + `tenantId` on patients, encounters, claims, etc.) are **logical** isolation inside that database.
+The platform uses **one `DATABASE_URL` per Vercel deployment** (one Prisma client, one physical Postgres). **Tenants** (`Tenant` rows + `tenantId` on patients, encounters, claims, etc.) are **logical** isolation inside that database. Runtime resolution is in **`apps/platform-app/src/lib/prisma.ts`** (`prisma` = primary URL; `tenantPrisma(orgSlug)` = optional per-slug override when set).
 
 Creating a tenant in **`/admin`** only inserts rows in **whatever database `DATABASE_URL` points to**. It does **not** create a Neon branch, fork, or second database.
 

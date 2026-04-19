@@ -4,6 +4,8 @@
 
 **Principle:** *Same journey-language as Cedar where it helps trust and comparison; same platform — **Build** is our differentiated wedge inside the suite.*
 
+**How staff modules chain (one visit, one financial thread):** **Build** prepares the claim from the **encounter**; **Connect** tracks **submission and adjudication**; **Pay** turns **patient responsibility** into a **statement**; **Support** follows up on balances (often tied to a statement); **Cover** handles affordability programs at **patient** scope. Optional database links and in-app buttons connect **Build ↔ Connect ↔ Pay** when data is populated — see [`TENANCY_AND_MODULES.md`](./TENANCY_AND_MODULES.md) § *Staff journey & data thread*.
+
 **Surfaces:** Patient and staff experiences target **desktop web, mobile web, and native apps** over time—same modules; see [`PRODUCT_SURFACES_VISION.md`](./PRODUCT_SURFACES_VISION.md).
 
 ---

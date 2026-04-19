@@ -298,6 +298,8 @@ model Encounter {
   drafts               ClaimDraft[]
   statements           Statement[]
   buildSuggestionRuns BuildSuggestionRun[]
+  /// Submitted claim(s) tied to this visit (optional; pilot / demo linkage).
+  claims               Claim[]
 
   @@index([tenantId])
 }
@@ -403,6 +405,8 @@ model ClaimDraft {
   issues            ClaimIssue[]
   buildDraftEvents  BuildDraftEvent[]
   buildSuggestionRuns BuildSuggestionRun[]
+  /// Canonical Connect claim produced from this draft (optional 1:1).
+  submittedClaim    Claim?
 
   @@index([tenantId])
 }
@@ -450,6 +454,10 @@ model Claim {
   id           String               @id @default(cuid())
   tenantId     String
   patientId    String?
+  /// Visit this claim originated from (optional linkage for demos + pilot mapping).
+  encounterId  String?
+  /// Build draft this claim was generated from (optional 1:1).
+  claimDraftId String?              @unique
   claimNumber  String
   status       ClaimLifecycleStatus
   payerName    String?
@@ -460,14 +468,18 @@ model Claim {
   /// Last inbound EDI pointers (277/835 trace, timestamps) — no raw PHI payload.
   ediRefs      Json                 @default("{}")
 
-  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patient  Patient?          @relation(fields: [patientId], references: [id])
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient    Patient?          @relation(fields: [patientId], references: [id])
+  encounter  Encounter?        @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  claimDraft ClaimDraft?       @relation(fields: [claimDraftId], references: [id], onDelete: SetNull)
   timeline               ClaimTimelineEvent[]
   edi837Submissions      Claim837EdiSubmission[]
   adjudications          ClaimAdjudication[]
+  statements             Statement[]
 
   @@unique([tenantId, claimNumber])
   @@index([tenantId])
+  @@index([encounterId])
 }
 
 /// ERA / 835-style remittance header bucket (normalized for Insight Connect QA — not a raw X12 payload).
@@ -642,6 +654,8 @@ model Statement {
   patientId    String
   /// Optional link to the visit that produced this statement (FHIR import, PM ingest).
   encounterId  String?
+  /// Optional link to the adjudicated professional claim that drove patient responsibility.
+  claimId      String?
   number       String
   totalCents   Int
   balanceCents Int
@@ -651,6 +665,7 @@ model Statement {
   tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   patient  Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
   encounter Encounter?     @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  claim     Claim?         @relation(fields: [claimId], references: [id], onDelete: SetNull)
   lines         StatementLine[]
   payments      Payment[]
   supportTasks  SupportTask[]
@@ -658,6 +673,7 @@ model Statement {
 
   @@index([tenantId])
   @@index([encounterId])
+  @@index([claimId])
 }
 
 /// Staff-offered installment schedule for patient pay (acknowledgement on `/p/...`).

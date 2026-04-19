@@ -40,20 +40,24 @@
 
 Server-side profile mapping (virtual mailbox only) lives in [`apps/platform-app/src/lib/login-routing.ts`](../apps/platform-app/src/lib/login-routing.ts). Prefer signing in with **your real user email** (same `PLATFORM_LOGIN_PASSWORD` until SSO).
 
-**Seed (`prisma/seed.ts`):** one tenant **`synthetic-test`** — staff users **`rick@anang.ai`** (super admin + tenant admin membership) and **`rick@stginnovation.com`** (staff). **Patient** row **`stger040@gmail.com`** (Sam TestPatient) for Pay / portal rehearsal. All modules enabled on the tenant. Re-run seed after pulling: `npm run db:seed -w @anang/platform-app` (or your Neon seed script).
+**Seed (`prisma/seed.ts`):** one tenant **`synthetic-test`** — staff users **`rick@anang.ai`** (super admin + tenant admin membership) and **`rick@stginnovation.com`** (staff). **Patient** row **`stger040@gmail.com`** (Sam TestPatient) drives a **single connected lifecycle** (encounter → Build draft → Connect claim → Pay statement → Support + Cover on Sam). All modules enabled on the tenant. Re-run seed after pulling: `npm run db:seed -w @anang/platform-app` (or your Neon seed script).
 
 ---
 
 ## 4. Suggested walkthrough (product review)
 
+**Recommended “one patient story” order** (matches seeded links + staff UI cross-navigation):
+
 1. Sign in → **`rick@anang.ai`** (super admin) → **`/admin`**, or **`rick@stginnovation.com`** → **`/o/synthetic-test/dashboard`**.  
-2. **Build** — encounter → draft / issues  
-3. **Pay** — statements → detail → optional Stripe test (patient with Gmail on file)  
-4. **Cover** — assistance cases  
-5. **Support** — task queue  
-6. **Connect** — claim timeline  
-7. **Insight** — KPIs  
-8. **Settings** (tenant admin) — users, entitlements ; super admin → **`/admin`**  
+2. **Build** — **`/o/synthetic-test/build`** → open the seeded encounter (Sam, DOS in seed). Review draft / issues; use **“View related claim in Connect”** when present.  
+3. **Connect** — claim timeline for **`ST-SYN-2026-00042`** (or follow the button from Build). Use **“View encounter in Build”** to prove the round trip.  
+4. **Pay** — statements → open **`STMT-SYN-2026-0042`** → **“View related claim in Connect”** / optional **“View encounter in Build”** → optional Stripe test (patient Gmail on file).  
+5. **Support** — task queue; confirm the open task references the same statement narrative.  
+6. **Cover** — assistance cases for the same patient (patient-level queue; notes mention the statement in seed).  
+7. **Insight** — KPIs.  
+8. **Settings** (tenant admin) — users, entitlements; super admin → **`/admin`**.
+
+See **`docs/TENANCY_AND_MODULES.md`** § *Staff journey & data thread* for the canonical module ↔ model mapping.
 
 ---
 
@@ -64,6 +68,7 @@ Server-side profile mapping (virtual mailbox only) lives in [`apps/platform-app/
 | Multi-tenant + module gating | Shipped |
 | Per-staff module caps | Shipped — super-admin invite/add + **tenant admin Settings → Users** |
 | Build / Pay / Connect / Insight | Shipped (MVP depth) |
+| Build ↔ Connect ↔ Pay (staff) | Shipped — detail pages link across modules when optional FKs (`Claim.encounterId` / `claimDraftId`, `Statement.claimId` / `encounterId`) are set; synthetic seed populates them |
 | Cover / Support | Staff queues + intake (DB-backed) |
 | Auth | Auth.js — password + optional global / per-tenant OIDC |
 | EHR / clearinghouse | **Greenway / Intergy** FHIR lane env-scaffold + hub test (**pilot 1**); **Epic** (**pilot 2**, e.g. Tamarack) — plan only until App Orchard; clearinghouse still contract-gated — [`PILOT_CONNECTOR_ROADMAP.md`](./PILOT_CONNECTOR_ROADMAP.md) |
@@ -101,3 +106,5 @@ Server-side profile mapping (virtual mailbox only) lives in [`apps/platform-app/
 *Patient financial platform (Pay, Cover, Support, Pre) plus **Build** (denial prevention) and **Connect** (payer / EDI depth).*  
 
 Depth comparison: `IMPLEMENTATION_PLAN.md`, `PATH_TO_FULL_PRODUCT.md`.
+
+*Last updated: 2026-04-19 — walkthrough order + capability row for Build/Connect/Pay cross-links.*

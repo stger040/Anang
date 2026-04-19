@@ -102,7 +102,7 @@ This is **reusable testing infrastructure**: the importer targets a tenant (defa
 1. **Migrations applied** (includes `Patient` contact fields + remittance tables):
 
    ```powershell
-   cd c:\Users\stger\Dev\Enterpises\Medtech_placeholder
+   cd c:\Users\stger\Dev\Enterprises\Medtech_placeholder
    npm run db:migrate:deploy:neon
    ```
 
@@ -134,7 +134,7 @@ This is **reusable testing infrastructure**: the importer targets a tenant (defa
 Includes core three workbooks **plus** demographics and remittance when those files exist.
 
 ```powershell
-cd c:\Users\stger\Dev\Enterpises\Medtech_placeholder\apps\platform-app
+cd c:\Users\stger\Dev\Enterprises\Medtech_placeholder\apps\platform-app
 npm run db:import:xlsx:neon -- --replace
 ```
 
@@ -143,7 +143,7 @@ npm run db:import:xlsx:neon -- --replace
 Use when core data is already loaded and you adjusted spreadsheets or need to rerun without wiping patients/claims.
 
 ```powershell
-cd c:\Users\stger\Dev\Enterpises\Medtech_placeholder\apps\platform-app
+cd c:\Users\stger\Dev\Enterprises\Medtech_placeholder\apps\platform-app
 npm run db:import:xlsx:enrich:neon
 ```
 
@@ -152,7 +152,7 @@ Do **not** combine `--enrich-only` with `--replace`.
 ### Local Postgres
 
 ```powershell
-cd c:\Users\stger\Dev\Enterpises\Medtech_placeholder\apps\platform-app
+cd c:\Users\stger\Dev\Enterprises\Medtech_placeholder\apps\platform-app
 npx tsx prisma/import-realistic-xlsx.ts --replace
 # or
 npx tsx prisma/import-realistic-xlsx.ts --enrich-only

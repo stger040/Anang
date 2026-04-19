@@ -27,6 +27,12 @@ export default async function ClaimTimelinePage({
     where: { id: claimId, tenantId: ctx.tenant.id },
     include: {
       patient: true,
+      encounter: {
+        select: { id: true, dateOfService: true },
+      },
+      claimDraft: {
+        select: { id: true, status: true, encounterId: true },
+      },
       timeline: { orderBy: { at: "asc" } },
       edi837Submissions: { orderBy: { recordedAt: "desc" } },
       adjudications: {
@@ -47,9 +53,46 @@ export default async function ClaimTimelinePage({
 
   const canRecord837 = await isTenantSettingsEditor(session, ctx.tenant.id);
 
+  const buildEncounterId =
+    claim.encounterId ?? claim.claimDraft?.encounterId ?? null;
+
   return (
     <div className="space-y-6">
       <ConnectSubnav orgSlug={orgSlug} current="claims" />
+
+      {buildEncounterId ? (
+        <Card className="border-slate-200 bg-slate-50/80 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+            Build
+          </p>
+          <p className="mt-1 text-sm text-slate-800">
+            {claim.encounter ? (
+              <>
+                Linked encounter (DOS{" "}
+                {claim.encounter.dateOfService.toLocaleDateString()}).
+              </>
+            ) : (
+              <>Linked to the Build encounter for this claim.</>
+            )}
+            {claim.claimDraft ? (
+              <span className="mt-1 block text-xs text-slate-600">
+                Source draft{" "}
+                <span className="font-mono">{claim.claimDraft.id.slice(0, 8)}</span>
+                · {claim.claimDraft.status.replaceAll("_", " ")}
+              </span>
+            ) : null}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href={`/o/${orgSlug}/build/encounters/${buildEncounterId}`}
+            >
+              <Button type="button" variant="secondary" size="sm">
+                View encounter in Build
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      ) : null}
 
       <PageHeader
         title={`Claim ${claim.claimNumber}`}
