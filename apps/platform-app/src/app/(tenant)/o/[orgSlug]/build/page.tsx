@@ -1,7 +1,10 @@
+import { CrossModuleChip } from "@/components/cross-module-chip";
 import { isBuildAiTestingEnabled } from "@/lib/build/build-ai-env";
 import { parseFhirVisitSummaryMeta } from "@/lib/fhir-visit-summary-meta";
 import { tenantPrisma } from "@/lib/prisma";
+import { loadTenantWorkspacePageContext } from "@/lib/workspace-page-context";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
+import { ModuleKey } from "@prisma/client";
 import Link from "next/link";
 
 export default async function BuildQueuePage({
@@ -10,6 +13,10 @@ export default async function BuildQueuePage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  const w = await loadTenantWorkspacePageContext(orgSlug);
+  if (!w) return null;
+  const { ctx, operational, fullSuiteDashboard } = w;
+
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
 
@@ -23,12 +30,17 @@ export default async function BuildQueuePage({
   });
 
   const buildAiOn = isBuildAiTestingEnabled();
+  const pendingReview = encounters.filter((e) => e.reviewStatus !== "approved");
+  const subtitle =
+    operational.length <= 3 && !fullSuiteDashboard
+      ? "Coding-ready review: encounters, drafts, and approval before anything hits the payer."
+      : "Use Build when a visit is ready for coding review. Typical actions: verify encounter note, review draft lines, resolve issues, and approve the draft before Connect lifecycle tracking.";
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Build — encounter queue"
-        description="Use Build when a visit is ready for coding review. Typical actions: verify encounter note, review draft lines, resolve issues, and approve the draft before Connect lifecycle tracking."
+        description={subtitle}
         actions={
           <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
             Rules + retrieval today · payer policy models ship with your rulesets
@@ -36,25 +48,76 @@ export default async function BuildQueuePage({
         }
       />
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="border-slate-200 bg-white p-4 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-slate-900">
+            What this module is for
+          </h2>
+          <p className="mt-2 text-sm text-slate-700">
+            Build is where clinical documentation becomes a clean claim draft:
+            codes, charges, rule findings, and approval. You can complete your
+            work here without leaving for payer status — that is Connect’s job.
+          </p>
+          <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            What should I do today?
+          </h3>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-700">
+            <li>Clear encounters still in review or waiting on draft fixes.</li>
+            <li>Approve drafts that are ready so the claim can be submitted.</li>
+            <li>Use per-row review to work the note, lines, and issues in one place.</li>
+          </ul>
+        </Card>
+        <Card className="border-teal-100 bg-teal-50/40 p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Top actions</h2>
+          <p className="mt-2 text-xs text-slate-600">
+            {pendingReview.length} encounter{pendingReview.length === 1 ? "" : "s"} not fully approved.
+          </p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {encounters[0] ? (
+              <li>
+                <Link
+                  href={`/o/${orgSlug}/build/encounters/${encounters[0].id}`}
+                  className="font-medium text-brand-navy underline"
+                >
+                  Open most recent encounter
+                </Link>
+              </li>
+            ) : null}
+            <li>
+              <Link href={`/o/${orgSlug}/build`} className="text-xs text-slate-600 underline">
+                Refresh queue
+              </Link>
+            </li>
+          </ul>
+        </Card>
+      </div>
+
       <Card className="border-slate-200 bg-slate-50/70 p-4">
-        <h2 className="text-sm font-semibold text-slate-900">When to use Build</h2>
+        <h2 className="text-sm font-semibold text-slate-900">Handoffs</h2>
         <p className="mt-1 text-sm text-slate-700">
-          Start here after the encounter is documented. Approve the draft, then
-          continue in Connect to monitor payer submission and adjudication.
+          After approval, payer submission and remittance context are tracked in
+          Connect. Patient balances and follow-up live in Pay and Support when
+          your org uses those modules.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full bg-white px-2 py-1 text-slate-600">
-            Typical action: Review encounter and draft
-          </span>
-          <span className="rounded-full bg-white px-2 py-1 text-slate-600">
-            Typical action: Approve draft
-          </span>
-          <Link
-            href={`/o/${orgSlug}/connect`}
-            className="rounded-full bg-brand-sky/30 px-2 py-1 font-medium text-brand-navy"
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.CONNECT}
+            effectiveModules={ctx.effectiveModules}
+            emphasis
           >
-            Next related module: Connect
-          </Link>
+            Next often: Connect
+          </CrossModuleChip>
+          <CrossModuleChip orgSlug={orgSlug} targetModule={ModuleKey.PAY} effectiveModules={ctx.effectiveModules}>
+            Balances: Pay
+          </CrossModuleChip>
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.SUPPORT}
+            effectiveModules={ctx.effectiveModules}
+          >
+            Billing questions: Support
+          </CrossModuleChip>
         </div>
       </Card>
 

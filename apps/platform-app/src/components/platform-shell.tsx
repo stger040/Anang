@@ -8,6 +8,9 @@ export function PlatformShell({
   showTenantAdminNav,
   userEmail,
   extraTopActions,
+  showDashboardInNav = true,
+  dashboardNavLabel = "Start Here",
+  dashboardNavShortHelp = "Guided demo flow",
   children,
 }: {
   orgSlug: string;
@@ -17,6 +20,9 @@ export function PlatformShell({
   showTenantAdminNav: boolean;
   userEmail: string;
   extraTopActions?: React.ReactNode;
+  showDashboardInNav?: boolean;
+  dashboardNavLabel?: string;
+  dashboardNavShortHelp?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -27,6 +33,9 @@ export function PlatformShell({
       showTenantAdminNav={showTenantAdminNav}
       userEmail={userEmail}
       extraTopActions={extraTopActions}
+      showDashboardInNav={showDashboardInNav}
+      dashboardNavLabel={dashboardNavLabel}
+      dashboardNavShortHelp={dashboardNavShortHelp}
     >
       {children}
     </TenantWorkspace>

@@ -10,11 +10,13 @@ import {
 } from "@/lib/build/code-reference";
 import { syncClaimDraftRuleIssues } from "@/lib/build/sync-draft-rules";
 import { parseFhirVisitSummaryMeta } from "@/lib/fhir-visit-summary-meta";
+import { CrossModuleActionRow } from "@/components/cross-module-action-row";
 import { tenantPrisma } from "@/lib/prisma";
+import { loadTenantWorkspacePageContext } from "@/lib/workspace-page-context";
 import { Badge, Button, Card, PageHeader } from "@anang/ui";
+import { ClaimDraftLineSource, ModuleKey } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ClaimDraftLineSource } from "@prisma/client";
 
 type IssueCitation = {
   chunkId?: string;
@@ -52,6 +54,10 @@ export default async function EncounterDetailPage({
   params: Promise<{ orgSlug: string; encounterId: string }>;
 }) {
   const { orgSlug, encounterId } = await params;
+  const w = await loadTenantWorkspacePageContext(orgSlug);
+  if (!w) notFound();
+  const { ctx } = w;
+
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) notFound();
 
@@ -156,18 +162,21 @@ export default async function EncounterDetailPage({
             ).
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link
+            <CrossModuleActionRow
+              module={ModuleKey.CONNECT}
+              effectiveModules={ctx.effectiveModules}
               href={`/o/${orgSlug}/connect/claims/${submittedFromDrafts.id}`}
+              variant="primary"
             >
-              <Button type="button" variant="primary" size="sm">
-                View related claim in Connect
-              </Button>
-            </Link>
-            <Link href={`/o/${orgSlug}/pay`}>
-              <Button type="button" variant="secondary" size="sm">
-                Next recommended step: Pay
-              </Button>
-            </Link>
+              View related claim in Connect
+            </CrossModuleActionRow>
+            <CrossModuleActionRow
+              module={ModuleKey.PAY}
+              effectiveModules={ctx.effectiveModules}
+              href={`/o/${orgSlug}/pay`}
+            >
+              Next recommended step: Pay
+            </CrossModuleActionRow>
           </div>
         </Card>
       ) : (
@@ -180,11 +189,13 @@ export default async function EncounterDetailPage({
             continue in Connect to track lifecycle milestones.
           </p>
           <div className="mt-3">
-            <Link href={`/o/${orgSlug}/connect`}>
-              <Button type="button" variant="secondary" size="sm">
-                Open Connect workspace
-              </Button>
-            </Link>
+            <CrossModuleActionRow
+              module={ModuleKey.CONNECT}
+              effectiveModules={ctx.effectiveModules}
+              href={`/o/${orgSlug}/connect`}
+            >
+              Open Connect workspace
+            </CrossModuleActionRow>
           </div>
         </Card>
       )}

@@ -7,9 +7,11 @@ import { Badge, Card, PageHeader, Button } from "@anang/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CrossModuleActionRow } from "@/components/cross-module-action-row";
 import { ConnectSubnav } from "../../connect-subnav";
 import { Claim837OutboundForm } from "./claim-837-outbound-form";
 import { Claim837RecordForm } from "./claim-837-record-form";
+import { ModuleKey } from "@prisma/client";
 
 export default async function ClaimTimelinePage({
   params,
@@ -89,31 +91,38 @@ export default async function ClaimTimelinePage({
             ) : null}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link
+            <CrossModuleActionRow
+              module={ModuleKey.BUILD}
+              effectiveModules={ctx.effectiveModules}
               href={`/o/${orgSlug}/build/encounters/${buildEncounterId}`}
             >
-              <Button type="button" variant="secondary" size="sm">
-                View encounter in Build
-              </Button>
-            </Link>
+              View encounter in Build
+            </CrossModuleActionRow>
             {latestStatement ? (
-              <Link href={`/o/${orgSlug}/pay/statements/${latestStatement.id}`}>
-                <Button type="button" variant="primary" size="sm">
-                  Next recommended step: Pay statement
-                </Button>
-              </Link>
+              <CrossModuleActionRow
+                module={ModuleKey.PAY}
+                effectiveModules={ctx.effectiveModules}
+                href={`/o/${orgSlug}/pay/statements/${latestStatement.id}`}
+                variant="primary"
+              >
+                Next recommended step: Pay statement
+              </CrossModuleActionRow>
             ) : (
-              <Link href={`/o/${orgSlug}/pay`}>
-                <Button type="button" variant="secondary" size="sm">
-                  Next recommended step: Pay
-                </Button>
-              </Link>
+              <CrossModuleActionRow
+                module={ModuleKey.PAY}
+                effectiveModules={ctx.effectiveModules}
+                href={`/o/${orgSlug}/pay`}
+              >
+                Next recommended step: Pay
+              </CrossModuleActionRow>
             )}
-            <Link href={`/o/${orgSlug}/support`}>
-              <Button type="button" variant="secondary" size="sm">
-                Then: Support follow-up
-              </Button>
-            </Link>
+            <CrossModuleActionRow
+              module={ModuleKey.SUPPORT}
+              effectiveModules={ctx.effectiveModules}
+              href={`/o/${orgSlug}/support`}
+            >
+              Then: Support follow-up
+            </CrossModuleActionRow>
           </div>
         </Card>
       ) : null}

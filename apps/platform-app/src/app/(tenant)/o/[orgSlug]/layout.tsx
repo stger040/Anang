@@ -5,6 +5,10 @@ import {
   emitSuperAdminCrossTenantAccess,
   readSupportAccessContextFromHeaders,
 } from "@/lib/super-admin-org-audit";
+import {
+  operationalEffectiveModules,
+  useFullSuiteDashboard,
+} from "@/lib/adaptive-workspace";
 import { canAccessTenantAdminRoutes } from "@/lib/tenant-admin-guard";
 import { assertOrgAccess } from "@/lib/tenant-context";
 import { AppRole } from "@prisma/client";
@@ -29,6 +33,14 @@ export default async function OrgLayout({
     ctx.membershipRole,
   );
 
+  const operational = operationalEffectiveModules(ctx.effectiveModules);
+  const fullSuiteDashboard = useFullSuiteDashboard(operational, orgSlug);
+  const showDashboardInNav = operational.length !== 1;
+  const dashboardNavLabel = fullSuiteDashboard ? "Start Here" : "Home";
+  const dashboardNavShortHelp = fullSuiteDashboard
+    ? "Guided demo flow"
+    : "Your workspace overview";
+
   if (
     session.appRole === AppRole.SUPER_ADMIN &&
     ctx.membershipRole === null
@@ -51,6 +63,9 @@ export default async function OrgLayout({
       enabledModules={Array.from(ctx.effectiveModules)}
       showTenantAdminNav={showTenantAdminNav}
       userEmail={session.email}
+      showDashboardInNav={showDashboardInNav}
+      dashboardNavLabel={dashboardNavLabel}
+      dashboardNavShortHelp={dashboardNavShortHelp}
     >
       {children}
     </PlatformShell>

@@ -31,6 +31,9 @@ export function TenantWorkspace({
   showTenantAdminNav,
   userEmail,
   extraTopActions,
+  showDashboardInNav = true,
+  dashboardNavLabel = "Start Here",
+  dashboardNavShortHelp = "Guided demo flow",
   children,
 }: {
   orgSlug: string;
@@ -39,6 +42,9 @@ export function TenantWorkspace({
   showTenantAdminNav: boolean;
   userEmail: string;
   extraTopActions?: React.ReactNode;
+  showDashboardInNav?: boolean;
+  dashboardNavLabel?: string;
+  dashboardNavShortHelp?: string;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(true);
@@ -77,6 +83,9 @@ export function TenantWorkspace({
         widthPx={sidebarWidth}
         collapsed={collapsed}
         onToggleCollapsed={toggleCollapsed}
+        showDashboardInNav={showDashboardInNav}
+        dashboardNavLabel={dashboardNavLabel}
+        dashboardNavShortHelp={dashboardNavShortHelp}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar

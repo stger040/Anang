@@ -1,8 +1,11 @@
+import { CrossModuleChip } from "@/components/cross-module-chip";
 import { tenantPrisma } from "@/lib/prisma";
 import { parseImplementationSettings } from "@/lib/tenant-implementation-settings";
 import { formatTradingPartnerSummary } from "@/lib/trading-partner-enrollment";
+import { loadTenantWorkspacePageContext } from "@/lib/workspace-page-context";
 import { CLAIM_STATUSES } from "@anang/types";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
+import { ModuleKey } from "@prisma/client";
 import Link from "next/link";
 
 import { ConnectSubnav } from "./connect-subnav";
@@ -24,6 +27,11 @@ export default async function ConnectClaimsPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  const w = await loadTenantWorkspacePageContext(orgSlug);
+  if (!w) return null;
+  const { ctx, operational, fullSuiteDashboard } = w;
+  const eff = ctx.effectiveModules;
+
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
     select: { id: true, settings: true },
@@ -50,13 +58,20 @@ export default async function ConnectClaimsPage({
     },
   });
 
+  const deniedClaims = claims.filter((c) => c.status === "DENIED");
+  const recentForSidebar = claims.slice(0, 5);
+  const subtitle =
+    operational.length <= 3 && !fullSuiteDashboard
+      ? "Payer-facing claim status and remittance context for your role."
+      : "Use Connect after Build approval to track payer-facing status, EDI events, and what should flow into patient responsibility.";
+
   return (
     <div className="space-y-6">
       <ConnectSubnav orgSlug={orgSlug} current="claims" />
 
       <PageHeader
         title="Connect — claims lifecycle"
-        description="Use Connect after Build approval to track payer-facing status. Typical actions: open claim timeline, verify 837/277/835 milestones, and confirm what should flow into patient responsibility in Pay."
+        description={subtitle}
         actions={
           <span className="text-xs text-slate-500">
             States: {CLAIM_STATUSES.join(", ")}
@@ -64,35 +79,130 @@ export default async function ConnectClaimsPage({
         }
       />
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="border-slate-200 bg-white p-4 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-slate-900">
+            What this module is for
+          </h2>
+          <p className="mt-2 text-sm text-slate-700">
+            Connect is your workspace for claim lifecycle: submission, payer
+            responses, denials, appeals, and ERA-backed adjudication. Everything
+            you need to answer “where is this claim with the payer?” lives here.
+          </p>
+          <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            What should I do today?
+          </h3>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-700">
+            <li>Open denied or stuck claims first and read the timeline.</li>
+            <li>Confirm 835 / remittance linkage when adjudications are present.</li>
+            <li>
+              When patient responsibility is clear, hand off balances in Pay (if
+              your access includes it).
+            </li>
+          </ul>
+        </Card>
+        <Card className="border-teal-100 bg-teal-50/40 p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Top actions</h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            <li>
+              <Link
+                href={`/o/${orgSlug}/connect/remittances`}
+                className="font-medium text-brand-navy underline"
+              >
+                Browse remittances (835)
+              </Link>
+            </li>
+            {deniedClaims[0] ? (
+              <li>
+                <Link
+                  href={`/o/${orgSlug}/connect/claims/${deniedClaims[0].id}`}
+                  className="font-medium text-brand-navy underline"
+                >
+                  Review a denied claim
+                </Link>
+                <span className="ml-1 text-xs text-slate-500">
+                  ({deniedClaims[0].claimNumber})
+                </span>
+              </li>
+            ) : (
+              <li className="text-xs text-slate-600">No denied claims in seed data.</li>
+            )}
+          </ul>
+        </Card>
+      </div>
+
       <Card className="border-slate-200 bg-slate-50/70 p-4">
         <h2 className="text-sm font-semibold text-slate-900">
-          When to use Connect
+          Where this fits in your org
         </h2>
         <p className="mt-1 text-sm text-slate-700">
-          Connect is the claims operations workspace between Build and Pay.
-          Confirm claim progress here, then move to Pay for patient balances and
-          Support/Cover for follow-up.
+          {fullSuiteDashboard || operational.length >= 4
+            ? "Connect sits between Build (draft readiness) and Pay (patient balances). Support and Cover pick up patient conversations and affordability."
+            : "Other steps in the revenue cycle may run in other modules. Chips below only link when you have access; otherwise they describe the handoff."}
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <Link
-            href={`/o/${orgSlug}/build`}
-            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.BUILD}
+            effectiveModules={eff}
           >
-            Related module: Build
-          </Link>
-          <Link
-            href={`/o/${orgSlug}/pay`}
-            className="rounded-full bg-brand-sky/30 px-2 py-1 font-medium text-brand-navy"
+            Related: Build
+          </CrossModuleChip>
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.PAY}
+            effectiveModules={eff}
+            emphasis
           >
-            Next related module: Pay
-          </Link>
-          <Link
-            href={`/o/${orgSlug}/support`}
-            className="rounded-full bg-white px-2 py-1 text-slate-600"
+            Next often: Pay
+          </CrossModuleChip>
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.SUPPORT}
+            effectiveModules={eff}
           >
             Then: Support
-          </Link>
+          </CrossModuleChip>
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.COVER}
+            effectiveModules={eff}
+          >
+            Escalations: Cover
+          </CrossModuleChip>
         </div>
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold text-slate-900">Recent claims</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Newest first — same rows as the full table below.
+        </p>
+        <ul className="mt-3 divide-y divide-slate-100 text-sm">
+          {recentForSidebar.length === 0 ? (
+            <li className="py-2 text-slate-600">No claims yet.</li>
+          ) : (
+            recentForSidebar.map((c) => (
+              <li
+                key={c.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2"
+              >
+                <span className="font-mono text-xs text-slate-800">
+                  {c.claimNumber}
+                </span>
+                <Badge tone={STATUS_TONE[c.status] ?? "default"}>
+                  {c.status.toLowerCase()}
+                </Badge>
+                <Link
+                  href={`/o/${orgSlug}/connect/claims/${c.id}`}
+                  className="text-xs font-medium text-brand-navy underline"
+                >
+                  Open timeline
+                </Link>
+              </li>
+            ))
+          )}
+        </ul>
       </Card>
 
       <Card className="p-5">

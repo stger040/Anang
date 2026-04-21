@@ -2,9 +2,13 @@ import { PatientPayLinkCard } from "@/components/patient-pay-link-card";
 import { StatementPaymentPlanStaffForm } from "@/components/statement-payment-plan-staff-form";
 import { PayWithStripeButton } from "@/components/pay-with-stripe-button";
 import { StatementLineExplain } from "@/components/statement-line-explain";
+import { CrossModuleActionRow } from "@/components/cross-module-action-row";
 import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
 import { tenantPrisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
+import { assertOrgAccess } from "@/lib/tenant-context";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
+import { ModuleKey } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -19,6 +23,11 @@ export default async function StatementDetailPage({
   params: Promise<{ orgSlug: string; statementId: string }>;
 }) {
   const { orgSlug, statementId } = await params;
+  const session = await getSession();
+  if (!session) notFound();
+  const ctx = await assertOrgAccess(session, orgSlug);
+  if (!ctx) notFound();
+
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) notFound();
 
@@ -74,30 +83,37 @@ export default async function StatementDetailPage({
             .
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link href={`/o/${orgSlug}/connect/claims/${stmt.claim.id}`}>
-              <Button type="button" variant="primary" size="sm">
-                View related claim in Connect
-              </Button>
-            </Link>
+            <CrossModuleActionRow
+              module={ModuleKey.CONNECT}
+              effectiveModules={ctx.effectiveModules}
+              href={`/o/${orgSlug}/connect/claims/${stmt.claim.id}`}
+              variant="primary"
+            >
+              View related claim in Connect
+            </CrossModuleActionRow>
             {stmt.encounter ? (
-              <Link
+              <CrossModuleActionRow
+                module={ModuleKey.BUILD}
+                effectiveModules={ctx.effectiveModules}
                 href={`/o/${orgSlug}/build/encounters/${stmt.encounter.id}`}
               >
-                <Button type="button" variant="secondary" size="sm">
-                  View encounter in Build
-                </Button>
-              </Link>
+                View encounter in Build
+              </CrossModuleActionRow>
             ) : null}
-            <Link href={`/o/${orgSlug}/support`}>
-              <Button type="button" variant="secondary" size="sm">
-                Next recommended step: Support
-              </Button>
-            </Link>
-            <Link href={`/o/${orgSlug}/cover`}>
-              <Button type="button" variant="secondary" size="sm">
-                Affordability path: Cover
-              </Button>
-            </Link>
+            <CrossModuleActionRow
+              module={ModuleKey.SUPPORT}
+              effectiveModules={ctx.effectiveModules}
+              href={`/o/${orgSlug}/support`}
+            >
+              Next recommended step: Support
+            </CrossModuleActionRow>
+            <CrossModuleActionRow
+              module={ModuleKey.COVER}
+              effectiveModules={ctx.effectiveModules}
+              href={`/o/${orgSlug}/cover`}
+            >
+              Affordability path: Cover
+            </CrossModuleActionRow>
             <Link href={`/o/${orgSlug}/insight`}>
               <Button type="button" variant="secondary" size="sm">
                 Summary module: Insight

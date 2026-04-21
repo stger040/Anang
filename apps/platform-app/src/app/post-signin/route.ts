@@ -7,6 +7,7 @@ import {
 import { readRequestIdFromHeaders } from "@/lib/platform-log";
 import { prisma } from "@/lib/prisma";
 import { validateTenantSlug } from "@/lib/platform-slug";
+import { postSignInTenantPath } from "@/lib/adaptive-workspace";
 import { fulfillInviteForUser } from "@/lib/user-invite";
 import { AppRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
@@ -49,10 +50,16 @@ export async function GET(request: NextRequest) {
       emailLower,
       requestId ? { requestId } : undefined,
     );
+    const sessionPayload = {
+      userId: session.user.id,
+      email: emailLower,
+      appRole: session.user.appRole ?? AppRole.STAFF,
+    };
+    const tenantPath = r.ok
+      ? await postSignInTenantPath(sessionPayload, r.tenantSlug)
+      : `/o/${r.tenantSlug}/dashboard`;
     const res = r.ok
-      ? NextResponse.redirect(
-          new URL(`/o/${r.tenantSlug}/dashboard`, request.url),
-        )
+      ? NextResponse.redirect(new URL(tenantPath, request.url))
       : r.code === "email_mismatch"
         ? NextResponse.redirect(
             new URL("/login?error=invite_email_mismatch", request.url),
@@ -71,9 +78,13 @@ export async function GET(request: NextRequest) {
           select: { id: true },
         });
         if (tenant) {
-          const res = NextResponse.redirect(
-            new URL(`/o/${slug}/dashboard`, request.url),
-          );
+          const sessionPayload = {
+            userId: session.user.id,
+            email: emailLower,
+            appRole: session.user.appRole!,
+          };
+          const path = await postSignInTenantPath(sessionPayload, slug);
+          const res = NextResponse.redirect(new URL(path, request.url));
           clearAuthFlowCookies(res);
           return res;
         }
@@ -99,9 +110,13 @@ export async function GET(request: NextRequest) {
           include: { tenant: { select: { slug: true } } },
         });
         if (m) {
-          const res = NextResponse.redirect(
-            new URL(`/o/${m.tenant.slug}/dashboard`, request.url),
-          );
+          const sessionPayload = {
+            userId: session.user.id,
+            email: emailLower,
+            appRole: session.user.appRole!,
+          };
+          const path = await postSignInTenantPath(sessionPayload, m.tenant.slug);
+          const res = NextResponse.redirect(new URL(path, request.url));
           clearAuthFlowCookies(res);
           return res;
         }
@@ -116,9 +131,13 @@ export async function GET(request: NextRequest) {
   });
 
   if (m) {
-    const res = NextResponse.redirect(
-      new URL(`/o/${m.tenant.slug}/dashboard`, request.url),
-    );
+    const sessionPayload = {
+      userId: session.user.id,
+      email: emailLower,
+      appRole: session.user.appRole!,
+    };
+    const path = await postSignInTenantPath(sessionPayload, m.tenant.slug);
+    const res = NextResponse.redirect(new URL(path, request.url));
     clearAuthFlowCookies(res);
     return res;
   }

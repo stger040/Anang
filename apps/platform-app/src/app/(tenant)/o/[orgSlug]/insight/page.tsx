@@ -1,5 +1,8 @@
+import { CrossModuleChip } from "@/components/cross-module-chip";
 import { tenantPrisma } from "@/lib/prisma";
+import { loadTenantWorkspacePageContext } from "@/lib/workspace-page-context";
 import { Card, PageHeader, StatCard } from "@anang/ui";
+import { ModuleKey } from "@prisma/client";
 import Link from "next/link";
 
 export default async function InsightPage({
@@ -8,6 +11,10 @@ export default async function InsightPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  const w = await loadTenantWorkspacePageContext(orgSlug);
+  if (!w) return null;
+  const { ctx, operational, fullSuiteDashboard } = w;
+
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
 
@@ -48,46 +55,95 @@ export default async function InsightPage({
   const balance = stmtBal._sum.balanceCents ?? 0;
   const arDays = Math.min(56, 28 + Math.round(balance / 5000000));
 
+  const showWorkspaceHome =
+    operational.length > 1 || fullSuiteDashboard;
+  const subtitle =
+    operational.length <= 3 && !fullSuiteDashboard
+      ? "Operational KPIs for this tenant — tuned for a focused module set."
+      : "Use Insight after working Build, Connect, Pay, Support, and Cover to summarize operating performance in one place.";
+
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Insight — revenue intelligence"
-        description="Use Insight after working Build, Connect, Pay, Support, and Cover to summarize operating performance in one place."
-      />
+      <PageHeader title="Insight — revenue intelligence" description={subtitle} />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="p-4 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-slate-900">
+            What this module is for
+          </h2>
+          <p className="mt-2 text-sm text-slate-700">
+            Insight is the read-only rollup: denial pressure, balances, and risk
+            signals so leaders can see how operations are trending without opening
+            every transactional screen.
+          </p>
+          <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            What should I do today?
+          </h3>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-700">
+            <li>Scan denial rate and claims at risk before standups.</li>
+            <li>Pair AR signals with what teams are doing in Pay and Connect.</li>
+            <li>Use this page as the “answer in one place” view for leadership demos.</li>
+          </ul>
+        </Card>
+        <Card className="border-teal-100 bg-teal-50/40 p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Top actions</h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            {ctx.effectiveModules.has(ModuleKey.CONNECT) ? (
+              <li>
+                <Link
+                  href={`/o/${orgSlug}/connect`}
+                  className="font-medium text-brand-navy underline"
+                >
+                  Open Connect for claim drill-down
+                </Link>
+              </li>
+            ) : null}
+            {ctx.effectiveModules.has(ModuleKey.PAY) ? (
+              <li>
+                <Link href={`/o/${orgSlug}/pay`} className="font-medium text-brand-navy underline">
+                  Open Pay for statement detail
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+        </Card>
+      </div>
 
       <Card className="border-slate-200 bg-slate-50/70 p-4">
-        <h2 className="text-sm font-semibold text-slate-900">
-          When to use Insight
-        </h2>
+        <h2 className="text-sm font-semibold text-slate-900">Cross-module context</h2>
         <p className="mt-1 text-sm text-slate-700">
-          Insight is the recap layer. Typical action: review denial pressure,
-          patient AR, and risk indicators after teams execute in other modules.
+          Metrics here summarize work that happens in other modules. Chips link only
+          when you have access.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <Link
-            href={`/o/${orgSlug}/build`}
-            className="rounded-full bg-white px-2 py-1 text-slate-600"
-          >
+          <CrossModuleChip orgSlug={orgSlug} targetModule={ModuleKey.BUILD} effectiveModules={ctx.effectiveModules}>
             Related: Build
-          </Link>
-          <Link
-            href={`/o/${orgSlug}/connect`}
-            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          </CrossModuleChip>
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.CONNECT}
+            effectiveModules={ctx.effectiveModules}
           >
             Related: Connect
-          </Link>
-          <Link
-            href={`/o/${orgSlug}/pay`}
-            className="rounded-full bg-white px-2 py-1 text-slate-600"
-          >
+          </CrossModuleChip>
+          <CrossModuleChip orgSlug={orgSlug} targetModule={ModuleKey.PAY} effectiveModules={ctx.effectiveModules}>
             Related: Pay
-          </Link>
-          <Link
-            href={`/o/${orgSlug}/dashboard`}
-            className="rounded-full bg-brand-sky/30 px-2 py-1 font-medium text-brand-navy"
-          >
-            Next demo step: Start Here recap
-          </Link>
+          </CrossModuleChip>
+          {showWorkspaceHome ? (
+            <Link
+              href={`/o/${orgSlug}/dashboard`}
+              className="inline-flex items-center rounded-full border border-brand-sky/50 bg-brand-sky/30 px-2 py-1 text-xs font-medium text-brand-navy hover:bg-brand-sky/40"
+            >
+              {fullSuiteDashboard
+                ? "Demo: Start Here recap"
+                : "Workspace home"}
+            </Link>
+          ) : (
+            <span className="inline-flex max-w-full items-center rounded-full border border-dashed border-slate-200 bg-white px-2 py-1 text-xs text-slate-600">
+              Multi-module workspace home is hidden when Insight is your only
+              module — you are already on the right home surface.
+            </span>
+          )}
         </div>
       </Card>
 

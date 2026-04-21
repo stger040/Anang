@@ -1,6 +1,8 @@
-import { PageHeader } from "@anang/ui";
+import { CrossModuleChip } from "@/components/cross-module-chip";
 import { tenantPrisma } from "@/lib/prisma";
-import Link from "next/link";
+import { loadTenantWorkspacePageContext } from "@/lib/workspace-page-context";
+import { Card, PageHeader } from "@anang/ui";
+import { ModuleKey } from "@prisma/client";
 import { CoverWorkspace } from "./cover-workspace";
 
 export default async function CoverPage({
@@ -12,6 +14,10 @@ export default async function CoverPage({
 }) {
   const { orgSlug } = await params;
   const { patientId: patientIdParam } = await searchParams;
+
+  const w = await loadTenantWorkspacePageContext(orgSlug);
+  if (!w) return null;
+  const { ctx, operational, fullSuiteDashboard } = w;
 
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
@@ -39,42 +45,94 @@ export default async function CoverPage({
       ? patientIdParam
       : undefined;
 
+  const subtitle =
+    operational.length <= 3 && !fullSuiteDashboard
+      ? "Financial assistance, coverage routing, and charity-care style review."
+      : "Use Cover when a patient needs affordability help, coverage routing, or financial-assistance review. This module is patient-centered and complements Pay/Support follow-up.";
+
+  const activeCases = cases.filter((c) => c.status !== "closed").slice(0, 5);
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Cover — affordability & coverage"
-        description="Use Cover when a patient needs affordability help, coverage routing, or financial-assistance review. This module is patient-centered and complements Pay/Support follow-up."
-      />
-      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-        <h2 className="text-sm font-semibold text-slate-900">
-          What Cover is for
-        </h2>
+      <PageHeader title="Cover — affordability & coverage" description={subtitle} />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="p-4 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-slate-900">
+            What this module is for
+          </h2>
+          <p className="mt-2 text-sm text-slate-700">
+            Cover is where staff screen for assistance programs, document household
+            context, and route patients to the right coverage or charity pathway.
+            It is intentionally separate from day-to-day statement work in Pay.
+          </p>
+          <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            What should I do today?
+          </h3>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-700">
+            <li>Pick up in-progress cases waiting on documentation.</li>
+            <li>Close loops on eligibility questions before balances go back to Pay.</li>
+            <li>Coordinate with Support when the patient is mid-conversation.</li>
+          </ul>
+        </Card>
+        <Card className="border-teal-100 bg-teal-50/40 p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Top actions</h2>
+          <p className="mt-2 text-xs text-slate-600">
+            {cases.length} case{cases.length === 1 ? "" : "s"} on file.
+          </p>
+          <ul className="mt-3 space-y-2 text-sm text-slate-700">
+            <li>Use the workspace below to add or update a case.</li>
+          </ul>
+        </Card>
+      </div>
+
+      <Card className="p-4">
+        <h2 className="text-sm font-semibold text-slate-900">Handoffs</h2>
         <p className="mt-1 text-sm text-slate-700">
-          Cover is the affordability workflow: financial assistance, Medicaid or
-          marketplace routing, and charity-care screening. Use it when a patient
-          cannot resolve balance through standard Pay/Support steps.
+          Balances and statements are owned in Pay. Billing callbacks may start in
+          Support before a case lands here.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <Link
-            href={`/o/${orgSlug}/pay`}
-            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          <CrossModuleChip orgSlug={orgSlug} targetModule={ModuleKey.PAY} effectiveModules={ctx.effectiveModules}>
+            Balances: Pay
+          </CrossModuleChip>
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.SUPPORT}
+            effectiveModules={ctx.effectiveModules}
           >
-            Related module: Pay
-          </Link>
-          <Link
-            href={`/o/${orgSlug}/support`}
-            className="rounded-full bg-white px-2 py-1 text-slate-600"
+            Callbacks: Support
+          </CrossModuleChip>
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.INSIGHT}
+            effectiveModules={ctx.effectiveModules}
+            emphasis
           >
-            Related module: Support
-          </Link>
-          <Link
-            href={`/o/${orgSlug}/insight`}
-            className="rounded-full bg-brand-sky/30 px-2 py-1 font-medium text-brand-navy"
-          >
-            Next related module: Insight
-          </Link>
+            Rollup: Insight
+          </CrossModuleChip>
         </div>
-      </div>
+      </Card>
+
+      <Card className="p-4">
+        <h2 className="text-sm font-semibold text-slate-900">Recent / assigned work</h2>
+        <ul className="mt-3 divide-y divide-slate-100 text-sm">
+          {activeCases.length === 0 ? (
+            <li className="py-2 text-slate-600">No active cases.</li>
+          ) : (
+            activeCases.map((c) => (
+              <li key={c.id} className="py-2">
+                <span className="font-medium text-slate-900">
+                  {c.patient.lastName}, {c.patient.firstName}
+                </span>
+                <span className="ml-2 text-xs text-slate-500">
+                  {c.track} · {c.status.replaceAll("_", " ")}
+                </span>
+              </li>
+            ))
+          )}
+        </ul>
+      </Card>
       <CoverWorkspace
         orgSlug={orgSlug}
         patients={patientOptions}

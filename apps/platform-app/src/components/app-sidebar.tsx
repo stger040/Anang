@@ -129,7 +129,7 @@ const ALL: NavItem[] = [
   },
 ];
 
-const NAV_GROUPS: Array<{ title: string; hrefs: string[] }> = [
+const NAV_GROUPS_BASE: Array<{ title: string; hrefs: string[] }> = [
   { title: "Start", hrefs: ["dashboard"] },
   { title: "Claims operations", hrefs: ["build", "connect"] },
   { title: "Patient financial journey", hrefs: ["pay", "support", "cover"] },
@@ -144,6 +144,9 @@ export function AppSidebar({
   widthPx,
   collapsed,
   onToggleCollapsed,
+  showDashboardInNav = true,
+  dashboardNavLabel = "Start Here",
+  dashboardNavShortHelp = "Guided demo flow",
 }: {
   orgSlug: string;
   enabledModules: ModuleKey[];
@@ -152,13 +155,34 @@ export function AppSidebar({
   widthPx: number;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  showDashboardInNav?: boolean;
+  dashboardNavLabel?: string;
+  dashboardNavShortHelp?: string;
 }) {
   const pathname = usePathname();
   const enabled = new Set(enabledModules);
   const orgAbbrev = abbrevOrgDisplayName(tenantName);
   const slugAbbrev = abbrevOrgSlugForSidebar(orgSlug);
 
-  const allowedItems = ALL.filter((n) => {
+  const NAV_GROUPS =
+    dashboardNavLabel === "Home"
+      ? NAV_GROUPS_BASE.map((g, i) =>
+          i === 0 ? { ...g, title: "Workspace" } : g,
+        )
+      : NAV_GROUPS_BASE;
+
+  const navItems = ALL.map((n) =>
+    n.href === "dashboard"
+      ? {
+          ...n,
+          label: dashboardNavLabel,
+          shortHelp: dashboardNavShortHelp,
+        }
+      : n,
+  );
+
+  const allowedItems = navItems.filter((n) => {
+    if (n.href === "dashboard" && !showDashboardInNav) return false;
     if (n.tenantAdminOnly && !showTenantAdminNav) return false;
     if (!n.module) return true;
     return enabled.has(n.module);

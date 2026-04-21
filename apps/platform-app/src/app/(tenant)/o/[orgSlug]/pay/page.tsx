@@ -1,6 +1,9 @@
+import { CrossModuleChip } from "@/components/cross-module-chip";
 import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
 import { tenantPrisma } from "@/lib/prisma";
+import { loadTenantWorkspacePageContext } from "@/lib/workspace-page-context";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
+import { ModuleKey } from "@prisma/client";
 import Link from "next/link";
 
 export default async function PayStatementsPage({
@@ -9,6 +12,10 @@ export default async function PayStatementsPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  const w = await loadTenantWorkspacePageContext(orgSlug);
+  if (!w) return null;
+  const { ctx, operational, fullSuiteDashboard } = w;
+
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
 
@@ -24,45 +31,97 @@ export default async function PayStatementsPage({
     take: 12,
   });
 
+  const openStatements = statements.filter((s) => s.status === "open");
+  const subtitle =
+    operational.length <= 3 && !fullSuiteDashboard
+      ? "Statements, balances, and patient-facing payment flows for your role."
+      : "Use Pay after claims adjudication to manage patient responsibility. Typical actions: open statement detail, explain line items, send patient pay links, and coordinate follow-up with Support or Cover.";
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Pay — patient financials"
-        description="Use Pay after claims adjudication to manage patient responsibility. Typical actions: open statement detail, explain line items, send patient pay links, and coordinate follow-up with Support or Cover."
+        description={subtitle}
       />
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="border-slate-200 bg-white p-4 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-slate-900">
+            What this module is for
+          </h2>
+          <p className="mt-2 text-sm text-slate-700">
+            Pay is where staff explain what the patient owes, collect balances,
+            and configure pre-visit flows. Claim status itself stays in Connect;
+            affordability programs often sit in Cover.
+          </p>
+          <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            What should I do today?
+          </h3>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-700">
+            <li>Work down open statements with a balance due.</li>
+            <li>Send or verify patient pay links where appropriate.</li>
+            <li>Escalate affordability to Cover or callbacks to Support when needed.</li>
+          </ul>
+        </Card>
+        <Card className="border-teal-100 bg-teal-50/40 p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Top actions</h2>
+          <p className="mt-2 text-xs text-slate-600">
+            {openStatements.length} open statement
+            {openStatements.length === 1 ? "" : "s"} with balance.
+          </p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {statements[0] ? (
+              <li>
+                <Link
+                  href={`/o/${orgSlug}/pay/statements/${statements[0].id}`}
+                  className="font-medium text-brand-navy underline"
+                >
+                  Open most recent statement
+                </Link>
+              </li>
+            ) : null}
+            <li>
+              <Link href={`/o/${orgSlug}/pay/pre`} className="text-xs font-medium text-brand-navy underline">
+                Pre-visit hub
+              </Link>
+            </li>
+          </ul>
+        </Card>
+      </div>
+
       <Card className="border-slate-200 bg-slate-50/70 p-4">
-        <h2 className="text-sm font-semibold text-slate-900">When to use Pay</h2>
+        <h2 className="text-sm font-semibold text-slate-900">Handoffs</h2>
         <p className="mt-1 text-sm text-slate-700">
-          Pay is the patient financial operations hub. Start with a statement,
-          then route unresolved questions to Support and affordability needs to
-          Cover. Use Insight to summarize impact.
+          Payer outcomes and remits are visible in Connect. Patient questions after
+          a statement often land in Support; charity or assistance workflows may
+          be owned in Cover.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <Link
-            href={`/o/${orgSlug}/connect`}
-            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.CONNECT}
+            effectiveModules={ctx.effectiveModules}
           >
-            Related module: Connect
-          </Link>
-          <Link
-            href={`/o/${orgSlug}/support`}
-            className="rounded-full bg-brand-sky/30 px-2 py-1 font-medium text-brand-navy"
+            Claim context: Connect
+          </CrossModuleChip>
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.SUPPORT}
+            effectiveModules={ctx.effectiveModules}
+            emphasis
           >
-            Next related module: Support
-          </Link>
-          <Link
-            href={`/o/${orgSlug}/cover`}
-            className="rounded-full bg-white px-2 py-1 text-slate-600"
+            Follow-up: Support
+          </CrossModuleChip>
+          <CrossModuleChip orgSlug={orgSlug} targetModule={ModuleKey.COVER} effectiveModules={ctx.effectiveModules}>
+            Affordability: Cover
+          </CrossModuleChip>
+          <CrossModuleChip
+            orgSlug={orgSlug}
+            targetModule={ModuleKey.INSIGHT}
+            effectiveModules={ctx.effectiveModules}
           >
-            Affordability path: Cover
-          </Link>
-          <Link
-            href={`/o/${orgSlug}/insight`}
-            className="rounded-full bg-white px-2 py-1 text-slate-600"
-          >
-            Summary module: Insight
-          </Link>
+            Rollup: Insight
+          </CrossModuleChip>
         </div>
       </Card>
 
