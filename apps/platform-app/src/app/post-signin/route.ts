@@ -55,11 +55,13 @@ export async function GET(request: NextRequest) {
       email: emailLower,
       appRole: session.user.appRole ?? AppRole.STAFF,
     };
-    const tenantPath = r.ok
-      ? await postSignInTenantPath(sessionPayload, r.tenantSlug)
-      : `/o/${r.tenantSlug}/dashboard`;
     const res = r.ok
-      ? NextResponse.redirect(new URL(tenantPath, request.url))
+      ? NextResponse.redirect(
+          new URL(
+            await postSignInTenantPath(sessionPayload, r.tenantSlug),
+            request.url,
+          ),
+        )
       : r.code === "email_mismatch"
         ? NextResponse.redirect(
             new URL("/login?error=invite_email_mismatch", request.url),
