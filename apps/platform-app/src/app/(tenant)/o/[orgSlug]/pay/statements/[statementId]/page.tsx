@@ -63,7 +63,7 @@ export default async function StatementDetailPage({
       {stmt.claim ? (
         <Card className="border-slate-200 bg-slate-50/80 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-            Connect · Build
+            Related in other modules
           </p>
           <p className="mt-1 text-sm text-slate-800">
             Patient balance ties to claim{" "}
@@ -88,9 +88,47 @@ export default async function StatementDetailPage({
                 </Button>
               </Link>
             ) : null}
+            <Link href={`/o/${orgSlug}/support`}>
+              <Button type="button" variant="secondary" size="sm">
+                Next recommended step: Support
+              </Button>
+            </Link>
+            <Link href={`/o/${orgSlug}/cover`}>
+              <Button type="button" variant="secondary" size="sm">
+                Affordability path: Cover
+              </Button>
+            </Link>
+            <Link href={`/o/${orgSlug}/insight`}>
+              <Button type="button" variant="secondary" size="sm">
+                Summary module: Insight
+              </Button>
+            </Link>
           </div>
         </Card>
-      ) : null}
+      ) : (
+        <Card className="border-slate-200 bg-slate-50/80 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+            Next recommended step
+          </p>
+          <p className="mt-1 text-sm text-slate-700">
+            Use Support for billing follow-up and Cover for affordability review
+            when a patient cannot resolve this balance through standard payment
+            options.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href={`/o/${orgSlug}/support`}>
+              <Button type="button" variant="primary" size="sm">
+                Open Support
+              </Button>
+            </Link>
+            <Link href={`/o/${orgSlug}/cover`}>
+              <Button type="button" variant="secondary" size="sm">
+                Open Cover
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      )}
 
       {fromFhirFixture ? (
         <Card className="border-violet-100 bg-violet-50/50 p-4">

@@ -28,8 +28,43 @@ export default async function PayStatementsPage({
     <div className="space-y-8">
       <PageHeader
         title="Pay — patient financials"
-        description="Statements, balances, and payment activity. Rows come from seed or your ledger integration — not production PHI until feeds are live."
+        description="Use Pay after claims adjudication to manage patient responsibility. Typical actions: open statement detail, explain line items, send patient pay links, and coordinate follow-up with Support or Cover."
       />
+
+      <Card className="border-slate-200 bg-slate-50/70 p-4">
+        <h2 className="text-sm font-semibold text-slate-900">When to use Pay</h2>
+        <p className="mt-1 text-sm text-slate-700">
+          Pay is the patient financial operations hub. Start with a statement,
+          then route unresolved questions to Support and affordability needs to
+          Cover. Use Insight to summarize impact.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <Link
+            href={`/o/${orgSlug}/connect`}
+            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          >
+            Related module: Connect
+          </Link>
+          <Link
+            href={`/o/${orgSlug}/support`}
+            className="rounded-full bg-brand-sky/30 px-2 py-1 font-medium text-brand-navy"
+          >
+            Next related module: Support
+          </Link>
+          <Link
+            href={`/o/${orgSlug}/cover`}
+            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          >
+            Affordability path: Cover
+          </Link>
+          <Link
+            href={`/o/${orgSlug}/insight`}
+            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          >
+            Summary module: Insight
+          </Link>
+        </div>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-3 border-teal-100 bg-gradient-to-r from-teal-50/60 to-white">
@@ -111,7 +146,7 @@ export default async function PayStatementsPage({
                     <td className="py-3 pr-4 text-right">
                       <Link href={`/o/${orgSlug}/pay/statements/${s.id}`}>
                         <Button type="button" size="sm" variant="secondary">
-                          View
+                          Open statement
                         </Button>
                       </Link>
                     </td>

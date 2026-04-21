@@ -33,6 +33,11 @@ export default async function ClaimTimelinePage({
       claimDraft: {
         select: { id: true, status: true, encounterId: true },
       },
+      statements: {
+        orderBy: { dueDate: "desc" },
+        select: { id: true, number: true, status: true },
+        take: 1,
+      },
       timeline: { orderBy: { at: "asc" } },
       edi837Submissions: { orderBy: { recordedAt: "desc" } },
       adjudications: {
@@ -55,6 +60,7 @@ export default async function ClaimTimelinePage({
 
   const buildEncounterId =
     claim.encounterId ?? claim.claimDraft?.encounterId ?? null;
+  const latestStatement = claim.statements[0] ?? null;
 
   return (
     <div className="space-y-6">
@@ -63,7 +69,7 @@ export default async function ClaimTimelinePage({
       {buildEncounterId ? (
         <Card className="border-slate-200 bg-slate-50/80 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-            Build
+            Related in other modules
           </p>
           <p className="mt-1 text-sm text-slate-800">
             {claim.encounter ? (
@@ -88,6 +94,24 @@ export default async function ClaimTimelinePage({
             >
               <Button type="button" variant="secondary" size="sm">
                 View encounter in Build
+              </Button>
+            </Link>
+            {latestStatement ? (
+              <Link href={`/o/${orgSlug}/pay/statements/${latestStatement.id}`}>
+                <Button type="button" variant="primary" size="sm">
+                  Next recommended step: Pay statement
+                </Button>
+              </Link>
+            ) : (
+              <Link href={`/o/${orgSlug}/pay`}>
+                <Button type="button" variant="secondary" size="sm">
+                  Next recommended step: Pay
+                </Button>
+              </Link>
+            )}
+            <Link href={`/o/${orgSlug}/support`}>
+              <Button type="button" variant="secondary" size="sm">
+                Then: Support follow-up
               </Button>
             </Link>
           </div>

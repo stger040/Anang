@@ -1,5 +1,6 @@
 import { tenantPrisma } from "@/lib/prisma";
 import { Card, PageHeader, StatCard } from "@anang/ui";
+import Link from "next/link";
 
 export default async function InsightPage({
   params,
@@ -51,8 +52,44 @@ export default async function InsightPage({
     <div className="space-y-8">
       <PageHeader
         title="Insight — revenue intelligence"
-        description="Operational KPIs from current Postgres data. Production feeds: warehouse remittance, contracts, and mid-cycle analytics."
+        description="Use Insight after working Build, Connect, Pay, Support, and Cover to summarize operating performance in one place."
       />
+
+      <Card className="border-slate-200 bg-slate-50/70 p-4">
+        <h2 className="text-sm font-semibold text-slate-900">
+          When to use Insight
+        </h2>
+        <p className="mt-1 text-sm text-slate-700">
+          Insight is the recap layer. Typical action: review denial pressure,
+          patient AR, and risk indicators after teams execute in other modules.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <Link
+            href={`/o/${orgSlug}/build`}
+            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          >
+            Related: Build
+          </Link>
+          <Link
+            href={`/o/${orgSlug}/connect`}
+            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          >
+            Related: Connect
+          </Link>
+          <Link
+            href={`/o/${orgSlug}/pay`}
+            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          >
+            Related: Pay
+          </Link>
+          <Link
+            href={`/o/${orgSlug}/dashboard`}
+            className="rounded-full bg-brand-sky/30 px-2 py-1 font-medium text-brand-navy"
+          >
+            Next demo step: Start Here recap
+          </Link>
+        </div>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard

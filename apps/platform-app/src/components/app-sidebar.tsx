@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 export type NavItem = {
   href: string;
   label: string;
+  shortHelp?: string;
   module?: ModuleKey;
   /** Hide from staff; show for tenant admins and platform super-admins. */
   tenantAdminOnly?: boolean;
@@ -63,7 +64,8 @@ function SupportRailIcon({ className }: { className?: string }) {
 const ALL: NavItem[] = [
   {
     href: "dashboard",
-    label: "Overview",
+    label: "Start Here",
+    shortHelp: "Guided demo flow",
     icon: <span className="text-base">◆</span>,
     module: undefined,
     iconTone: "text-purple-600",
@@ -71,6 +73,7 @@ const ALL: NavItem[] = [
   {
     href: "build",
     label: "Build",
+    shortHelp: "Prepare claim drafts",
     icon: <span className="text-base">▣</span>,
     module: "BUILD",
     iconTone: "text-blue-600",
@@ -78,6 +81,7 @@ const ALL: NavItem[] = [
   {
     href: "pay",
     label: "Pay",
+    shortHelp: "Statements and balances",
     icon: <span className="text-base">$</span>,
     module: "PAY",
     iconTone: "text-green-600",
@@ -85,6 +89,7 @@ const ALL: NavItem[] = [
   {
     href: "connect",
     label: "Connect",
+    shortHelp: "Claim lifecycle",
     icon: <span className="text-base">⇄</span>,
     module: "CONNECT",
     iconTone: "text-red-600",
@@ -92,6 +97,7 @@ const ALL: NavItem[] = [
   {
     href: "insight",
     label: "Insight",
+    shortHelp: "RCM KPI summary",
     icon: <span className="text-base">◇</span>,
     module: "INSIGHT",
     iconTone: "text-emerald-800",
@@ -99,6 +105,7 @@ const ALL: NavItem[] = [
   {
     href: "support",
     label: "Support",
+    shortHelp: "Follow-up queue",
     icon: <SupportRailIcon />,
     module: "SUPPORT",
     iconTone: "text-violet-900",
@@ -106,6 +113,7 @@ const ALL: NavItem[] = [
   {
     href: "cover",
     label: "Cover",
+    shortHelp: "Coverage and affordability",
     icon: <span className="text-base">◎</span>,
     module: "COVER",
     iconTone: "text-orange-600",
@@ -113,11 +121,19 @@ const ALL: NavItem[] = [
   {
     href: "settings",
     label: "Admin",
+    shortHelp: "Users and implementation",
     tenantAdminOnly: true,
     icon: <span className="text-base">⚙</span>,
     module: undefined,
     iconTone: "text-slate-500",
   },
+];
+
+const NAV_GROUPS: Array<{ title: string; hrefs: string[] }> = [
+  { title: "Start", hrefs: ["dashboard"] },
+  { title: "Claims operations", hrefs: ["build", "connect"] },
+  { title: "Patient financial journey", hrefs: ["pay", "support", "cover"] },
+  { title: "Analytics and admin", hrefs: ["insight", "settings"] },
 ];
 
 export function AppSidebar({
@@ -142,11 +158,18 @@ export function AppSidebar({
   const orgAbbrev = abbrevOrgDisplayName(tenantName);
   const slugAbbrev = abbrevOrgSlugForSidebar(orgSlug);
 
-  const items = ALL.filter((n) => {
+  const allowedItems = ALL.filter((n) => {
     if (n.tenantAdminOnly && !showTenantAdminNav) return false;
     if (!n.module) return true;
     return enabled.has(n.module);
   });
+  const itemByHref = new Map(allowedItems.map((item) => [item.href, item]));
+  const groupedItems = NAV_GROUPS.map((group) => ({
+    title: group.title,
+    items: group.hrefs
+      .map((href) => itemByHref.get(href))
+      .filter((item): item is NavItem => item != null),
+  })).filter((group) => group.items.length > 0);
 
   const base = `/o/${orgSlug}`;
 
@@ -199,40 +222,54 @@ export function AppSidebar({
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 p-1.5">
-        {items.map((n) => {
-          const full = `${base}/${n.href}`;
-          const active = pathname === full || pathname.startsWith(`${full}/`);
-          return (
-            <Link
-              key={n.href}
-              href={full}
-              title={n.label}
-              className={`flex items-center gap-2 overflow-hidden rounded-lg py-2 text-sm font-medium transition-colors ${
-                collapsed ? "justify-center px-1" : "px-2"
-              } ${
-                active
-                  ? "bg-brand-sky/90 text-brand-navy"
-                  : "text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <span
-                className={`flex h-5 w-5 shrink-0 items-center justify-center leading-none ${n.iconTone}`}
-              >
-                {n.icon}
-              </span>
-              <span
-                className={`whitespace-nowrap transition-all duration-300 ease-out ${
-                  collapsed
-                    ? "max-w-0 translate-x-2 opacity-0"
-                    : "max-w-[12rem] translate-x-0 opacity-100"
-                }`}
-              >
-                {n.label}
-              </span>
-            </Link>
-          );
-        })}
+      <nav className="flex flex-1 flex-col gap-2 overflow-y-auto p-1.5">
+        {groupedItems.map((group) => (
+          <div key={group.title} className="space-y-0.5">
+            {!collapsed ? (
+              <p className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                {group.title}
+              </p>
+            ) : null}
+            {group.items.map((n) => {
+              const full = `${base}/${n.href}`;
+              const active = pathname === full || pathname.startsWith(`${full}/`);
+              return (
+                <Link
+                  key={n.href}
+                  href={full}
+                  title={n.label}
+                  className={`flex items-center gap-2 overflow-hidden rounded-lg py-2 text-sm font-medium transition-colors ${
+                    collapsed ? "justify-center px-1" : "px-2"
+                  } ${
+                    active
+                      ? "bg-brand-sky/90 text-brand-navy"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center leading-none ${n.iconTone}`}
+                  >
+                    {n.icon}
+                  </span>
+                  <span
+                    className={`whitespace-nowrap transition-all duration-300 ease-out ${
+                      collapsed
+                        ? "max-w-0 translate-x-2 opacity-0"
+                        : "max-w-[12rem] translate-x-0 opacity-100"
+                    }`}
+                  >
+                    {n.label}
+                  </span>
+                  {!collapsed && n.shortHelp ? (
+                    <span className="ml-auto text-[10px] text-slate-400">
+                      {n.shortHelp}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="mt-auto border-t border-slate-200">

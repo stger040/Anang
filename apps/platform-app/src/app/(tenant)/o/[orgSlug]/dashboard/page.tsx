@@ -33,6 +33,22 @@ export default async function DashboardPage({
     where: { tenantId: tenant.id, reviewStatus: { not: "approved" } },
   });
 
+  const latestEncounter = await tenantPrisma(orgSlug).encounter.findFirst({
+    where: { tenantId: tenant.id },
+    orderBy: { dateOfService: "desc" },
+    select: { id: true, patient: { select: { firstName: true, lastName: true } } },
+  });
+  const latestClaim = await tenantPrisma(orgSlug).claim.findFirst({
+    where: { tenantId: tenant.id },
+    orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+    select: { id: true, claimNumber: true, status: true },
+  });
+  const latestStatement = await tenantPrisma(orgSlug).statement.findFirst({
+    where: { tenantId: tenant.id },
+    orderBy: { dueDate: "desc" },
+    select: { id: true, number: true, status: true },
+  });
+
   const arAgg = await tenantPrisma(orgSlug).statement.aggregate({
     where: { tenantId: tenant.id },
     _sum: { balanceCents: true },
@@ -45,9 +61,56 @@ export default async function DashboardPage({
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Overview"
-        description="Cross-module snapshot for this organization — driven by current ledger and claims data in Postgres."
+        title="Start here — staff workflow"
+        description="Use this page as the demo entry point: Build claim readiness, Connect claim status, Pay patient responsibility, then follow up in Support/Cover and summarize in Insight."
       />
+
+      <Card className="border-sky-100 bg-sky-50/40 p-5">
+        <h2 className="text-sm font-semibold text-slate-900">
+          One-patient demo journey
+        </h2>
+        <p className="mt-2 text-sm text-slate-700">
+          Typical flow for a first-time viewer:
+          <span className="font-medium">
+            {" "}
+            Build → Connect → Pay → Support / Cover → Insight
+          </span>
+          . Each module has quick links and “next step” guidance so you can keep
+          a coherent narrative while you click.
+        </p>
+        <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
+          <JourneyStep
+            href={`/o/${orgSlug}/build`}
+            label="1. Build"
+            detail="Review encounter and draft."
+            enabled={mods.includes("BUILD")}
+          />
+          <JourneyStep
+            href={`/o/${orgSlug}/connect`}
+            label="2. Connect"
+            detail="Track claim status and payer events."
+            enabled={mods.includes("CONNECT")}
+          />
+          <JourneyStep
+            href={`/o/${orgSlug}/pay`}
+            label="3. Pay"
+            detail="Show statement and patient balance."
+            enabled={mods.includes("PAY")}
+          />
+          <JourneyStep
+            href={`/o/${orgSlug}/support`}
+            label="4. Support / Cover"
+            detail="Resolve patient questions and affordability."
+            enabled={mods.includes("SUPPORT") || mods.includes("COVER")}
+          />
+          <JourneyStep
+            href={`/o/${orgSlug}/insight`}
+            label="5. Insight"
+            detail="Summarize operational impact."
+            enabled={mods.includes("INSIGHT")}
+          />
+        </div>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -90,40 +153,59 @@ export default async function DashboardPage({
           </p>
         </Card>
         <Card className="p-5">
-          <h2 className="text-sm font-semibold text-slate-900">Quick links</h2>
-          <ul className="mt-3 space-y-2 text-sm">
+          <h2 className="text-sm font-semibold text-slate-900">
+            First click suggestions
+          </h2>
+          <ul className="mt-3 space-y-3 text-sm text-slate-700">
             {mods.includes("BUILD") ? (
               <li>
                 <Link className="text-brand-navy underline" href={`/o/${orgSlug}/build`}>
                   Open Build queue
                 </Link>
+                <p className="text-xs text-slate-500">
+                  Best starting point for the prospect demo.
+                </p>
               </li>
             ) : null}
-            {mods.includes("INSIGHT") ? (
+            {latestEncounter && mods.includes("BUILD") ? (
               <li>
                 <Link
                   className="text-brand-navy underline"
-                  href={`/o/${orgSlug}/insight`}
+                  href={`/o/${orgSlug}/build/encounters/${latestEncounter.id}`}
                 >
-                  Insight dashboards
+                  Latest encounter: {latestEncounter.patient.lastName},{" "}
+                  {latestEncounter.patient.firstName}
                 </Link>
               </li>
             ) : null}
-            {mods.includes("CONNECT") ? (
+            {latestClaim && mods.includes("CONNECT") ? (
               <li>
                 <Link
                   className="text-brand-navy underline"
-                  href={`/o/${orgSlug}/connect`}
+                  href={`/o/${orgSlug}/connect/claims/${latestClaim.id}`}
                 >
-                  Claims lifecycle
+                  Latest claim: {latestClaim.claimNumber}
                 </Link>
+                <p className="text-xs text-slate-500">
+                  Status: {latestClaim.status.toLowerCase()}
+                </p>
+              </li>
+            ) : null}
+            {latestStatement && mods.includes("PAY") ? (
+              <li>
+                <Link
+                  className="text-brand-navy underline"
+                  href={`/o/${orgSlug}/pay/statements/${latestStatement.id}`}
+                >
+                  Latest statement: {latestStatement.number}
+                </Link>
+                <p className="text-xs text-slate-500">
+                  Status: {latestStatement.status.replaceAll("_", " ")}
+                </p>
               </li>
             ) : null}
             <li>
-              <Link
-                className="text-brand-navy underline"
-                href={`/o/${orgSlug}/settings`}
-              >
+              <Link className="text-brand-navy underline" href={`/o/${orgSlug}/settings`}>
                 Tenant admin
               </Link>
             </li>
@@ -131,6 +213,33 @@ export default async function DashboardPage({
         </Card>
       </div>
     </div>
+  );
+}
+
+function JourneyStep({
+  href,
+  label,
+  detail,
+  enabled,
+}: {
+  href: string;
+  label: string;
+  detail: string;
+  enabled: boolean;
+}) {
+  if (!enabled) {
+    return (
+      <div className="rounded-lg border border-dashed border-slate-200 bg-white/70 p-3">
+        <p className="text-xs font-semibold text-slate-500">{label}</p>
+        <p className="mt-1 text-xs text-slate-400">Module not enabled</p>
+      </div>
+    );
+  }
+  return (
+    <Link href={href} className="rounded-lg border border-slate-200 bg-white p-3 hover:bg-slate-50">
+      <p className="text-xs font-semibold text-slate-700">{label}</p>
+      <p className="mt-1 text-xs text-slate-500">{detail}</p>
+    </Link>
   );
 }
 

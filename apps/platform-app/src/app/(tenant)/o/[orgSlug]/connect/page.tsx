@@ -56,13 +56,44 @@ export default async function ConnectClaimsPage({
 
       <PageHeader
         title="Connect — claims lifecycle"
-        description="Claim lifecycle workspace for payer timelines and remittance. EDI submission and remittance posting integrate here once clearinghouse and payer feeds are configured."
+        description="Use Connect after Build approval to track payer-facing status. Typical actions: open claim timeline, verify 837/277/835 milestones, and confirm what should flow into patient responsibility in Pay."
         actions={
           <span className="text-xs text-slate-500">
             States: {CLAIM_STATUSES.join(", ")}
           </span>
         }
       />
+
+      <Card className="border-slate-200 bg-slate-50/70 p-4">
+        <h2 className="text-sm font-semibold text-slate-900">
+          When to use Connect
+        </h2>
+        <p className="mt-1 text-sm text-slate-700">
+          Connect is the claims operations workspace between Build and Pay.
+          Confirm claim progress here, then move to Pay for patient balances and
+          Support/Cover for follow-up.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <Link
+            href={`/o/${orgSlug}/build`}
+            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          >
+            Related module: Build
+          </Link>
+          <Link
+            href={`/o/${orgSlug}/pay`}
+            className="rounded-full bg-brand-sky/30 px-2 py-1 font-medium text-brand-navy"
+          >
+            Next related module: Pay
+          </Link>
+          <Link
+            href={`/o/${orgSlug}/support`}
+            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          >
+            Then: Support
+          </Link>
+        </div>
+      </Card>
 
       <Card className="p-5">
         <h2 className="text-sm font-semibold text-slate-900">
@@ -161,7 +192,7 @@ export default async function ConnectClaimsPage({
                     <td className="px-4 py-3 text-right">
                       <Link href={`/o/${orgSlug}/connect/claims/${c.id}`}>
                         <Button type="button" size="sm" variant="secondary">
-                          Timeline
+                          Open claim timeline
                         </Button>
                       </Link>
                     </td>

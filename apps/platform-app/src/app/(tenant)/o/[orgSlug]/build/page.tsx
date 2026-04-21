@@ -28,13 +28,35 @@ export default async function BuildQueuePage({
     <div className="space-y-6">
       <PageHeader
         title="Build — encounter queue"
-        description="AI-assisted claims preparation with documentation gaps, denial risk signals, and human approval before submission."
+        description="Use Build when a visit is ready for coding review. Typical actions: verify encounter note, review draft lines, resolve issues, and approve the draft before Connect lifecycle tracking."
         actions={
           <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
             Rules + retrieval today · payer policy models ship with your rulesets
           </span>
         }
       />
+
+      <Card className="border-slate-200 bg-slate-50/70 p-4">
+        <h2 className="text-sm font-semibold text-slate-900">When to use Build</h2>
+        <p className="mt-1 text-sm text-slate-700">
+          Start here after the encounter is documented. Approve the draft, then
+          continue in Connect to monitor payer submission and adjudication.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-white px-2 py-1 text-slate-600">
+            Typical action: Review encounter and draft
+          </span>
+          <span className="rounded-full bg-white px-2 py-1 text-slate-600">
+            Typical action: Approve draft
+          </span>
+          <Link
+            href={`/o/${orgSlug}/connect`}
+            className="rounded-full bg-brand-sky/30 px-2 py-1 font-medium text-brand-navy"
+          >
+            Next related module: Connect
+          </Link>
+        </div>
+      </Card>
 
       {buildAiOn ? (
         <Card className="border-amber-200 bg-amber-50/60 p-4">

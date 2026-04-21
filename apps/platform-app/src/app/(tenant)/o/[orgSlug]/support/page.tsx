@@ -1,5 +1,6 @@
 import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
 import { tenantPrisma } from "@/lib/prisma";
+import Link from "next/link";
 import { PageHeader } from "@anang/ui";
 import { SupportAssistantPanel } from "./support-assistant-panel";
 import { SupportWorkspace } from "./support-workspace";
@@ -55,8 +56,37 @@ export default async function SupportPage({
     <div className="space-y-6">
       <PageHeader
         title="Support — operations workspace"
-        description="Queues for billing follow-up, payment plans, and escalations. Add ticketing or voice when you need full CRM depth."
+        description="Use Support for post-statement follow-up. Typical actions: open a billing task, reference the statement, update status, and route affordability requests to Cover."
       />
+      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+        <h2 className="text-sm font-semibold text-slate-900">
+          When to use Support
+        </h2>
+        <p className="mt-1 text-sm text-slate-700">
+          This queue handles patient billing questions, payment-plan follow-up,
+          and callbacks after a statement is sent from Pay.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <Link
+            href={`/o/${orgSlug}/pay`}
+            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          >
+            Related module: Pay
+          </Link>
+          <Link
+            href={`/o/${orgSlug}/cover`}
+            className="rounded-full bg-brand-sky/30 px-2 py-1 font-medium text-brand-navy"
+          >
+            Next if affordability needed: Cover
+          </Link>
+          <Link
+            href={`/o/${orgSlug}/insight`}
+            className="rounded-full bg-white px-2 py-1 text-slate-600"
+          >
+            Summary module: Insight
+          </Link>
+        </div>
+      </div>
       <SupportAssistantPanel
         orgSlug={orgSlug}
         openTaskCount={openCount}

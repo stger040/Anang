@@ -146,7 +146,7 @@ export default async function EncounterDetailPage({
       {submittedFromDrafts ? (
         <Card className="border-teal-200 bg-teal-50/40 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-teal-900">
-            Connect
+            Related in other modules
           </p>
           <p className="mt-1 text-sm text-slate-800">
             This visit has a claim produced from Build (claim{" "}
@@ -155,7 +155,7 @@ export default async function EncounterDetailPage({
             </span>
             ).
           </p>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap gap-2">
             <Link
               href={`/o/${orgSlug}/connect/claims/${submittedFromDrafts.id}`}
             >
@@ -163,9 +163,31 @@ export default async function EncounterDetailPage({
                 View related claim in Connect
               </Button>
             </Link>
+            <Link href={`/o/${orgSlug}/pay`}>
+              <Button type="button" variant="secondary" size="sm">
+                Next recommended step: Pay
+              </Button>
+            </Link>
           </div>
         </Card>
-      ) : null}
+      ) : (
+        <Card className="border-slate-200 bg-slate-50/70 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+            Next recommended step
+          </p>
+          <p className="mt-1 text-sm text-slate-700">
+            Approve and submit this draft from Build. Once a claim is created,
+            continue in Connect to track lifecycle milestones.
+          </p>
+          <div className="mt-3">
+            <Link href={`/o/${orgSlug}/connect`}>
+              <Button type="button" variant="secondary" size="sm">
+                Open Connect workspace
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      )}
 
       {fixtureMeta.isFhirFixtureImport ? (
         <Card className="border-violet-100 bg-violet-50/50 p-4">
