@@ -46,7 +46,8 @@ export function moduleHomePath(orgSlug: string, m: ModuleKey): string {
  * Broad access: many operational modules, or demo tenant with strong coverage,
  * or local unlock-all testing.
  */
-export function useFullSuiteDashboard(
+/** Not a React hook — name avoids `use*` so eslint `react-hooks/rules-of-hooks` does not flag server callers. */
+export function isFullSuiteDashboardMode(
   operational: ModuleKey[],
   orgSlug: string,
 ): boolean {
@@ -56,8 +57,8 @@ export function useFullSuiteDashboard(
   return false;
 }
 
-/** Compact workspace: a few modules, not the full-suite story. */
-export function useCompactWorkspace(operational: ModuleKey[]): boolean {
+/** Compact workspace: a few modules, not the full-suite story. Not a React hook. */
+export function isCompactWorkspaceMode(operational: ModuleKey[]): boolean {
   return operational.length >= 2 && operational.length <= 3;
 }
 

@@ -6,8 +6,8 @@ import {
   readSupportAccessContextFromHeaders,
 } from "@/lib/super-admin-org-audit";
 import {
+  isFullSuiteDashboardMode,
   operationalEffectiveModules,
-  useFullSuiteDashboard,
 } from "@/lib/adaptive-workspace";
 import { canAccessTenantAdminRoutes } from "@/lib/tenant-admin-guard";
 import { assertOrgAccess } from "@/lib/tenant-context";
@@ -34,7 +34,7 @@ export default async function OrgLayout({
   );
 
   const operational = operationalEffectiveModules(ctx.effectiveModules);
-  const fullSuiteDashboard = useFullSuiteDashboard(operational, orgSlug);
+  const fullSuiteDashboard = isFullSuiteDashboardMode(operational, orgSlug);
   const showDashboardInNav = operational.length !== 1;
   const dashboardNavLabel = fullSuiteDashboard ? "Start Here" : "Home";
   const dashboardNavShortHelp = fullSuiteDashboard

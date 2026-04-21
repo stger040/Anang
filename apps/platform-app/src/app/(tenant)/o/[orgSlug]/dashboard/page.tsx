@@ -3,10 +3,9 @@ import { PageHeader, StatCard, Card, Badge } from "@anang/ui";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  isCompactWorkspaceMode,
   moduleHomePath,
   MODULE_PLAIN_NAME,
-  useCompactWorkspace,
-  useFullSuiteDashboard,
 } from "@/lib/adaptive-workspace";
 import { unlockAllModulesForTesting } from "@/lib/auth-config";
 import { tenantPrisma } from "@/lib/prisma";
@@ -27,7 +26,7 @@ export default async function DashboardPage({
     redirect(moduleHomePath(orgSlug, operational[0]!));
   }
 
-  const compact = useCompactWorkspace(operational) && !fullSuiteDashboard;
+  const compact = isCompactWorkspaceMode(operational) && !fullSuiteDashboard;
 
   const tenantMods = unlockAllModulesForTesting()
     ? (Object.values(ModuleKey) as ModuleKey[])

@@ -22,7 +22,7 @@ When the user has **2–3** operational modules and is **not** in full-suite dem
 
 ## UX model: full suite / demo
 
-When **`useFullSuiteDashboard`** is true (see `src/lib/adaptive-workspace.ts`):
+When **`isFullSuiteDashboardMode`** is true (see `src/lib/adaptive-workspace.ts`):
 
 - **Unlock-all-modules** testing (`ANANG_UNLOCK_ALL_MODULES`), **or**
 - **Five or more** operational modules, **or**

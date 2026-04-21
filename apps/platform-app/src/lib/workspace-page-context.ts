@@ -1,6 +1,6 @@
 import {
+  isFullSuiteDashboardMode,
   operationalEffectiveModules,
-  useFullSuiteDashboard,
 } from "@/lib/adaptive-workspace";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
@@ -12,6 +12,6 @@ export async function loadTenantWorkspacePageContext(orgSlug: string) {
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) return null;
   const operational = operationalEffectiveModules(ctx.effectiveModules);
-  const fullSuiteDashboard = useFullSuiteDashboard(operational, orgSlug);
+  const fullSuiteDashboard = isFullSuiteDashboardMode(operational, orgSlug);
   return { session, ctx, operational, fullSuiteDashboard };
 }
