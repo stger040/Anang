@@ -33,6 +33,49 @@ enum ClaimLifecycleStatus {
   APPEALED
 }
 
+/// Medical-benefit prior authorization case (Phase 1 — Connect sub-workspace; no payer automation).
+enum PriorAuthStatus {
+  DRAFT
+  INTAKE
+  REVIEW_REQUIRED
+  SUBMITTED
+  IN_REVIEW
+  PENDING_INFO
+  APPROVED
+  DENIED
+  EXPIRED
+  CANCELLED
+  REWORK
+}
+
+enum PriorAuthUrgency {
+  ROUTINE
+  URGENT
+  EXPEDITED
+}
+
+enum PriorAuthSubmissionMethod {
+  NOT_SUBMITTED
+  PORTAL
+  FAX
+  PHONE
+  EMAIL
+  OTHER
+}
+
+enum PriorAuthChecklistStatus {
+  PENDING
+  DONE
+  NA
+  BLOCKED
+}
+
+enum PriorAuthServiceCodeType {
+  CPT
+  HCPCS
+  OTHER
+}
+
 /// Provenance for Build findings — rules must stay auditable without LLMs.
 enum ClaimIssueSource {
   RULE
@@ -96,6 +139,7 @@ model Tenant {
   patientPortalIdentities  PatientPortalIdentity[]
   feeSchedules            FeeSchedule[]
   buildSuggestionRuns     BuildSuggestionRun[]
+  priorAuthCases          PriorAuthCase[]
 }
 
 /// Per-tenant calibration for deterministic Build rules (onboarding / shadow tuning).
@@ -232,6 +276,7 @@ model Patient {
   supportTasks         SupportTask[]
   coverages            Coverage[]
   portalIdentity       PatientPortalIdentity?
+  priorAuthCases       PriorAuthCase[]
 
   @@index([tenantId])
 }
@@ -273,6 +318,7 @@ model Coverage {
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  priorAuthCases PriorAuthCase[]
 
   @@index([tenantId])
   @@index([tenantId, patientId])
@@ -300,6 +346,7 @@ model Encounter {
   buildSuggestionRuns BuildSuggestionRun[]
   /// Submitted claim(s) tied to this visit (optional; pilot / demo linkage).
   claims               Claim[]
+  priorAuthCases       PriorAuthCase[]
 
   @@index([tenantId])
 }
@@ -476,6 +523,7 @@ model Claim {
   edi837Submissions      Claim837EdiSubmission[]
   adjudications          ClaimAdjudication[]
   statements             Statement[]
+  priorAuthCases         PriorAuthCase[]
 
   @@unique([tenantId, claimNumber])
   @@index([tenantId])
@@ -792,6 +840,129 @@ model SupportTask {
 
   @@index([tenantId])
   @@index([tenantId, status])
+}
+
+/// Staff-tracked prior authorization (medical benefit) — Phase 1 metadata + checklist only.
+model PriorAuthCase {
+  id                    String                   @id @default(cuid())
+  tenantId              String
+  patientId             String
+  encounterId           String?
+  claimId               String?
+  coverageId            String?
+  caseNumber            String
+  status                PriorAuthStatus          @default(DRAFT)
+  urgency               PriorAuthUrgency         @default(ROUTINE)
+  /// low | normal | high | urgent (aligns with Support-style queues)
+  priority              String                   @default("normal")
+  /// staff | build_heuristic | seed | import
+  source                String                   @default("staff")
+  submissionMethod      PriorAuthSubmissionMethod @default(NOT_SUBMITTED)
+  payerName             String
+  payerPlanName         String?
+  externalPayerId       String?
+  authorizationNumber   String?
+  scheduledAt           DateTime?
+  dueAt                 DateTime?
+  submittedAt           DateTime?
+  decisionAt            DateTime?
+  expiresAt             DateTime?
+  reworkMetrics         Json?
+  externalRefs          Json?
+  payerDecision         Json?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient   Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  claim     Claim?     @relation(fields: [claimId], references: [id], onDelete: SetNull)
+  coverage  Coverage?  @relation(fields: [coverageId], references: [id], onDelete: SetNull)
+
+  services        PriorAuthService[]
+  checklistItems PriorAuthChecklistItem[]
+  attachments     PriorAuthAttachment[]
+  events            PriorAuthEvent[]
+  statusPolls       PriorAuthStatusPoll[]
+
+  @@unique([tenantId, caseNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, patientId])
+  @@index([tenantId, dueAt])
+  @@index([tenantId, expiresAt])
+}
+
+model PriorAuthService {
+  id          String                  @id @default(cuid())
+  caseId      String
+  codeType    PriorAuthServiceCodeType
+  code        String
+  description String?
+  units       Int                     @default(1)
+  notes       String?                 @db.Text
+  sortOrder   Int                     @default(0)
+  createdAt   DateTime                @default(now())
+
+  case PriorAuthCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+model PriorAuthChecklistItem {
+  id          String                   @id @default(cuid())
+  caseId      String
+  label       String
+  status      PriorAuthChecklistStatus @default(PENDING)
+  sortOrder   Int                      @default(0)
+  completedAt DateTime?
+  notes       String?                  @db.Text
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  case PriorAuthCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+model PriorAuthAttachment {
+  id         String   @id @default(cuid())
+  caseId     String
+  fileName   String?
+  mimeType   String?
+  storageUri String?
+  byteSize   Int?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  case PriorAuthCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+model PriorAuthEvent {
+  id          String   @id @default(cuid())
+  caseId      String
+  eventType   String
+  payload     Json     @default("{}")
+  actorUserId String?
+  createdAt   DateTime @default(now())
+
+  case PriorAuthCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
+}
+
+model PriorAuthStatusPoll {
+  id               String   @id @default(cuid())
+  caseId           String
+  polledAt         DateTime @default(now())
+  statusSnapshot   String?
+  responseSummary  String?  @db.Text
+  metadata         Json     @default("{}")
+
+  case PriorAuthCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, polledAt])
 }
 
 model AuditEvent {

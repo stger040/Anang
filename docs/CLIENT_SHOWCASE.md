@@ -50,7 +50,7 @@ Server-side profile mapping (virtual mailbox only) lives in [`apps/platform-app/
 
 1. Sign in → **`rick@anang.ai`** (super admin) → **`/admin`**, or **`rick@stginnovation.com`** → **`/o/synthetic-test/dashboard`**.  
 2. **Build** — **`/o/synthetic-test/build`** → open the seeded encounter (Sam, DOS in seed). Review draft / issues; use **“View related claim in Connect”** when present.  
-3. **Connect** — claim timeline for **`ST-SYN-2026-00042`** (or follow the button from Build). Use **“View encounter in Build”** to prove the round trip.  
+3. **Connect** — claim timeline for **`ST-SYN-2026-00042`** (or follow the button from Build). Use **“View encounter in Build”** to prove the round trip. Open **Authorizations** (`/o/synthetic-test/connect/authorizations`) — seeded **`PA-2026-SEED-0001`…`0004`** show draft / in-review / approved / denied cases (see **`docs/PRIOR_AUTHORIZATION.md`**).  
 4. **Pay** — statements → open **`STMT-SYN-2026-0042`** → **“View related claim in Connect”** / optional **“View encounter in Build”** → optional Stripe test (patient Gmail on file).  
 5. **Support** — task queue; confirm the open task references the same statement narrative.  
 6. **Cover** — assistance cases for the same patient (patient-level queue; notes mention the statement in seed).  
@@ -67,7 +67,7 @@ See **`docs/TENANCY_AND_MODULES.md`** § *Staff journey & data thread* for the c
 |------|--------|
 | Multi-tenant + module gating | Shipped |
 | Per-staff module caps | Shipped — super-admin invite/add + **tenant admin Settings → Users** |
-| Build / Pay / Connect / Insight | Shipped (MVP depth) |
+| Build / Pay / Connect / Insight | Shipped (MVP depth); Connect includes **Authorizations** (PA case tracking) |
 | Build ↔ Connect ↔ Pay (staff) | Shipped — detail pages link across modules when optional FKs (`Claim.encounterId` / `claimDraftId`, `Statement.claimId` / `encounterId`) are set; synthetic seed populates them |
 | Cover / Support | Staff queues + intake (DB-backed) |
 | Auth | Auth.js — password + optional global / per-tenant OIDC |
@@ -90,6 +90,8 @@ See **`docs/TENANCY_AND_MODULES.md`** § *Staff journey & data thread* for the c
 
 **Greenway pilot ops:** **Settings → Implementation hub** shows **Recent Greenway activity** (audit). Scheduled **`/api/cron/greenway-fhir-sync`** (see **`apps/platform-app/vercel.json`**) can run **bulk** sync when **`GREENWAY_FHIR_CRON_PATIENT_IDS`** + tenant slug env are set — **`PILOT_CONNECTOR_ROADMAP.md`**.
 
+**Prior auth SLA cron (optional):** **`/api/cron/prior-auth-sla-scan`** with **`CRON_SECRET`** — see **`DEPLOYMENT.md`** and **`docs/PRIOR_AUTHORIZATION.md`**; add to `vercel.json` if you want scheduled SLA nudges.
+
 ---
 
 ## 7. Pre-flight checklist
@@ -103,8 +105,8 @@ See **`docs/TENANCY_AND_MODULES.md`** § *Staff journey & data thread* for the c
 
 ## 8. Cedar-aligned positioning
 
-*Patient financial platform (Pay, Cover, Support, Pre) plus **Build** (denial prevention) and **Connect** (payer / EDI depth).*  
+*Patient financial platform (Pay, Cover, Support, Pre) plus **Build** (denial prevention) and **Connect** (payer / EDI depth, **Authorizations** / prior auth case tracking).*  
 
-Depth comparison: `IMPLEMENTATION_PLAN.md`, `PATH_TO_FULL_PRODUCT.md`.
+Depth comparison: `IMPLEMENTATION_PLAN.md`, `PATH_TO_FULL_PRODUCT.md`, **`PRIOR_AUTHORIZATION.md`**.
 
-*Last updated: 2026-04-19 — walkthrough order + capability row for Build/Connect/Pay cross-links.*
+*Last updated: 2026-04-24 — Connect **Authorizations** in walkthrough + capability snapshot; prior auth cron note.*

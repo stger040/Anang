@@ -38,6 +38,12 @@ Route Handlers should pass **`readRequestId(req)`** from `@/lib/platform-log` in
 | `auth.nextauth.sign_in` | NextAuth **`signIn`** event — **credentials** or **global** OIDC (`provider`, `userId`, `isNewUser`). Not used for per-tenant OIDC start/callback. |
 | `auth.nextauth.sign_out` | NextAuth **`signOut`** event (`userId` from JWT when present). |
 | `integration.fhir_fixture.import_ok` | FHIR bundle import saved patient + encounter (optional Pay statement); `tenantId`, `orgSlug`, `encounterId`, optional `statementId`, `fromClaim`, `fhirFx*` / `fhirEob*` when present. |
+| `prior_auth.case.created` | Staff or encounter-origin **PriorAuthCase** created; `tenantId`, `orgSlug`, `caseId`, optional `encounterId` / `claimId`, `requestId` when present. |
+| `prior_auth.case.submitted` / `prior_auth.case.approved` / `prior_auth.case.denial` / `prior_auth.case.status_changed` | PA status transitions (info/warn level varies). |
+| `prior_auth.case.linked_encounter` / `prior_auth.case.linked_claim` | Case linkage updates. |
+| `prior_auth.case.overdue` / `prior_auth.case.expiring_soon` | Cron SLA scan (`/api/cron/prior-auth-sla-scan`); includes `caseId`, linked ids when set. |
+
+**Prior auth audits** (tenant `AuditEvent`): `prior_auth.case.created`, `prior_auth.case.status`, `prior_auth.case.linked_encounter`, `prior_auth.case.linked_claim`, `prior_auth.case.checklist`, `prior_auth.case.event`, `prior_auth.case.overdue`, etc. — see **`docs/PRIOR_AUTHORIZATION.md`**.
 
 ## Auditing
 
@@ -52,5 +58,7 @@ Some flows also write **`AuditEvent`** rows (e.g. `pay.stripe.checkout_initiated
 Point Vercel **Log Drain** (or your collector) at the platform project; filter or alert on `level=error` and `event` prefixes you care about (`pay.stripe.*`, `stripe.webhook.*`, `auth.tenant_oidc.*`, `auth.flow_intent.*`, `integration.fhir_fixture.*`).
 
 ---
+
+*Last updated: 2026-04-24 — prior auth `platformLog` / audit event names.*
 
 *This is a minimal Q1-style baseline—not a full SIEM or HIPAA attestation.*

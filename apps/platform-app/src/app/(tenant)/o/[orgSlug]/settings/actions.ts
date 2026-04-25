@@ -25,8 +25,12 @@ import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
 import { isTenantSettingsEditor } from "@/lib/tenant-admin-guard";
 import {
-  mergeImplementationFromForm,
-} from "@/lib/tenant-implementation-settings";
+  DEFAULT_PRIOR_AUTH_HIGH_RISK,
+  defaultPriorAuthImplementationSettings,
+  type PriorAuthImplementationSettingsV1,
+  type PriorAuthSignalCategoryKey,
+} from "@/lib/prior-auth/defaults";
+import { mergeImplementationFromForm } from "@/lib/tenant-implementation-settings";
 import { readTradingPartnerEnrollmentFromForm } from "@/lib/trading-partner-enrollment";
 import { platformLog, readRequestIdFromHeaders } from "@/lib/platform-log";
 import { revalidatePath } from "next/cache";
@@ -61,6 +65,51 @@ function readItChecks(formData: FormData): OnboardingCheckState {
     s[id] = formData.get(`i:${id}`) === "on";
   }
   return s;
+}
+
+function readPriorAuthFromForm(formData: FormData): PriorAuthImplementationSettingsV1 {
+  const base = defaultPriorAuthImplementationSettings();
+  const num = (k: string, d: number) => {
+    const v = Number(formData.get(k));
+    return Number.isFinite(v) && v >= 0 ? Math.floor(v) : d;
+  };
+  const categoriesSubmitted = formData.get("pa_categories_submitted") === "on";
+  const defaultHighRiskCategories: PriorAuthSignalCategoryKey[] = [];
+  for (const k of DEFAULT_PRIOR_AUTH_HIGH_RISK) {
+    if (formData.get(`pa_cat_${k}`) === "on") {
+      defaultHighRiskCategories.push(k);
+    }
+  }
+  const reworkRaw = String(formData.get("pa_rework_fields") ?? "").trim();
+  const reworkTrackingFields = reworkRaw
+    ? reworkRaw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : base.reworkTrackingFields;
+  return {
+    ...base,
+    enabled: formData.get("pa_enabled") === "on",
+    unknownPlanBehavior:
+      formData.get("pa_unknown_plan") === "proceed_low_risk"
+        ? "proceed_low_risk"
+        : "review_required",
+    defaultHighRiskCategories: categoriesSubmitted
+      ? defaultHighRiskCategories
+      : base.defaultHighRiskCategories,
+    intakeStartHours: num("pa_intake_hours", base.intakeStartHours),
+    standardDecisionSlaDays: num("pa_std_sla_days", base.standardDecisionSlaDays),
+    expeditedDecisionSlaHours: num("pa_exp_sla_hours", base.expeditedDecisionSlaHours),
+    followUpIntervalHours: num("pa_followup_hours", base.followUpIntervalHours),
+    expiringSoonDays: num("pa_expiring_days", base.expiringSoonDays),
+    reworkTrackingFields,
+    laborRateCentsPerHour: (() => {
+      const raw = String(formData.get("pa_labor_rate_cents") ?? "").trim();
+      if (!raw) return null;
+      const v = Number(raw);
+      return Number.isFinite(v) ? Math.round(v) : null;
+    })(),
+  };
 }
 
 export async function saveImplementationProgress(
@@ -116,6 +165,7 @@ export async function saveImplementationProgress(
     billing: readBillingChecks(formData),
     it: readItChecks(formData),
     tradingPartnerEnrollment,
+    priorAuth: readPriorAuthFromForm(formData),
   });
 
   await tenantPrisma(orgSlug).tenant.update({

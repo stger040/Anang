@@ -6,7 +6,7 @@ export function ConnectSubnav({
   current,
 }: {
   orgSlug: string;
-  current: "claims" | "remittances";
+  current: "claims" | "remittances" | "authorizations";
 }) {
   const base = `/o/${orgSlug}/connect`;
 
@@ -31,6 +31,15 @@ export function ConnectSubnav({
           variant={current === "remittances" ? "primary" : "secondary"}
         >
           Remittances
+        </Button>
+      </Link>
+      <Link href={`${base}/authorizations`}>
+        <Button
+          type="button"
+          size="sm"
+          variant={current === "authorizations" ? "primary" : "secondary"}
+        >
+          Authorizations
         </Button>
       </Link>
     </nav>

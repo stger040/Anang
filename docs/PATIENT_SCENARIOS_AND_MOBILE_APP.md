@@ -269,6 +269,6 @@ When **native** is installed, **push** replaces some SMS for **authenticated** u
 ## Summary
 
 - **Patient app = Pay (+ Pre), Cover (intake/status), Support (help), Core (identity), and dental overlays** — period.
-- **Build, Connect, and Insight are clinic-staff modules.** Patients benefit **indirectly**; **Connect** may **feed** a **Pay** screen only if you intentionally expose safe milestones.
+- **Build, Connect, and Insight are clinic-staff modules.** **Connect** includes **Authorizations** (prior auth **case tracking** for staff — not a patient self-service surface in Phase 1; see **`docs/PRIOR_AUTHORIZATION.md`**). Patients benefit **indirectly**; **Connect** may **feed** a **Pay** screen only if you intentionally expose safe milestones.
 - **Omnichannel:** Many patients **start in SMS → web** (tokenized link, verify-on-pay); **native** adds depth—surface **Cover** in **SMS + web** so you improve on **pay-only** experiences.
 - When you ship **v1**, you can still lead with **SMS + web + verify**; **native** follows as the **premium** surface for ongoing management, push (later), and richer **Support**.

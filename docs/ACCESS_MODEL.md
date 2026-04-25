@@ -84,7 +84,7 @@
 **Recently closed:**
 
 - **`/settings`** off-limits to non–tenant-admin staff (layout + nav).
-- **Per-staff module caps** via **`staffModuleAllowList`** + **`effectiveModules`** (nav, module layouts, Pay / Support / Cover actions, Pay + Support + Stripe checkout APIs, Connect 837 recording actions).
+- **Per-staff module caps** via **`staffModuleAllowList`** + **`effectiveModules`** (nav, module layouts, Pay / Support / Cover actions, Pay + Support + Stripe checkout APIs, Connect **837** recording actions, Connect **Authorizations** prior-auth server actions).
 - **Super-admin cross-tenant** `/o` access when **no `Membership`** row: **`platformLog`** + **`AuditEvent`** (`platform.super_admin.cross_tenant_workspace`); optional **`x-anang-support-context`**.
 - **Admin UI:** invite + add-member forms include optional **Staff module access** checklists; audit metadata may include **`staffModuleAllowList`**.
 - **Patient portal identity** — **`PatientPortalIdentity`** (1:1 with **`Patient`**) records billing-portal session verification; **not** a staff **`User`**. Upserted on successful **`patient-verify`** (`lastSessionVerifiedAt`). Extensible for future passkeys / OIDC **`sub`** without conflating patients with **`Membership`**.

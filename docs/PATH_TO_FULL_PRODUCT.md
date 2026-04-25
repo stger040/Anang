@@ -33,7 +33,7 @@ The article stresses: **EHR + claims/EOB + patient account data** in one **consu
 | **Cedar Support — ops + AI** | Kora-style voice, copilot, queues | **Scaffold** + mock KPIs | Ticketing integration, voice (e.g. Twilio + LLM), agent workspace | Call center SOWs, TCPA/consent |
 | **Pre-visit** | Estimates, reminders, deposits | **Grouped with Pay** in the customer story ([`MODULES_CUSTOMER.md`](./MODULES_CUSTOMER.md)); optional explicit `PRE` **`ModuleKey`** later | Estimates API, appointment hooks, deposits in **Pay** surfaces (web + native) | **GFE / transparency** counsel (state/federal) |
 | **Data / personalization** | ML on outreach timing/channel | Insight **MVP** | Event store, warehouse sync, experiments | Data science hires, governance |
-| **Cedar Connect / EDI** (market expectation for “serious RCM”) | Clearinghouse, 837/835/277 | Connect **MVP** (timelines, seeded claims) | Partner certification, submission/recon jobs | Clearinghouse contract, enrollment |
+| **Cedar Connect / EDI** (market expectation for “serious RCM”) | Clearinghouse, 837/835/277 | Connect **MVP** (timelines, seeded claims) + **Authorizations** staff queue for **medical-benefit PA** tracking (Phase 1 — manual status, no payer SDK) | Partner certification, submission/recon jobs; optional Availity/CoverMyMeds-class **integrations** later | Clearinghouse contract, enrollment |
 | **Claims Build** (Anang differentiator) | Proactive denial prevention — **not** Cedar’s headline | **MVP** (drafts, AI copy HITL) | Stronger rules engine, evidence linking, submit gates | Payer policy licenses, clinical SME |
 | **Verticals** (e.g. ortho) | Article mentions **Cedar Orthodontics** | Single horizontal codebase | Vertical packs (config + templates) | Choose pilot vertical |
 
@@ -44,6 +44,7 @@ The article stresses: **EHR + claims/EOB + patient account data** in one **consu
 These are the kinds of things **we can implement in-repo** (subject to your priorities and review):
 
 - **Integration readiness (shipped):** each tenant’s **Settings** page includes an **Integration readiness** card (EHR, payments, comms, clearinghouse) driven only by **optional env vars** — plus **`GET /api/integrations/status`** for the same JSON. No secrets exposed; use it in pilots to show what’s wired vs still mock.
+- **Prior authorization (shipped, Phase 1):** staff **Connect → Authorizations** + **Build** signals + **Implementation hub** defaults — **[`PRIOR_AUTHORIZATION.md`](./PRIOR_AUTHORIZATION.md)** for sales boundaries vs roadmap (ePA, payer APIs).
 - **Product surface:** Flesh out Cover, Support, Pre flows; patient-facing portal route group; richer Insight.
 - **Integrations (code + patterns):** FHIR sync jobs, webhook receivers, idempotent upserts into Prisma models, admin screens for “last sync / errors”.
 - **Payments:** **Checkout session + idempotent webhook** for statement pay are in-repo; **you** add keys, Dashboard webhook to **`/api/webhooks/stripe`**, and **`NEXT_PUBLIC_APP_ORIGIN`** (see [`MANUAL_SETUP_CHECKLIST.md`](./MANUAL_SETUP_CHECKLIST.md)). Further: Connect, plans/installments, richer reconciliation — **after** gateway and product choices.

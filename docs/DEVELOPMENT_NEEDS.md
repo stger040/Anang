@@ -32,6 +32,7 @@ Use this as a working checklist. None of this blocks local coding on the repo; e
 | **Pilot scope** | e.g. Pay + patient portal only vs. + Pre vs. + Claims Build — limits timeline and risk. |
 | **Their IT contact** | Sandbox access, VPN, firewall rules, SSO (SAML) requirements. |
 | **Clearinghouse** (if claims) | Which vendor and which NPIs/sites — for Connect phase. |
+| **Prior auth (when you deepen)** | Phase 1 is **staff-tracked** in **Connect → Authorizations** (no payer SDK). Later: Availity / plan-specific portals / ePA — product + counsel decide; see **`docs/PRIOR_AUTHORIZATION.md`**. |
 | **Privacy / security** | Someone to answer their infosec questionnaire (use `/api/health`, `/api/version`, subprocessors list). |
 
 ---

@@ -39,10 +39,10 @@
 | **Cover** | Medicaid/ACA, renewals, financial assistance, **reactive** patient-facing denials resolution (CoB, dual coverage, etc.). |
 | **Support** | Early-out, campaigns, **agent workspace**, copilot. |
 | **Voice** | AI voice agent for billing (comparable positioning to Cedar’s Kora). |
-| **Claims Build** | **Proactive denial prevention**: AI-assisted coding, documentation gaps, prior-auth **alerts**, pre-submit risk — **not** offered by Cedar as a headline. |
-| **Connect** | **837 / 835 / 277**, clearinghouse partner, claim lifecycle — **required** for serious RCM, not “portal only.” |
+| **Claims Build** | **Proactive denial prevention**: AI-assisted coding, documentation gaps, **deterministic prior-auth likelihood signals** on drafts (with staff **Connect** case workflow), pre-submit risk — **not** offered by Cedar as a headline. |
+| **Connect** | **837 / 835 / 277**, clearinghouse partner, claim lifecycle — **required** for serious RCM, not “portal only.” Includes **Authorizations** (staff prior auth case tracking — medical benefit Phase 1; see **[`PRIOR_AUTHORIZATION.md`](./PRIOR_AUTHORIZATION.md)**). |
 | **RCM denials (billing)** | Payer denial inbox, appeals, root-cause analytics — **complements** Cover’s **patient-side** denials flows. |
-| **Eligibility / Prior auth** | 270/271-style eligibility; PA case tracking. |
+| **Eligibility** | 270/271-style eligibility (roadmap; not the same surface as PA tracking). **Prior auth (medical benefit) case tracking** ships under Connect — **`PRIOR_AUTHORIZATION.md`**. |
 | **Cash & credits** | Posting, reconciliation, refunds, credit balances, bad-debt / agency handoff rules. |
 | **Intelligence** | Events, dashboards, propensity models, personalization, experiments. |
 | **Platform** | Multi-tenant admin, **API + webhooks**, consent, i18n/a11y, feature flags per tenant. |
@@ -73,7 +73,7 @@
 - **Monorepo:** two Next.js 15 apps — `apps/marketing-site` (public) and `apps/platform-app` (authenticated product at `/o/[orgSlug]/…` plus `/admin`).
 - **Shared packages:** `@anang/brand`, `@anang/config`, `@anang/types`, `@anang/ui`, `packages/tsconfig`, etc.
 - **Data:** Prisma + **PostgreSQL** (`docker-compose` for local, or Neon per **`DEPLOYMENT.md`**). **`prisma/seed.ts`** currently seeds **one** pilot-style tenant — **`synthetic-test`** — with **all** `ModuleEntitlement` modules enabled and **one** primary patient (Sam) driving a **connected** staff-demo thread (see **`docs/TENANCY_AND_MODULES.md`** § *Staff journey*). Older docs that referenced multiple named demo tenants (e.g. LCO / Tamarack / `demo`) describe **product positioning or past seeds**, not the present default seed file.
-- **Implemented (starter):** **Auth.js** — optional **platform OIDC** (`AUTH_OIDC_*`) + **per-tenant OIDC** (admin UI + env secret pattern) + staging **Credentials**; policy **`local_only` / `sso_allowed` / `sso_required`** per tenant (`docs/DEPLOYMENT.md`, `docs/CLIENT_IT_OIDC_ONBOARDING.md`), Build / Pay / Connect / Insight MVPs, **Cover** (**`CoverAssistanceCase`** intake + status) and **Support** (**`SupportTask`** queue) staff workspaces, Pay **pre-visit hub** route (`/pay/pre`), tenant settings + audit, super-admin index; **optional Stripe Checkout + webhook** for Pay when env vars are set (see **`DEPLOYMENT.md`**). **Staff UI cross-navigation** on key pages links **Build ↔ Connect ↔ Pay** when optional FKs are populated (encounter detail → related claim; claim detail → encounter; statement detail → related claim + encounter). **Dental** is a **documented vertical** (Cedar Orthodontics–class): same module spine, dental-tuned UX and integrations — see **`docs/MODULES_CUSTOMER.md`**; optional future **`DENTAL`** `ModuleKey` not in schema yet.
+- **Implemented (starter):** **Auth.js** — optional **platform OIDC** (`AUTH_OIDC_*`) + **per-tenant OIDC** (admin UI + env secret pattern) + staging **Credentials**; policy **`local_only` / `sso_allowed` / `sso_required`** per tenant (`docs/DEPLOYMENT.md`, `docs/CLIENT_IT_OIDC_ONBOARDING.md`), Build / Pay / Connect / Insight MVPs, **Connect → Authorizations** for **medical-benefit prior authorization** case tracking (queue, checklist, SLA-style flags, encounter/claim linkage, audit — no payer auto-submit; see **`docs/PRIOR_AUTHORIZATION.md`**), **Cover** (**`CoverAssistanceCase`** intake + status) and **Support** (**`SupportTask`** queue) staff workspaces, Pay **pre-visit hub** route (`/pay/pre`), tenant settings + audit (including **Implementation hub → prior auth defaults**), super-admin index; **optional Stripe Checkout + webhook** for Pay when env vars are set (see **`DEPLOYMENT.md`**). **Staff UI cross-navigation** on key pages links **Build ↔ Connect ↔ Pay** when optional FKs are populated (encounter detail → related claim + PA cases where seeded; claim detail → encounter; statement detail → related claim + encounter). **Dental** is a **documented vertical** (Cedar Orthodontics–class): same module spine, dental-tuned UX and integrations — see **`docs/MODULES_CUSTOMER.md`**; optional future **`DENTAL`** `ModuleKey` not in schema yet.
 - **Not yet built:** SCIM / platform-wide OIDC JIT, **dedicated patient PWA / native billing apps** (see **`docs/PRODUCT_SURFACES_VISION.md`**, **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`**), production **SMS / magic-link** orchestration, FHIR/EHR feeds-in-production, production clearinghouse, full breadth in **`IMPLEMENTATION_PLAN.md`** — **`docs/FULL_PLATFORM_CHECKLIST.md`**.
 
 **Rule:** Do **not** scatter “Anang” or product copy across random files — use **`getBrand()`** from `@anang/brand` or edit **`packages/brand/src/config.ts`**.
@@ -100,6 +100,7 @@ Details: `IMPLEMENTATION_PLAN.md` Part 6, `BUILD_PLAN.md` §5–6.
 | 1 | **`docs/PLATFORM_OVERVIEW.md`** (this file) | Vision, modules, Cedar comparison, repo reality |
 | 1b | **`docs/PRODUCT_SURFACES_VISION.md`** | Desktop / mobile web / native parity; take-rate vs channel; engineering north star |
 | 1c | **`docs/MODULES_CUSTOMER.md`** | Cedar-aligned **Pay / Cover / Support / Pre** + **Build / Connect / Insight / Core / Dental** — same `ModuleKey` set, buyer language |
+| 1c2 | **`docs/PRIOR_AUTHORIZATION.md`** | **Medical-benefit PA** — Connect Authorizations + Build signals; sales boundaries (no ePA, no auto decisioning) |
 | 1d | **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`** | Patient vs staff scenarios; SMS → web → verify; app mapping |
 | 1e | **`docs/FOUNDER_BUILD_GUIDE.md`** | Neon, seed vs PHI, what non-engineers configure |
 | 1f | **`docs/CORE_DATA_MODEL.md`** | Canonical RCM entities, raw vs normalized, module needs, Prisma gaps |
@@ -148,4 +149,4 @@ Marketing: http://localhost:3000 · Platform: http://localhost:3001/login
 
 ---
 
-*Last updated: 2026-04-19 — seed reality (`synthetic-test` only), staff Build/Connect/Pay cross-links, module journey note in `TENANCY_AND_MODULES.md`.*
+*Last updated: 2026-04-24 — Connect **Authorizations** (prior auth Phase 1), Build deterministic PA signals, `PRIOR_AUTHORIZATION.md`; seed includes demo PA cases.*

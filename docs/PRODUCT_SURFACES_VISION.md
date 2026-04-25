@@ -77,7 +77,7 @@ Document **real** exceptions (e.g. **state Medicaid** portal must open in **syst
 | **Cover** | Mobile web + native + desktop (intake) | Long forms sometimes easier on **tablet/desktop**; still **mobile-capable** |
 | **Support** | All | Chat everywhere; **voice** may be **native + tel** first |
 | **Build** | **Desktop** staff | Optional read-only **approve** on tablet later |
-| **Connect** | **Desktop** staff | Patient milestones only in **Pay** UI |
+| **Connect** | **Desktop** staff (claims, remittances, **Authorizations** / PA queue) | Patient milestones only in **Pay** UI |
 | **Insight** | **Desktop** staff | Exports and BI; no patient app |
 
 ---

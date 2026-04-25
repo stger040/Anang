@@ -38,6 +38,7 @@
 ## Tier E — Connect (product shell)
 
 - [x] **E1. Claims lifecycle UI** — tenant claims list + per-claim timeline from Postgres; EDI identifiers section reserved for clearinghouse integration.
+- [x] **E1b. Authorizations (prior auth Phase 1)** — **`PriorAuthCase`** (+ services, checklist, events, attachments metadata, status polls); staff **Connect** sub-workspace **`/connect/authorizations`**; server actions (CONNECT-gated, tenant-scoped IDs, `AuditEvent` + `platformLog`); **Build** deterministic **`prior_auth`** `ClaimIssue` keys + encounter CTA to create prefilled case; **Implementation hub** `priorAuth` JSON; cron **`/api/cron/prior-auth-sla-scan`**; REST **`GET /api/prior-auth/cases`** + **`GET …/[caseId]`** (POST/PATCH 501 stubs); synthetic seed demo cases. Sales/scope: **`docs/PRIOR_AUTHORIZATION.md`**.
 - [x] **E2a. Inbound 277 / 835** — minimal CLP parse, `Claim.ediRefs`, timeline + status updates; `POST /api/webhooks/clearinghouse` + `CLEARINGHOUSE_WEBHOOK_SECRET`.
 - [x] **E2b1. Outbound 837 correlation (manual)** — `Claim837EdiSubmission`, Connect claim form (ISA/GS/ST + partner label), timeline + `ediRefs` summary.
 - [x] **E2b2a. Inbound EDI audit trail** — clearinghouse webhook writes `IngestionBatch` (`edi_inbound`) + `SourceArtifact`; claims get `lastEdiIngestionBatchId` + `lastInboundTrnRefs` (TRN segments); response includes batch/artifact ids.
@@ -94,4 +95,4 @@ Databases created earlier with **`db:push` only** must run **`prisma migrate res
 
 ---
 
-*Last updated: H1–H4 shipped (strict inference, Support LLM option, log webhook, EDI degrade alerts); 835 SVC lines, plan installments ↔ payments, SMS consent/quiet hours, remittance drill-down, PWA icons.*
+*Last updated: 2026-04-24 — **E1b** Connect Authorizations / prior auth Phase 1 shipped (`PRIOR_AUTHORIZATION.md`). Prior: H1–H4 (strict inference, Support LLM option, log webhook, EDI degrade alerts); 835 SVC lines, plan installments ↔ payments, SMS consent/quiet hours, remittance drill-down, PWA icons.*

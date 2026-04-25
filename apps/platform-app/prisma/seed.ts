@@ -5,7 +5,14 @@ import {
   ClaimLifecycleStatus,
   ClaimIssueSource,
   ClaimDraftLineSource,
+  PriorAuthChecklistStatus,
+  PriorAuthServiceCodeType,
+  PriorAuthStatus,
+  PriorAuthSubmissionMethod,
+  PriorAuthUrgency,
 } from "@prisma/client";
+
+import { defaultPriorAuthImplementationSettings } from "../src/lib/prior-auth/defaults";
 
 const prisma = new PrismaClient();
 
@@ -37,6 +44,12 @@ async function main() {
   await prisma.buildKnowledgeChunk.deleteMany();
   await prisma.supportTask.deleteMany();
   await prisma.coverAssistanceCase.deleteMany();
+  await prisma.priorAuthStatusPoll.deleteMany();
+  await prisma.priorAuthEvent.deleteMany();
+  await prisma.priorAuthAttachment.deleteMany();
+  await prisma.priorAuthChecklistItem.deleteMany();
+  await prisma.priorAuthService.deleteMany();
+  await prisma.priorAuthCase.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.claimTimelineEvent.deleteMany();
   await prisma.claim.deleteMany();
@@ -83,6 +96,7 @@ async function main() {
         implementation: {
           version: 1,
           checklist: { billing: {}, it: {} },
+          priorAuth: defaultPriorAuthImplementationSettings(),
         },
       },
     },
@@ -152,7 +166,7 @@ async function main() {
     },
   });
 
-  await prisma.coverage.create({
+  const coverageSam = await prisma.coverage.create({
     data: {
       tenantId: tenant.id,
       patientId: patientSam.id,
@@ -247,6 +261,144 @@ async function main() {
         syntheticLifecycle: true,
         encounterId: encounter.id,
         claimDraftId: draft.id,
+      },
+    },
+  });
+
+  const paChecklist = [
+    { label: "Clinical documentation complete", sortOrder: 0 },
+    { label: "Procedure / diagnosis codes confirmed", sortOrder: 1 },
+    { label: "Payer / plan verified for medical benefit", sortOrder: 2 },
+    {
+      label: "Submission packet assembled (no auto-submit)",
+      sortOrder: 3,
+    },
+  ] as const;
+
+  const paChecklistCreates = paChecklist.map((c) => ({
+    label: c.label,
+    sortOrder: c.sortOrder,
+    status: PriorAuthChecklistStatus.PENDING,
+  }));
+
+  await prisma.priorAuthCase.create({
+    data: {
+      tenantId: tenant.id,
+      patientId: patientSam.id,
+      caseNumber: "PA-2026-SEED-0001",
+      status: PriorAuthStatus.DRAFT,
+      urgency: PriorAuthUrgency.ROUTINE,
+      priority: "normal",
+      source: "seed",
+      submissionMethod: PriorAuthSubmissionMethod.NOT_SUBMITTED,
+      payerName: "Demo Health Plan",
+      payerPlanName: "Open Access PPO",
+      coverageId: coverageSam.id,
+      scheduledAt: new Date(Date.now() + 2 * 86400000),
+      checklistItems: { create: [...paChecklistCreates] },
+      services: {
+        create: {
+          codeType: PriorAuthServiceCodeType.CPT,
+          code: "72148",
+          description: "MRI lumbar spine without contrast",
+          units: 1,
+          sortOrder: 0,
+        },
+      },
+    },
+  });
+
+  await prisma.priorAuthCase.create({
+    data: {
+      tenantId: tenant.id,
+      patientId: patientSam.id,
+      encounterId: encounter.id,
+      caseNumber: "PA-2026-SEED-0002",
+      status: PriorAuthStatus.IN_REVIEW,
+      urgency: PriorAuthUrgency.ROUTINE,
+      priority: "high",
+      source: "seed",
+      submissionMethod: PriorAuthSubmissionMethod.PORTAL,
+      payerName: "Demo Health Plan",
+      payerPlanName: "Open Access PPO",
+      coverageId: coverageSam.id,
+      submittedAt: new Date(Date.now() - 3 * 86400000),
+      dueAt: new Date(Date.now() + 10 * 86400000),
+      checklistItems: { create: [...paChecklistCreates] },
+      services: {
+        create: {
+          codeType: PriorAuthServiceCodeType.CPT,
+          code: "73721",
+          description: "MRI joint upper extremity w/o contrast",
+          units: 1,
+          sortOrder: 0,
+        },
+      },
+    },
+  });
+
+  await prisma.priorAuthCase.create({
+    data: {
+      tenantId: tenant.id,
+      patientId: patientSam.id,
+      encounterId: encounter.id,
+      claimId: claim.id,
+      caseNumber: "PA-2026-SEED-0003",
+      status: PriorAuthStatus.APPROVED,
+      urgency: PriorAuthUrgency.ROUTINE,
+      priority: "normal",
+      source: "seed",
+      submissionMethod: PriorAuthSubmissionMethod.PORTAL,
+      payerName: "Demo Health Plan",
+      payerPlanName: "Open Access PPO",
+      coverageId: coverageSam.id,
+      authorizationNumber: "DHP-AUTH-SEED-9901",
+      submittedAt: new Date(Date.now() - 20 * 86400000),
+      decisionAt: new Date(Date.now() - 18 * 86400000),
+      expiresAt: new Date(Date.now() + 25 * 86400000),
+      checklistItems: { create: [...paChecklistCreates] },
+      services: {
+        create: {
+          codeType: PriorAuthServiceCodeType.CPT,
+          code: "99214",
+          description: "Office visit, established patient",
+          units: 1,
+          sortOrder: 0,
+        },
+      },
+    },
+  });
+
+  await prisma.priorAuthCase.create({
+    data: {
+      tenantId: tenant.id,
+      patientId: patientSam.id,
+      encounterId: encounter.id,
+      caseNumber: "PA-2026-SEED-0004",
+      status: PriorAuthStatus.DENIED,
+      urgency: PriorAuthUrgency.ROUTINE,
+      priority: "high",
+      source: "seed",
+      submissionMethod: PriorAuthSubmissionMethod.FAX,
+      payerName: "Demo Health Plan",
+      payerPlanName: "Open Access PPO",
+      coverageId: coverageSam.id,
+      submittedAt: new Date(Date.now() - 30 * 86400000),
+      decisionAt: new Date(Date.now() - 28 * 86400000),
+      payerDecision: {
+        summary: "Insufficient clinical for medical necessity",
+        nextStep: "Gather operative report and resubmit",
+      },
+      reworkMetrics: { resubmissionCount: 0, denialReason: "missing_documentation" },
+      checklistItems: { create: [...paChecklistCreates] },
+      services: {
+        create: {
+          codeType: PriorAuthServiceCodeType.CPT,
+          code: "29881",
+          description: "Knee arthroscopy",
+          units: 1,
+          sortOrder: 0,
+        },
       },
     },
   });

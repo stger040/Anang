@@ -12,7 +12,7 @@ This document is the **engineering and delivery playbook** companion to `IMPLEME
 4. **Vertical slice delivery** — Each milestone produces a demoable path (e.g., “mock EHR → statement → pay → post event”), not a layer of empty services.
 5. **Buy the commodity, build the differentiator** — Payments (Stripe), SMS (Twilio), clearinghouse (partner EDI), **BAA-covered inference when needed**; build patient UX, **RCM intelligence** (rules + retrieval + narrow models), workflows, and orchestration.
 6. **Pilot then scale** — One health system shape (e.g., multi-hospital IDN vs. large specialty group) per early phase; generalize after two customers.
-7. **Deterministic-first Build; separate Support AI** — **Build** must deliver value with **LLMs off** (rules + retrieval + scores); **LLMs** explain and converse on top. **Support** is its own **tool-driven, guardrailed** assistant — not the same design as Build. See **`docs/CORE_DATA_MODEL.md`**, **`docs/CONNECTOR_STRATEGY.md`**, **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**, **`IMPLEMENTATION_PLAN.md`** (strategic architecture).
+7. **Deterministic-first Build; separate Support AI** — **Build** must deliver value with **LLMs off** (rules + retrieval + scores); **LLMs** explain and converse on top. **Support** is its own **tool-driven, guardrailed** assistant — not the same design as Build. **Prior auth “likely” signals** on drafts are **rules-only**; staff **case tracking** is **Connect → Authorizations** — **`docs/PRIOR_AUTHORIZATION.md`**. See also **`docs/CORE_DATA_MODEL.md`**, **`docs/CONNECTOR_STRATEGY.md`**, **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**, **`IMPLEMENTATION_PLAN.md`** (strategic architecture).
 
 ---
 

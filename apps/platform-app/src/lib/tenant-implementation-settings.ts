@@ -1,4 +1,9 @@
 import type { OnboardingCheckState } from "./onboarding-checklists";
+import {
+  defaultPriorAuthImplementationSettings,
+  parsePriorAuthImplementationSettings,
+  type PriorAuthImplementationSettingsV1,
+} from "./prior-auth/defaults";
 import type { TradingPartnerEnrollmentV1 } from "./trading-partner-enrollment";
 import { parseTradingPartnerEnrollment } from "./trading-partner-enrollment";
 
@@ -23,6 +28,8 @@ export type TenantImplementationSettingsV1 = {
     billing: OnboardingCheckState;
     it: OnboardingCheckState;
   };
+  /** Medical-benefit prior auth (Connect Phase 1) — not pharmacy ePA. */
+  priorAuth?: PriorAuthImplementationSettingsV1;
 };
 
 export function parseImplementationSettings(
@@ -38,6 +45,10 @@ export function parseImplementationSettings(
   if (tp) {
     parsed.tradingPartnerEnrollment = tp;
   }
+  const pa = parsePriorAuthImplementationSettings(o.priorAuth);
+  if (pa) {
+    parsed.priorAuth = pa;
+  }
   return parsed;
 }
 
@@ -45,6 +56,7 @@ export function defaultImplementationV1(): TenantImplementationSettingsV1 {
   return {
     version: 1,
     checklist: { billing: {}, it: {} },
+    priorAuth: defaultPriorAuthImplementationSettings(),
   };
 }
 
@@ -57,6 +69,7 @@ export function mergeImplementationFromForm(args: {
   billing: OnboardingCheckState;
   it: OnboardingCheckState;
   tradingPartnerEnrollment: TradingPartnerEnrollmentV1 | undefined;
+  priorAuth: PriorAuthImplementationSettingsV1;
 }): TenantImplementationSettingsV1 {
   const core = {
     version: 1 as const,
@@ -68,6 +81,7 @@ export function mergeImplementationFromForm(args: {
       billing: args.billing,
       it: args.it,
     },
+    priorAuth: args.priorAuth,
   };
   return args.tradingPartnerEnrollment
     ? {

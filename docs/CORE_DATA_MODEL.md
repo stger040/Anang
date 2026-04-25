@@ -94,6 +94,19 @@ Names align with common RCM language; Prisma may diverge slightly until migratio
 | **Cover assistance case** | Exists: `CoverAssistanceCase`. | |
 | **Support task** | Task queue row for billing follow-ups | Exists: `SupportTask`; optional **`statementId`** / **`patientId`**. |
 
+### 3.6b Prior authorization (Connect Phase 1 — shipped)
+
+| Entity | Role | v1 notes |
+|--------|------|----------|
+| **`PriorAuthCase`** | Staff-owned PA file | Tenant + patient required; optional `encounterId`, `claimId`, `coverageId`; status, urgency, payer fields, SLA timestamps, JSON for payer decision / external refs / rework metrics. Unique `caseNumber` per tenant. |
+| **`PriorAuthService`** | Requested procedure rows on a case | CPT/HCPCS-style codes and units (metadata for staff and audits). |
+| **`PriorAuthChecklistItem`** | Intake / submission checklist | Per-case rows with status (`PENDING`, `DONE`, `NA`, `BLOCKED`). |
+| **`PriorAuthEvent`** | Case timeline | `eventType` + JSON payload + optional `actorUserId` (cron/system events may use null actor with audit). |
+| **`PriorAuthAttachment`** | File metadata | Metadata-first; optional `storageUri` when upload path is wired. |
+| **`PriorAuthStatusPoll`** | Optional future payer poll log | Placeholder for manual or automated status capture later. |
+
+Tenant **defaults** (which heuristics run, unknown-plan behavior, SLA windows for *staff* queue math) live in **`Tenant.settings.implementation.priorAuth`** — see **`docs/PRIOR_AUTHORIZATION.md`**.
+
 ### 3.7 Build-specific (today’s schema)
 
 | Entity | Role | Evolution |
@@ -120,7 +133,7 @@ Names align with common RCM language; Prisma may diverge slightly until migratio
 | Module | Primary reads | Primary writes | Notes |
 |--------|---------------|----------------|-------|
 | **Build** | Encounter, charges/draft lines, payer + edits, historical denials | Draft lines, issues, recommendation/outcome logs | Must run **with LLMs off** via rules + retrieval scores. |
-| **Connect** | Claims, remittances, 277/835-derived status | Claim lifecycle, timeline events, denial rows | Exists: `ClaimTimelineEvent`; expand with EDI types. |
+| **Connect** | Claims, remittances, 277/835-derived status; **PriorAuthCase** (+ children) for Authorizations | Claim lifecycle, timeline events, denial rows; PA case/checklist/event mutations | Exists: `ClaimTimelineEvent`; **PA** tables per §3.6b; expand EDI types as Connect deepens. |
 | **Insight** | Aggregates across claims, payments, denials, tasks | Feature tables / MVs (or warehouse) | Avoid heavy analytics on OLTP without rollups. |
 | **Pay** | Statement, lines, patient, coverage (for estimates) | Payments, statement status | Explanation uses **codes + amounts**; free text minimized for AI. |
 | **Cover** | Coverage, patient, tasks | Case status | Policy content often **retrieval**, not row duplication. |
@@ -152,10 +165,10 @@ Names align with common RCM language; Prisma may diverge slightly until migratio
 
 ## 6. Mapping from current Prisma
 
-Today’s **`apps/platform-app/prisma/schema.prisma`** already includes `Tenant`, `Patient`, `Encounter`, `Coverage`, `ClaimDraft` (+ lines + issues), `Claim`, `Statement` (+ lines), `Payment`, `IngestionBatch`, `SourceArtifact`, `ExternalIdentifier`, **`BuildRulePack`** (per-tenant rule calibration JSON), `CoverAssistanceCase`, `SupportTask`, `AuditEvent`.  
+Today’s **`apps/platform-app/prisma/schema.prisma`** already includes `Tenant`, `Patient`, `Encounter`, `Coverage`, `ClaimDraft` (+ lines + issues), `Claim`, `Statement` (+ lines), `Payment`, `IngestionBatch`, `SourceArtifact`, `ExternalIdentifier`, **`BuildRulePack`** (per-tenant rule calibration JSON), **`PriorAuthCase`** (+ `PriorAuthService`, `PriorAuthChecklistItem`, `PriorAuthAttachment`, `PriorAuthEvent`, `PriorAuthStatusPoll`), `CoverAssistanceCase`, `SupportTask`, `AuditEvent`.  
 
 **Gap list (engineering backlog):** remittance/adjustment/denial normalization, explicit claim lines for submitted claims, recommendation/outcome tables, provider/facility tables, object storage for **`SourceArtifact`** when payloads exceed inline cap. **Shipped:** `Coverage`, `SourceArtifact` + `IngestionBatch` raw fingerprint / optional inline JSON; **optional thread FKs** on `Claim` / `Statement` (see §5); **staff UI** reads those links on Build / Connect / Pay detail routes when present.
 
 ---
 
-*Document version: 1.1 — planning + repo-aligned thread FKs and UI; schema changes go through Prisma migrations and release notes.*
+*Document version: 1.2 — added §3.6b **PriorAuth\*** (Connect Authorizations Phase 1); schema changes go through Prisma migrations and release notes.*

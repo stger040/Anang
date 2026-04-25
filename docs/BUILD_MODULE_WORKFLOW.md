@@ -41,6 +41,11 @@ For each **draft charge line**:
 
 Address **Risk & documentation** issues until your team is satisfied (critical items before approval, per policy).
 
+### Prior authorization (Build + Connect)
+
+- **Deterministic rule issues** may appear with category **`prior_auth`** when tenant **Implementation** prior-auth screening is on (see **`docs/PRIOR_AUTHORIZATION.md`**).
+- Open **Connect → Authorizations** to track a case, or use the encounter action to **create a prefilled PA case** (still **manual** with payers in Phase 1).
+
 ## 7. Approve when ready
 
 - **Approve claim draft** — marks the draft **ready** and encounter review **approved** (human-only gate; no auto-submission in this path).
@@ -66,4 +71,5 @@ Address **Risk & documentation** issues until your team is satisfied (critical i
 ## Related
 
 - [BUILD_AI_TESTING.md](./BUILD_AI_TESTING.md) — what the model sees, pricing, env, troubleshooting.
+- [PRIOR_AUTHORIZATION.md](./PRIOR_AUTHORIZATION.md) — Connect Authorizations + Build PA signals; sales boundaries.
 - [LIVE_WEB_APP_CHANGE_CHECKLIST.md](./LIVE_WEB_APP_CHANGE_CHECKLIST.md) — shipping changes to production.

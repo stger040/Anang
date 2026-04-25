@@ -36,7 +36,7 @@ Introduce a small **inference abstraction** (package or `src/lib/ai/` module) us
 - **Configuration:** env selects provider + flags (disable, minimal payload, max tokens, region).
 - **Logging:** log **statement line id + tenant + provider id + template vs remote** — not raw description when policy says no.
 
-**Build** should **not** depend on this Pay-oriented abstraction for **core claim validation**; Build uses a **rule engine + retrieval service** with separate types.
+**Build** should **not** depend on this Pay-oriented abstraction for **core claim validation**; Build uses a **rule engine + retrieval service** with separate types. **Prior-auth likelihood** on drafts is **deterministic rules** only (`ClaimIssue` with `issueSource: RULE`, category **`prior_auth`**); staff case files are **Connect → Authorizations** — **`docs/PRIOR_AUTHORIZATION.md`**.
 
 ---
 

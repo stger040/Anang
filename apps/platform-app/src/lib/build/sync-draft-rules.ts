@@ -7,7 +7,11 @@ import {
   type BuildRulePackConfig,
 } from "@/lib/build/rule-pack-config";
 import { attachRetrievalCitations } from "@/lib/build/retrieval";
-import { evaluateClaimDraftRules } from "@/lib/build/rules-engine";
+import {
+  evaluateClaimDraftRules,
+  evaluatePriorAuthBuildRuleIssues,
+} from "@/lib/build/rules-engine";
+import { parseImplementationSettings } from "@/lib/tenant-implementation-settings";
 import { prisma } from "@/lib/prisma";
 
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -36,10 +40,42 @@ export async function syncClaimDraftRuleIssues(
   if (!draft) return;
 
   const pack = await loadRulePackForTenant(db, args.tenantId);
-  const raw = evaluateClaimDraftRules({
+  const tenantRow = await db.tenant.findUnique({
+    where: { id: args.tenantId },
+    select: { settings: true },
+  });
+  const impl = parseImplementationSettings(
+    tenantRow?.settings &&
+      typeof tenantRow.settings === "object" &&
+      !Array.isArray(tenantRow.settings)
+      ? (tenantRow.settings as Record<string, unknown>).implementation
+      : null,
+  );
+  const paUnknown = impl?.priorAuth?.unknownPlanBehavior ?? "review_required";
+  const paTherapyThreshold = undefined;
+
+  const coverages = await db.coverage.findMany({
+    where: { tenantId: args.tenantId, patientId: draft.encounter.patientId },
+    select: { planName: true, status: true, payerName: true },
+  });
+
+  const baseRules = evaluateClaimDraftRules({
     lines: draft.lines,
     encounter: draft.encounter,
   });
+  const priorAuthOn = impl?.priorAuth?.enabled !== false;
+  const priorAuthRules =
+    priorAuthOn && draft.lines.length > 0
+      ? evaluatePriorAuthBuildRuleIssues({
+          lines: draft.lines,
+          encounter: draft.encounter,
+          coverages,
+          unknownPlanBehavior: paUnknown,
+          therapyUnitsThreshold: paTherapyThreshold,
+          enabledCategoryKeys: impl?.priorAuth?.defaultHighRiskCategories,
+        })
+      : [];
+  const raw = [...baseRules, ...priorAuthRules];
   const packed = applyBuildRulePack(raw, pack);
   const payloads = await attachRetrievalCitations(db, {
     tenantId: args.tenantId,

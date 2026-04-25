@@ -17,7 +17,7 @@ Shared UI, copy, configuration, and TypeScript types live in `packages/*` so all
 
 ## Staff workspace, patient web, and EHR embedding (repo facts)
 
-- **Clinic/staff product shell** is **`/o/[orgSlug]/…`**: authenticated workspace (Build, Pay staff views, Connect, Cover counselor queues, Support agent workspace, etc.). `middleware.ts` sends unauthenticated visitors on `/admin` and `/o` to **`/login`**.
+- **Clinic/staff product shell** is **`/o/[orgSlug]/…`**: authenticated workspace (Build, Pay staff views, Connect — claims, remittances, **Authorizations** / prior auth cases — Cover counselor queues, Support agent workspace, etc.). `middleware.ts` sends unauthenticated visitors on `/admin` and `/o` to **`/login`**.
 - **Patient-facing billing (web) today** is the **public** route group **`/p/[orgSlug]/…`** in the same `platform-app`: org landing copy + **magic-link** statement pay (`/p/{org}/pay/{token}`), optional DOB/account step-up, Stripe patient checkout — **no** tenant workspace account for the patient path (see `apps/platform-app/src/app/p/` and `apps/platform-app/.env.example` for `PATIENT_PAY_LINK_SECRET`, `DISABLE_PATIENT_PAY_STEPUP`).
 - **Greenway / Intergy FHIR** is implemented as **server-to-server** reads/sync (bearer or client-credentials from env, cron + Implementation hub actions). The HTTP client is explicitly **server-side only** (`apps/platform-app/src/lib/connectors/greenway-fhir/client.ts`). There is **no** SMART-on-FHIR launch handler or EHR **iframe** host route in the shipped platform shell — Integration hub is **staff Settings** configuration and probes, not an in-EHR embedded UI.
 - **Planning docs** (e.g. `IMPLEMENTATION_PLAN.md`) may describe optional future **embedded** EHR widgets alongside standalone staff use; that is **strategy**, not current code coupling.
@@ -30,7 +30,7 @@ Shared UI, copy, configuration, and TypeScript types live in `packages/*` so all
 - **`/admin`** — **super admin** only (`AppRole.SUPER_ADMIN`). Lists tenants and cross-tenant audit.
 - **`/o/[orgSlug]/…`** — tenant-scoped workspace. Access requires membership **unless** the user is a super admin.
 
-Data access uses **Prisma** against **PostgreSQL**. The schema models organizations (`Tenant`), users (`User`), memberships (`Membership`), purchased modules (`ModuleEntitlement`), revenue-cycle entities (patients, encounters, drafts, claims, statements), and `AuditEvent` rows for a future compliance story.
+Data access uses **Prisma** against **PostgreSQL**. The schema models organizations (`Tenant`), users (`User`), memberships (`Membership`), purchased modules (`ModuleEntitlement`), revenue-cycle entities (patients, encounters, drafts, claims, statements, **`PriorAuthCase`** and related PA tables), and `AuditEvent` rows for a future compliance story.
 
 ### Why Next.js for the “backend” (for now)
 
@@ -46,7 +46,7 @@ The product is **one platform, many modules** (Build, Pay, Connect, Insight, Sup
 
 **Staff data (examples):** `CoverAssistanceCase` powers **Cover** intake queues; `SupportTask` powers **Support** work queues — both tenant-scoped in Postgres (see `prisma/schema.prisma`).
 
-**Cross-module staff navigation (demo / pilot clarity):** when `Claim` and `Statement` rows carry optional links to **`Encounter`** and **`ClaimDraft`** (see migration `20260502100000_link_claim_draft_encounter_statement` and `docs/TENANCY_AND_MODULES.md`), the **encounter**, **claim timeline**, and **statement detail** routes in `platform-app` surface compact **Build ↔ Connect ↔ Pay** buttons so operators can follow one patient thread without copying IDs manually.
+**Cross-module staff navigation (demo / pilot clarity):** when `Claim` and `Statement` rows carry optional links to **`Encounter`** and **`ClaimDraft`** (see migration `20260502100000_link_claim_draft_encounter_statement` and `docs/TENANCY_AND_MODULES.md`), the **encounter**, **claim timeline**, and **statement detail** routes in `platform-app` surface compact **Build ↔ Connect ↔ Pay** buttons so operators can follow one patient thread without copying IDs manually. **Prior auth:** Build encounter view can link to **Connect Authorizations** cases tied to the same encounter — see **`docs/PRIOR_AUTHORIZATION.md`**.
 
 ## AI / Build
 

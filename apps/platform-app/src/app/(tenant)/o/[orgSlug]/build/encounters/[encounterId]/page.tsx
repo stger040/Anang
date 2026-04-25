@@ -11,6 +11,7 @@ import {
 import { syncClaimDraftRuleIssues } from "@/lib/build/sync-draft-rules";
 import { parseFhirVisitSummaryMeta } from "@/lib/fhir-visit-summary-meta";
 import { CrossModuleActionRow } from "@/components/cross-module-action-row";
+import { createPriorAuthCaseFromEncounter } from "../../../connect/authorizations/actions";
 import { tenantPrisma } from "@/lib/prisma";
 import { loadTenantWorkspacePageContext } from "@/lib/workspace-page-context";
 import { Badge, Button, Card, PageHeader } from "@anang/ui";
@@ -135,6 +136,15 @@ export default async function EncounterDetailPage({
     .find((c) => c != null);
   const fixtureMeta = parseFhirVisitSummaryMeta(encounter.visitSummary);
 
+  const priorAuthCases =
+    ctx.effectiveModules.has(ModuleKey.CONNECT) && draft
+      ? await tenantPrisma(orgSlug).priorAuthCase.findMany({
+          where: { tenantId: tenant.id, encounterId: encounter.id },
+          select: { id: true, caseNumber: true, status: true },
+          orderBy: { updatedAt: "desc" },
+        })
+      : [];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -199,6 +209,44 @@ export default async function EncounterDetailPage({
           </div>
         </Card>
       )}
+
+      {ctx.effectiveModules.has(ModuleKey.CONNECT) && draft ? (
+        <Card className="border-sky-100 bg-sky-50/40 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-900">
+            Prior authorization (Connect)
+          </p>
+          <p className="mt-1 text-sm text-slate-800">
+            Open a tracked PA case prefilled from this encounter and draft lines.
+            Nothing is transmitted to a payer from this button.
+          </p>
+          {priorAuthCases.length ? (
+            <ul className="mt-2 space-y-1 text-sm">
+              {priorAuthCases.map((pc) => (
+                <li key={pc.id}>
+                  <Link
+                    href={`/o/${orgSlug}/connect/authorizations/${pc.id}`}
+                    className="font-medium text-brand-navy underline"
+                  >
+                    {pc.caseNumber}
+                  </Link>
+                  <span className="ml-2 text-xs text-slate-600">
+                    {String(pc.status).replaceAll("_", " ")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs text-slate-600">No PA case linked yet.</p>
+          )}
+          <form action={createPriorAuthCaseFromEncounter} className="mt-3">
+            <input type="hidden" name="orgSlug" value={orgSlug} />
+            <input type="hidden" name="encounterId" value={encounter.id} />
+            <Button type="submit" size="sm" variant="primary">
+              Create PA case from encounter
+            </Button>
+          </form>
+        </Card>
+      ) : null}
 
       {fixtureMeta.isFhirFixtureImport ? (
         <Card className="border-violet-100 bg-violet-50/50 p-4">

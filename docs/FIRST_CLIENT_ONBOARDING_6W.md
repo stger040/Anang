@@ -22,6 +22,7 @@
 | Track | What to complete |
 |-------|------------------|
 | **Billing discovery** | Checklist in the hub: statement sources, payer mix, payment plans, PCI/clearinghouse reality, staffing. |
+| **Prior auth (RCM)** | In the hub: **Prior authorization (medical benefit)** — enable/disable Build screening, unknown-plan behavior, high-risk category toggles, SLA numbers for staff queues. See **`docs/PRIOR_AUTHORIZATION.md`** for what is / is not automated. |
 | **IT / EHR** | Vendor name (e.g. Dentrix-class PM), expected interface (FHIR, HL7, API, batch), VPN/network, sandbox timing, SSO expectations, PHI-safe test plan. |
 | **Contacts** | IT primary + billing/RCM lead emails for routing decisions. |
 | **Test data** | If **Build** is on: paste a **FHIR R4 Bundle** (Patient + Encounter required). With **Pay** on, **Claim** **`item.net`** lines become statement rows; **ExplanationOfBenefit** is traced on the encounter (no 835). After import, the hub shows links to the **new encounter** and **statement**. **Build** queue marks **FHIR fixture** / **EOB**; **Pay** and **Support** label **`FHIR-…`** statements. Staff **patient rehearsal:** `/o/[orgSlug]/pay/patient-preview`. See **`docs/DEPLOYMENT.md`** for **`FHIR_IMPORT_*`** env (FX / strict). |
@@ -46,4 +47,4 @@
 
 ---
 
-*Last updated with Implementation hub UI (tenant settings).*
+*Last updated: 2026-04-24 — Implementation hub **prior auth** settings row; Authorizations in Connect.*

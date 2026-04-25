@@ -34,7 +34,7 @@ Read `docs/SESSION_HANDOFF.md` in this repo, then help me with:
 
 **File:** `apps/platform-app/prisma/seed.ts`
 
-- **One primary patient (Sam)** on tenant slug **`synthetic-test`** drives: **Encounter → ClaimDraft (Build) → Claim (Connect)** with explicit links **→ Statement (Pay)** with explicit links **→ SupportTask + CoverAssistanceCase** on the **same** patient.
+- **One primary patient (Sam)** on tenant slug **`synthetic-test`** drives: **Encounter → ClaimDraft (Build) → Claim (Connect)** with explicit links **→ Statement (Pay)** with explicit links **→ SupportTask + CoverAssistanceCase** on the **same** patient, plus **four seeded `PriorAuthCase` rows** for **Connect → Authorizations** demos (`PA-2026-SEED-0001` … `0004`).
 - **Removed** the second demo patient and orphan Cover row that broke the story.
 - **Numbers aligned** for demo: e.g. professional charge, insurance paid portion, patient responsibility on the statement; timeline labels: draft approved → 837 → 277CA → 835 → insurance payment.
 
@@ -57,11 +57,17 @@ Optional FKs (nullable, no forced platform redesign):
 - `docs/PLATFORM_OVERVIEW.md`, `docs/ARCHITECTURE.md`, `docs/CORE_DATA_MODEL.md`, `docs/MODULES_CUSTOMER.md` — repo-aligned seed reality (`synthetic-test` only), optional FKs, staff UI navigation.
 - Example Windows `cd` paths in `docs/IMPORT_SYNTHETIC_DATASETS.md`, `docs/FOUNDER_BUILD_GUIDE.md` — use **`Enterprises`** in the path string for consistency with the preferred folder name.
 
+### 4. Prior authorization (Connect Phase 1)
+
+- **Product doc:** **`docs/PRIOR_AUTHORIZATION.md`** (sales boundaries: medical-benefit staff tracking only; no pharmacy ePA; no payer auto-submit).
+- **Routes:** `/o/[orgSlug]/connect/authorizations`, `/connect/authorizations/[caseId]`; **Build** encounter page: PA card + create from encounter when entitled.
+- **Cron:** `/api/cron/prior-auth-sla-scan` + **`CRON_SECRET`** (`DEPLOYMENT.md`).
+
 ---
 
 ## Business / pilot context (high level)
 
-- **First-client / demo narrative:** staff-first operational value (**Build, Pay, Connect, Support**, **Settings → Implementation hub**). Avoid overselling a **native patient app**; patient path today is mainly **tokenized `/p/...` Pay** + roadmap in `docs/PRODUCT_SURFACES_VISION.md`.
+- **First-client / demo narrative:** staff-first operational value (**Build, Pay, Connect** incl. **Authorizations** / PA, **Support**, **Settings → Implementation hub**). Avoid overselling a **native patient app**; patient path today is mainly **tokenized `/p/...` Pay** + roadmap in `docs/PRODUCT_SURFACES_VISION.md`.
 - **EHR:** **Greenway / Intergy FHIR** is a **server-side** connector + hub tooling — not an in-EHR embedded shell. Pilot sequencing: `docs/PILOT_CONNECTOR_ROADMAP.md`, `docs/CONNECTOR_STRATEGY.md`.
 
 ---
@@ -89,4 +95,6 @@ When you finish a meaningful arc, add a **one-line “Last updated”** note her
 
 ---
 
-*Last updated: 2026-04-19 — staff UI cross-links (Build ↔ Connect ↔ Pay); docs aligned (`PLATFORM_OVERVIEW`, `TENANCY_AND_MODULES`, `CLIENT_SHOWCASE`, `ARCHITECTURE`, `CORE_DATA_MODEL`, `MODULES_CUSTOMER`); connected synthetic seed + Claim/Statement FK migration.*
+*Last updated: 2026-04-24 — **Connect Authorizations** (prior auth Phase 1), Build PA signals, Implementation `priorAuth` settings, SLA cron, seed PA cases, `docs/PRIOR_AUTHORIZATION.md` + cross-doc refresh for marketing/sales.*
+
+*Prior: 2026-04-19 — staff UI cross-links (Build ↔ Connect ↔ Pay); connected synthetic seed + Claim/Statement FK migration.*

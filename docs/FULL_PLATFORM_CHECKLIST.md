@@ -48,7 +48,7 @@
 - [ ] Clearinghouse: 837, 835, 277
 - [ ] **Claims Build** + **Claims Copilot** (provider AI; name from brand)
 - [ ] Eligibility 270/271
-- [ ] Prior auth tracking
+- [x] **Prior auth tracking (medical benefit, staff)** — **Connect → Authorizations**: cases, checklist, services, events, encounter/claim/coverage links, SLA-style queue flags, audit + `platformLog`; **Build** deterministic **`prior_auth`** rule issues + encounter CTA to create prefilled case; **Implementation hub** `priorAuth` settings; cron **`/api/cron/prior-auth-sla-scan`**; **not** pharmacy ePA, **not** payer auto-submit — see **[`PRIOR_AUTHORIZATION.md`](./PRIOR_AUTHORIZATION.md)**
 - [ ] **RCM denials** work queue (payer-side, not patient Cover)
 - [ ] Cash posting, refunds, credit balances, agency handoff
 

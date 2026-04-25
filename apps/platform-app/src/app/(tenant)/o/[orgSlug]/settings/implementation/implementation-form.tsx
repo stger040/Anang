@@ -7,6 +7,11 @@ import {
   BILLING_DISCOVERY_ITEMS,
   IT_EHR_WORKSTREAM_ITEMS,
 } from "@/lib/onboarding-checklists";
+import {
+  DEFAULT_PRIOR_AUTH_HIGH_RISK,
+  defaultPriorAuthImplementationSettings,
+  type PriorAuthSignalCategoryKey,
+} from "@/lib/prior-auth/defaults";
 import type { TenantImplementationSettingsV1 } from "@/lib/tenant-implementation-settings";
 
 import {
@@ -46,6 +51,18 @@ export function ImplementationForm({
   const tpClearinghouseSelect =
     !tpKey ? "" : TP_PRESET_KEYS.has(tpKey) ? tpKey : "other";
   const tpClearinghouseOtherDefault = TP_PRESET_KEYS.has(tpKey) ? "" : tpKey;
+
+  const pa =
+    implementation?.priorAuth ?? defaultPriorAuthImplementationSettings();
+  const paCats = new Set(pa.defaultHighRiskCategories);
+  const paCatLabels: Record<PriorAuthSignalCategoryKey, string> = {
+    advanced_imaging: "Advanced imaging (CT / MRI / PET CPT bands)",
+    outpatient_surgery_context: "Outpatient surgery / ASC context (POS 22 or procedure shortlist)",
+    infusion: "Chemo / therapeutic infusion (964xx)",
+    dme: "DME / supply HCPCS (E/K/L…)",
+    sleep_study: "Sleep diagnostics / titration",
+    therapy_units_threshold: "Therapy visits — cumulative unit threshold",
+  };
 
   useEffect(() => {
     if (state && "ok" in state && state.ok && bannerRef.current) {
@@ -272,6 +289,163 @@ export function ImplementationForm({
               name="tp_notes"
               rows={2}
               defaultValue={tp?.notes ?? ""}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand-navy focus:outline-none focus:ring-1 focus:ring-brand-navy"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-slate-900">
+          Connect — prior authorization (medical benefit)
+        </h2>
+        <p className="text-xs text-slate-600">
+          Staff queue defaults for deterministic Build warnings and Connect
+          Authorizations. Does not submit to payers or enable pharmacy ePA.
+        </p>
+        <input type="hidden" name="pa_categories_submitted" value="on" />
+        <div className="flex flex-wrap gap-4">
+          <label className="flex cursor-pointer gap-2 text-sm text-slate-800">
+            <input
+              type="checkbox"
+              name="pa_enabled"
+              value="on"
+              defaultChecked={pa.enabled !== false}
+              className="mt-0.5 rounded border-slate-300"
+            />
+            Enable prior auth workspace and Build screening
+          </label>
+        </div>
+        <div>
+          <span className="block text-xs font-medium text-slate-700">
+            Unknown plan / missing benefit labels
+          </span>
+          <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-800">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="pa_unknown_plan"
+                value="review_required"
+                defaultChecked={pa.unknownPlanBehavior !== "proceed_low_risk"}
+                className="border-slate-300"
+              />
+              Require staff review (default)
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="pa_unknown_plan"
+                value="proceed_low_risk"
+                defaultChecked={pa.unknownPlanBehavior === "proceed_low_risk"}
+                className="border-slate-300"
+              />
+              Proceed on low-risk lines only (still manual PA)
+            </label>
+          </div>
+        </div>
+        <div>
+          <span className="block text-xs font-medium text-slate-700">
+            High-risk categories (Build deterministic warnings)
+          </span>
+          <ul className="mt-2 space-y-2">
+            {DEFAULT_PRIOR_AUTH_HIGH_RISK.map((id) => (
+              <li key={id}>
+                <label className="flex cursor-pointer gap-2 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    name={`pa_cat_${id}`}
+                    value="on"
+                    defaultChecked={paCats.has(id)}
+                    className="mt-0.5 rounded border-slate-300"
+                  />
+                  <span>{paCatLabels[id]}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Intake start (hours)
+            </label>
+            <input
+              name="pa_intake_hours"
+              type="number"
+              min={0}
+              defaultValue={pa.intakeStartHours}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand-navy focus:outline-none focus:ring-1 focus:ring-brand-navy"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Standard decision SLA (days)
+            </label>
+            <input
+              name="pa_std_sla_days"
+              type="number"
+              min={0}
+              defaultValue={pa.standardDecisionSlaDays}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand-navy focus:outline-none focus:ring-1 focus:ring-brand-navy"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Expedited decision SLA (hours)
+            </label>
+            <input
+              name="pa_exp_sla_hours"
+              type="number"
+              min={0}
+              defaultValue={pa.expeditedDecisionSlaHours}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand-navy focus:outline-none focus:ring-1 focus:ring-brand-navy"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Follow-up interval (hours)
+            </label>
+            <input
+              name="pa_followup_hours"
+              type="number"
+              min={0}
+              defaultValue={pa.followUpIntervalHours}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand-navy focus:outline-none focus:ring-1 focus:ring-brand-navy"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Expiring soon window (days)
+            </label>
+            <input
+              name="pa_expiring_days"
+              type="number"
+              min={0}
+              defaultValue={pa.expiringSoonDays}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand-navy focus:outline-none focus:ring-1 focus:ring-brand-navy"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Labor rate (cents / hour, optional)
+            </label>
+            <input
+              name="pa_labor_rate_cents"
+              type="number"
+              min={0}
+              defaultValue={pa.laborRateCentsPerHour ?? ""}
+              placeholder="e.g. 8500"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand-navy focus:outline-none focus:ring-1 focus:ring-brand-navy"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-slate-700">
+              Rework tracking fields (comma-separated keys)
+            </label>
+            <input
+              name="pa_rework_fields"
+              defaultValue={pa.reworkTrackingFields.join(", ")}
+              placeholder="denialReason, resubmissionCount"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand-navy focus:outline-none focus:ring-1 focus:ring-brand-navy"
             />
           </div>

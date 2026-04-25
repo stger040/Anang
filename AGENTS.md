@@ -2,7 +2,7 @@
 
 **Company:** Anang — https://anang.ai
 
-Before changing product behavior or adding features, read **`docs/PLATFORM_OVERVIEW.md`** — it explains the full platform shape, modules, Cedar benchmark, and document map. For **patient** channels (SMS, web, native), **Pay/Cover** parity, or **payment-attribution / take-rate** design, read **`docs/PRODUCT_SURFACES_VISION.md`** and **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`**.
+Before changing product behavior or adding features, read **`docs/PLATFORM_OVERVIEW.md`** — it explains the full platform shape, modules, Cedar benchmark, and document map. For **patient** channels (SMS, web, native), **Pay/Cover** parity, or **payment-attribution / take-rate** design, read **`docs/PRODUCT_SURFACES_VISION.md`** and **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`**. For **prior authorization** (Connect Authorizations, Build signals, boundaries vs pharmacy ePA / payer automation), read **`docs/PRIOR_AUTHORIZATION.md`**.
 
 **Apps:**
 

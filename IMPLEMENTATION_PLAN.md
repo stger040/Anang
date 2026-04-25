@@ -365,7 +365,7 @@ The following were **implicit or partial** in earlier versions. They are now **f
 |--------|----------------|-------------------|
 | **Connect (EDI & claims ops)** | Without 837/835/277 and clearinghouse connectivity, we are a “pretty portal” only. Health systems need submission, remittance posting, and claim status. | Staff / billing |
 | **Denials Management (RCM)** | *Cover* handles **patient-facing** CoB/dual coverage. **RCM denials** are payer rejections in billing: work queues, appeal letters, root-cause reporting, correction resubmission. | Staff |
-| **Prior Auth** | Claims Build can **alert**; many clients need **track** PA: requests, attachments, status, expirations tied to schedule. | Staff (+ patient status optional) |
+| **Prior Auth** | Claims Build **alerts** (deterministic heuristics) + **Connect → Authorizations** **tracks** PA cases (checklist, status, expirations, encounter/claim links) — **Phase 1 shipped** in repo; payer portals / ePA / auto decisioning remain roadmap — **`docs/PRIOR_AUTHORIZATION.md`**. | Staff (+ patient status optional) |
 | **Eligibility & benefits** | Real-time **270/271** (or API) at check-in or pre-service avoids wrong payer, reduces denials and patient surprises. | Staff (+ Pre) |
 | **Transparency & estimates** | **No Surprises Act** good-faith estimates (GFE), bundled service estimates, disclaimers—required for many providers and expected in Pre. | Patient + staff |
 | **Financial assistance** | Charity care / sliding scale **screening**, applications, approvals—pairs with Cover; reduces bad debt and supports mission. | Patient + staff |
@@ -605,7 +605,7 @@ Start here if you want to validate the product quickly, then evolve toward the f
 | # | Task | Deliverables |
 |---|------|--------------|
 | 10.1 | **Eligibility** | 270/271 or payer API; store snapshots; surface in Pre/operator portal |
-| 10.2 | **Prior Auth** | Case object, payer-specific questions, attachment store, status workflow |
+| 10.2 | **Prior Auth** | **Phase 1 (shipped):** `PriorAuthCase` + checklist/services/events, **Connect → Authorizations**, Build deterministic signals, Implementation settings, SLA cron — **`docs/PRIOR_AUTHORIZATION.md`**. **Later:** payer-specific Q&A flows, richer attachment store, portal/API automation. |
 | 10.3 | **RCM denials inbox** | Import 835 denials / payer portals; categorize (CO, PR, OA, etc.) |
 | 10.4 | Appeals & tasks | Templates, deadlines, reassignment, outcome tracking |
 | 10.5 | Root-cause analytics | Denials by reason, payer, provider, CPT—feed Intelligence |

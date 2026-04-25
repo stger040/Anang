@@ -22,6 +22,7 @@
 | **EHR / PM clinical & demographics** | Greenway, Intergy-class PM, Epic, athena; **dental DMS/PMS** (e.g. Dentrix-class, Open Dental–class) per **`docs/MODULES_CUSTOMER.md`** *Dental vertical* | FHIR R4, proprietary APIs, HL7 v2, vendor exports | `Patient`, `Encounter`, providers/facilities |
 | **EHR / PM charges & claim prep** | Same vendors + billing modules; **dental** often **CDT**-centric lines | Charge exports, claim excerpts, APIs | `ClaimDraft` lines / future **Charge** rows |
 | **Claims submission & lifecycle** | Clearinghouse, direct payer | 837, 277, portals | `Claim`, **claim lines**, `ClaimTimelineEvent` ✳ |
+| **Prior authorization (medical benefit)** | Staff workflow today; payer portals / ePA **later** | Manual status + attachments metadata in product | **`PriorAuthCase`** (+ children) under **Connect → Authorizations** — **`docs/PRIOR_AUTHORIZATION.md`** |
 | **Pharmacy e-claims (optional)** | Switch, PBM feeds | NCPDP Telecommunication / batch (see Appendix B) | Same **`Claim`** timeline pattern or future pharmacy-specific entities — **contract-gated** |
 | **Remittance & denials** | 835 ERA, payer portals, workbench CSV | 835, downloadable CSV | **Remittance**, **adjustment**, **denial** (future tables) |
 | **Patient financial / AR** | Statement print files, PM AR export | PDF/CSV, API | `Statement`, `StatementLine` |
@@ -204,4 +205,4 @@ All fallbacks should **populate the same canonical entities** so Build / Pay / I
 
 ---
 
-*Document version: 1.4 — Appendix B NCPDP scaffold (E2b2b6).*
+*Document version: 1.5 — connector table: **PriorAuth** staff lane (not ingest); Appendix B NCPDP scaffold (E2b2b6).*

@@ -14,6 +14,7 @@
 | **`docs/DEPLOYMENT.md`** | **GitHub + Vercel + Postgres** (read before first deploy) |
 | **`docs/TENANCY_AND_MODULES.md`** | Tenants, entitlements, seeds |
 | **`docs/ROADMAP.md`** | Suggested phases |
+| **`docs/PRIOR_AUTHORIZATION.md`** | **Connect Authorizations** (medical-benefit PA Phase 1) — sales scope vs roadmap |
 | **`IMPLEMENTATION_PLAN.md`**, **`BUILD_PLAN.md`** | Broader planning artifacts |
 
 ## Prerequisites

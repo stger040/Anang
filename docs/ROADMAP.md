@@ -14,6 +14,7 @@ This document translates the scaffold into a credible production path without co
 - [x] Prisma schema + seed tenants with varied entitlements
 - [x] Build module MVP (queue, detail, AI rationales, issues, approval)
 - [x] Pay / Connect / Insight MVPs with credible UI
+- [x] **Connect → Authorizations** — medical-benefit **prior authorization** case tracking (queue, checklist, links to encounter/claim, audit); **Build** deterministic PA **signals** + encounter CTA to create prefilled case — see **`docs/PRIOR_AUTHORIZATION.md`**
 - [x] Super admin + tenant settings shell
 - [x] Cover + Support staff queues (`CoverAssistanceCase`, `SupportTask`) + Pay `/pay/pre` hub
 - [x] Vercel-oriented deployment notes
