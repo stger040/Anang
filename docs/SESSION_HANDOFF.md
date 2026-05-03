@@ -34,7 +34,7 @@ Read `docs/SESSION_HANDOFF.md` in this repo, then help me with:
 
 **File:** `apps/platform-app/prisma/seed.ts`
 
-- **One primary patient (Sam)** on tenant slug **`synthetic-test`** drives: **Encounter → ClaimDraft (Build) → Claim (Connect)** with explicit links **→ Statement (Pay)** with explicit links **→ SupportTask + CoverAssistanceCase** on the **same** patient, plus **four seeded `PriorAuthCase` rows** for **Connect → Authorizations** demos (`PA-2026-SEED-0001` … `0004`).
+- **One primary patient (Sam)** on tenant slug **`synthetic-test`** drives: **Encounter → ClaimDraft (Build) → Claim (Connect)** with explicit links **→ Statement (Pay)** with explicit links **→ SupportTask + CoverAssistanceCase** on the **same** patient, plus **one seeded `PriorAuthCase`** for **Connect → Authorizations** demos (`PA-DEMO-2026-001`, linked to that encounter and claim).
 - **Removed** the second demo patient and orphan Cover row that broke the story.
 - **Numbers aligned** for demo: e.g. professional charge, insurance paid portion, patient responsibility on the statement; timeline labels: draft approved → 837 → 277CA → 835 → insurance payment.
 

@@ -52,11 +52,20 @@ export default async function StatementDetailPage({
   });
   if (!stmt) notFound();
 
+  const priorAuthForClaim = stmt.claim
+    ? await tenantPrisma(orgSlug).priorAuthCase.findMany({
+        where: { tenantId: tenant.id, claimId: stmt.claim.id },
+        select: { id: true, caseNumber: true, status: true },
+        orderBy: { updatedAt: "desc" },
+        take: 5,
+      })
+    : [];
+
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY?.trim());
   const fromFhirFixture = isFhirFixtureImportStatementNumber(stmt.number);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title={`Statement ${stmt.number}`}
         description={`${stmt.patient.lastName}, ${stmt.patient.firstName}`}
@@ -70,19 +79,40 @@ export default async function StatementDetailPage({
       />
 
       {stmt.claim ? (
-        <Card className="border-slate-200 bg-slate-50/80 p-4">
+        <Card className="border-slate-200 bg-slate-50/80 p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
             Related in other modules
           </p>
-          <p className="mt-1 text-sm text-slate-800">
-            Patient balance ties to claim{" "}
+          <p className="mt-2 text-sm leading-relaxed text-slate-800">
+            This statement reflects patient responsibility after the payer
+            processed claim{" "}
             <span className="font-mono text-xs">{stmt.claim.claimNumber}</span>
             {stmt.encounter
-              ? ` · visit DOS ${stmt.encounter.dateOfService.toLocaleDateString()}`
+              ? ` from the visit on ${stmt.encounter.dateOfService.toLocaleDateString()}`
               : null}
             .
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          {priorAuthForClaim.length ? (
+            <p className="mt-2 text-xs leading-relaxed text-slate-600">
+              Prior authorization for the same episode:{" "}
+              {priorAuthForClaim.map((pa, i) => (
+                <span key={pa.id}>
+                  {i > 0 ? " · " : null}
+                  <Link
+                    href={`/o/${orgSlug}/connect/authorizations/${pa.id}`}
+                    className="font-medium text-brand-navy underline"
+                  >
+                    {pa.caseNumber}
+                  </Link>
+                  <span className="text-slate-500">
+                    {" "}
+                    ({String(pa.status).replaceAll("_", " ")})
+                  </span>
+                </span>
+              ))}
+            </p>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
             <CrossModuleActionRow
               module={ModuleKey.CONNECT}
               effectiveModules={ctx.effectiveModules}
@@ -164,8 +194,8 @@ export default async function StatementDetailPage({
         </Card>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="p-5 lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="p-6 lg:col-span-2">
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               tone={

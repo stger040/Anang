@@ -55,7 +55,7 @@ export function PriorAuthDetail({
   const c = caseRow;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase text-slate-500">Prior authorization</p>
@@ -72,7 +72,20 @@ export function PriorAuthDetail({
         </Link>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      {c.encounter && c.claim ? (
+        <Card className="border-slate-200 bg-slate-50/80 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+            Demo thread
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-slate-800">
+            This case is linked to the same Build encounter and Connect claim in
+            the synthetic seed story — use the links panel to jump to the visit or
+            claim timeline, then Pay for the patient statement tied to that claim.
+          </p>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">Payer & decision</h2>
           <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">

@@ -77,7 +77,7 @@ export function PriorAuthWorkspace({
 
   return (
     <div className="space-y-8">
-      <Card className="p-5">
+      <Card className="p-6">
         <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
           <label className="flex flex-col gap-1">
@@ -133,35 +133,35 @@ export function PriorAuthWorkspace({
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="p-5 lg:col-span-2">
+        <Card className="p-6 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">Queue</h2>
           <p className="mt-1 text-xs text-slate-500">
             {filtered.length} case{filtered.length === 1 ? "" : "s"} match filters.
           </p>
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-5 overflow-x-auto rounded-lg border border-slate-100">
             <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-b border-slate-200 text-xs font-medium uppercase text-slate-500">
+              <thead className="border-b border-slate-200 bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-600">
                 <tr>
-                  <th className="py-2 pr-3">Case</th>
-                  <th className="py-2 pr-3">Patient</th>
-                  <th className="py-2 pr-3">Payer</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">SLA</th>
-                  <th className="py-2 pr-3"></th>
+                  <th className="px-3 py-3">Case</th>
+                  <th className="px-3 py-3">Patient</th>
+                  <th className="px-3 py-3">Payer</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">SLA</th>
+                  <th className="px-3 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50/80">
-                    <td className="py-2 pr-3 font-mono text-xs">{c.caseNumber}</td>
-                    <td className="py-2 pr-3 text-slate-800">
+                    <td className="px-3 py-3 font-mono text-xs">{c.caseNumber}</td>
+                    <td className="px-3 py-3 text-slate-800">
                       {c.patient.lastName}, {c.patient.firstName}
                     </td>
-                    <td className="py-2 pr-3 text-slate-700">{c.payerName}</td>
-                    <td className="py-2 pr-3">
+                    <td className="px-3 py-3 text-slate-700">{c.payerName}</td>
+                    <td className="px-3 py-3">
                       <Badge tone="teal">{STATUS_LABEL[c.status] ?? c.status}</Badge>
                     </td>
-                    <td className="py-2 pr-3 text-xs text-slate-600">
+                    <td className="px-3 py-3 text-xs text-slate-600">
                       {c.sla.overdue ? <span className="font-medium text-red-700">Overdue</span> : null}
                       {c.sla.expiringSoon ? (
                         <span className="ml-1 font-medium text-amber-800">Expiring</span>
@@ -171,7 +171,7 @@ export function PriorAuthWorkspace({
                       ) : null}
                       {!c.sla.overdue && !c.sla.expiringSoon && !c.sla.followUpNeeded ? "—" : null}
                     </td>
-                    <td className="py-2 pr-3 text-right">
+                    <td className="px-3 py-3 text-right">
                       <Link href={`/o/${orgSlug}/connect/authorizations/${c.id}`}>
                         <Button type="button" size="sm" variant="secondary">
                           Open
@@ -185,7 +185,7 @@ export function PriorAuthWorkspace({
           </div>
         </Card>
 
-        <Card className="p-5">
+        <Card className="p-6">
           <h2 className="text-sm font-semibold text-slate-900">New case</h2>
           <p className="mt-1 text-xs text-slate-500">
             Creates a tracked PA row only — nothing is sent to a payer from this form.

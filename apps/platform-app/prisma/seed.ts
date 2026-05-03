@@ -243,6 +243,22 @@ async function main() {
     },
   });
 
+  await prisma.claimIssue.create({
+    data: {
+      draftId: draft.id,
+      severity: "warning",
+      category: "prior_auth",
+      title: "Prior authorization may be required before claim submission",
+      detail:
+        "Demo training: track authorization in Connect → Authorizations. One sample case (PA-DEMO-2026-001) is linked to this visit and the demo claim after seed.",
+      explainability:
+        "Staff cue for LCO-style demos — not an automated payer determination.",
+      issueSource: ClaimIssueSource.SEED,
+      ruleKey: "seed.demo.prior_auth_hint",
+      citations: [],
+    },
+  });
+
   const claimNumber = "ST-SYN-2026-00042";
 
   const claim = await prisma.claim.create({
@@ -281,121 +297,30 @@ async function main() {
     status: PriorAuthChecklistStatus.PENDING,
   }));
 
-  await prisma.priorAuthCase.create({
-    data: {
-      tenantId: tenant.id,
-      patientId: patientSam.id,
-      caseNumber: "PA-2026-SEED-0001",
-      status: PriorAuthStatus.DRAFT,
-      urgency: PriorAuthUrgency.ROUTINE,
-      priority: "normal",
-      source: "seed",
-      submissionMethod: PriorAuthSubmissionMethod.NOT_SUBMITTED,
-      payerName: "Demo Health Plan",
-      payerPlanName: "Open Access PPO",
-      coverageId: coverageSam.id,
-      scheduledAt: new Date(Date.now() + 2 * 86400000),
-      checklistItems: { create: [...paChecklistCreates] },
-      services: {
-        create: {
-          codeType: PriorAuthServiceCodeType.CPT,
-          code: "72148",
-          description: "MRI lumbar spine without contrast",
-          units: 1,
-          sortOrder: 0,
-        },
-      },
-    },
-  });
-
-  await prisma.priorAuthCase.create({
-    data: {
-      tenantId: tenant.id,
-      patientId: patientSam.id,
-      encounterId: encounter.id,
-      caseNumber: "PA-2026-SEED-0002",
-      status: PriorAuthStatus.IN_REVIEW,
-      urgency: PriorAuthUrgency.ROUTINE,
-      priority: "high",
-      source: "seed",
-      submissionMethod: PriorAuthSubmissionMethod.PORTAL,
-      payerName: "Demo Health Plan",
-      payerPlanName: "Open Access PPO",
-      coverageId: coverageSam.id,
-      submittedAt: new Date(Date.now() - 3 * 86400000),
-      dueAt: new Date(Date.now() + 10 * 86400000),
-      checklistItems: { create: [...paChecklistCreates] },
-      services: {
-        create: {
-          codeType: PriorAuthServiceCodeType.CPT,
-          code: "73721",
-          description: "MRI joint upper extremity w/o contrast",
-          units: 1,
-          sortOrder: 0,
-        },
-      },
-    },
-  });
-
+  /** One PA row for demos: same patient, encounter, coverage, and claim as the rest of the seed thread. */
   await prisma.priorAuthCase.create({
     data: {
       tenantId: tenant.id,
       patientId: patientSam.id,
       encounterId: encounter.id,
       claimId: claim.id,
-      caseNumber: "PA-2026-SEED-0003",
-      status: PriorAuthStatus.APPROVED,
+      coverageId: coverageSam.id,
+      caseNumber: "PA-DEMO-2026-001",
+      status: PriorAuthStatus.IN_REVIEW,
       urgency: PriorAuthUrgency.ROUTINE,
       priority: "normal",
       source: "seed",
       submissionMethod: PriorAuthSubmissionMethod.PORTAL,
       payerName: "Demo Health Plan",
       payerPlanName: "Open Access PPO",
-      coverageId: coverageSam.id,
-      authorizationNumber: "DHP-AUTH-SEED-9901",
-      submittedAt: new Date(Date.now() - 20 * 86400000),
-      decisionAt: new Date(Date.now() - 18 * 86400000),
-      expiresAt: new Date(Date.now() + 25 * 86400000),
+      submittedAt: new Date(Date.now() - 5 * 86400000),
+      dueAt: new Date(Date.now() + 9 * 86400000),
       checklistItems: { create: [...paChecklistCreates] },
       services: {
         create: {
           codeType: PriorAuthServiceCodeType.CPT,
           code: "99214",
-          description: "Office visit, established patient",
-          units: 1,
-          sortOrder: 0,
-        },
-      },
-    },
-  });
-
-  await prisma.priorAuthCase.create({
-    data: {
-      tenantId: tenant.id,
-      patientId: patientSam.id,
-      encounterId: encounter.id,
-      caseNumber: "PA-2026-SEED-0004",
-      status: PriorAuthStatus.DENIED,
-      urgency: PriorAuthUrgency.ROUTINE,
-      priority: "high",
-      source: "seed",
-      submissionMethod: PriorAuthSubmissionMethod.FAX,
-      payerName: "Demo Health Plan",
-      payerPlanName: "Open Access PPO",
-      coverageId: coverageSam.id,
-      submittedAt: new Date(Date.now() - 30 * 86400000),
-      decisionAt: new Date(Date.now() - 28 * 86400000),
-      payerDecision: {
-        summary: "Insufficient clinical for medical necessity",
-        nextStep: "Gather operative report and resubmit",
-      },
-      reworkMetrics: { resubmissionCount: 0, denialReason: "missing_documentation" },
-      checklistItems: { create: [...paChecklistCreates] },
-      services: {
-        create: {
-          codeType: PriorAuthServiceCodeType.CPT,
-          code: "29881",
-          description: "Knee arthroscopy",
+          description: "Office visit, established patient (matches demo claim line)",
           units: 1,
           sortOrder: 0,
         },

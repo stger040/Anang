@@ -80,11 +80,11 @@ export default async function ConnectAuthorizationsPage({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ConnectSubnav orgSlug={orgSlug} current="authorizations" />
       <PageHeader
         title="Connect — prior authorizations"
-        description="Medical-benefit PA tracking inside Connect (Phase 1). Staff checklist, services, SLA hints, and audit trail — no automated payer submission."
+        description="Medical-benefit PA tracking inside Connect. Staff checklist, services, SLA hints, and audit trail — no automated payer submission. In the synthetic tenant, one demo case is linked to the same patient, encounter, and claim as Build and Pay."
       />
       <PriorAuthWorkspace orgSlug={orgSlug} cases={rows} patients={patients} />
     </div>

@@ -55,7 +55,7 @@
 
 1. **`/o/synthetic-test/connect`** — tabs include **Authorizations**.  
 2. **`/o/synthetic-test/connect/authorizations`** — queue + create.  
-3. Open a seeded case id from the list (case numbers like **`PA-2026-SEED-0001`** … **`0004`** after fresh seed).  
+3. Open the seeded demo case from the list (after a fresh seed, case number **`PA-DEMO-2026-001`** — linked to the same patient, encounter, and claim as the rest of the synthetic thread).  
 4. **`/o/synthetic-test/build`** → encounter → note **Prior authorization** card / Build issues if draft lines trigger heuristics.  
 5. **`/o/synthetic-test/settings/implementation`** — **Prior authorization** section.
 

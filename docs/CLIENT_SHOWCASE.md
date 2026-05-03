@@ -50,7 +50,7 @@ Server-side profile mapping (virtual mailbox only) lives in [`apps/platform-app/
 
 1. Sign in → **`rick@anang.ai`** (super admin) → **`/admin`**, or **`rick@stginnovation.com`** → **`/o/synthetic-test/dashboard`**.  
 2. **Build** — **`/o/synthetic-test/build`** → open the seeded encounter (Sam, DOS in seed). Review draft / issues; use **“View related claim in Connect”** when present.  
-3. **Connect** — claim timeline for **`ST-SYN-2026-00042`** (or follow the button from Build). Use **“View encounter in Build”** to prove the round trip. Open **Authorizations** (`/o/synthetic-test/connect/authorizations`) — seeded **`PA-2026-SEED-0001`…`0004`** show draft / in-review / approved / denied cases (see **`docs/PRIOR_AUTHORIZATION.md`**).  
+3. **Connect** — claim timeline for **`ST-SYN-2026-00042`** (or follow the button from Build). Use **“View encounter in Build”** to prove the round trip. Open **Authorizations** (`/o/synthetic-test/connect/authorizations`) — seeded **`PA-DEMO-2026-001`** is the single in-review case tied to the same visit and claim (see **`docs/PRIOR_AUTHORIZATION.md`**).  
 4. **Pay** — statements → open **`STMT-SYN-2026-0042`** → **“View related claim in Connect”** / optional **“View encounter in Build”** → optional Stripe test (patient Gmail on file).  
 5. **Support** — task queue; confirm the open task references the same statement narrative.  
 6. **Cover** — assistance cases for the same patient (patient-level queue; notes mention the statement in seed).  

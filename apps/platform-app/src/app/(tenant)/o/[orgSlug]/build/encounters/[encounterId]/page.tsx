@@ -146,7 +146,7 @@ export default async function EncounterDetailPage({
       : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="Encounter — claims build"
         description={`${encounter.patient.lastName}, ${encounter.patient.firstName} · DOS ${encounter.dateOfService.toLocaleDateString()}`}
@@ -159,17 +159,35 @@ export default async function EncounterDetailPage({
         }
       />
 
+      <Card className="border-slate-200 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.04]">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          How this visit connects across modules
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-700">
+          <span className="font-medium text-slate-900">Build</span> is where the
+          draft is reviewed and approved.{" "}
+          <span className="font-medium text-slate-900">Connect</span> tracks the
+          claim after submission and any{" "}
+          <span className="font-medium text-slate-900">prior authorization</span>{" "}
+          under Authorizations (often before or alongside submission, depending on
+          policy).{" "}
+          <span className="font-medium text-slate-900">Pay</span> shows patient
+          responsibility after adjudication.
+        </p>
+      </Card>
+
       {submittedFromDrafts ? (
-        <Card className="border-teal-200 bg-teal-50/40 p-4">
+        <Card className="border-teal-200 bg-teal-50/40 p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-teal-900">
             Related in other modules
           </p>
-          <p className="mt-1 text-sm text-slate-800">
-            This visit has a claim produced from Build (claim{" "}
+          <p className="mt-2 text-sm leading-relaxed text-slate-800">
+            This claim was generated from this encounter (claim{" "}
             <span className="font-mono text-xs">
               {submittedFromDrafts.claimNumber}
             </span>
-            ).
+            ). Open Connect for payer timeline; use Authorizations if PA applies
+            to the same services.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <CrossModuleActionRow
@@ -190,13 +208,14 @@ export default async function EncounterDetailPage({
           </div>
         </Card>
       ) : (
-        <Card className="border-slate-200 bg-slate-50/70 p-4">
+        <Card className="border-slate-200 bg-slate-50/70 p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
             Next recommended step
           </p>
-          <p className="mt-1 text-sm text-slate-700">
-            Approve and submit this draft from Build. Once a claim is created,
-            continue in Connect to track lifecycle milestones.
+          <p className="mt-2 text-sm leading-relaxed text-slate-700">
+            Approve and submit this draft from Build. When a claim exists, Connect
+            tracks payer milestones; complete prior authorization in Connect →
+            Authorizations when your policy requires it before submission.
           </p>
           <div className="mt-3">
             <CrossModuleActionRow
@@ -211,40 +230,54 @@ export default async function EncounterDetailPage({
       )}
 
       {ctx.effectiveModules.has(ModuleKey.CONNECT) && draft ? (
-        <Card className="border-sky-100 bg-sky-50/40 p-4">
+        <Card className="border-sky-100 bg-sky-50/40 p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-900">
             Prior authorization (Connect)
           </p>
-          <p className="mt-1 text-sm text-slate-800">
-            Open a tracked PA case prefilled from this encounter and draft lines.
-            Nothing is transmitted to a payer from this button.
+          <p className="mt-2 text-sm leading-relaxed text-slate-800">
+            Prior authorization may be required before claim submission for some
+            services or payers. Tracked cases live in Connect → Authorizations;
+            starting a case here only creates a workspace row (nothing is sent to
+            a payer automatically).
           </p>
           {priorAuthCases.length ? (
-            <ul className="mt-2 space-y-1 text-sm">
-              {priorAuthCases.map((pc) => (
-                <li key={pc.id}>
-                  <Link
-                    href={`/o/${orgSlug}/connect/authorizations/${pc.id}`}
-                    className="font-medium text-brand-navy underline"
-                  >
-                    {pc.caseNumber}
-                  </Link>
-                  <span className="ml-2 text-xs text-slate-600">
-                    {String(pc.status).replaceAll("_", " ")}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="mt-3 space-y-2 text-sm">
+                {priorAuthCases.map((pc) => (
+                  <li key={pc.id} className="flex flex-wrap items-center gap-2">
+                    <Link href={`/o/${orgSlug}/connect/authorizations/${pc.id}`}>
+                      <Button type="button" size="sm" variant="primary">
+                        Open {pc.caseNumber}
+                      </Button>
+                    </Link>
+                    <span className="text-xs text-slate-600">
+                      {String(pc.status).replaceAll("_", " ")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <form action={createPriorAuthCaseFromEncounter} className="mt-4">
+                <input type="hidden" name="orgSlug" value={orgSlug} />
+                <input type="hidden" name="encounterId" value={encounter.id} />
+                <Button type="submit" size="sm" variant="secondary">
+                  Create another PA case (optional)
+                </Button>
+              </form>
+            </>
           ) : (
-            <p className="mt-2 text-xs text-slate-600">No PA case linked yet.</p>
+            <>
+              <p className="mt-2 text-xs text-slate-600">
+                No PA case linked to this visit yet.
+              </p>
+              <form action={createPriorAuthCaseFromEncounter} className="mt-3">
+                <input type="hidden" name="orgSlug" value={orgSlug} />
+                <input type="hidden" name="encounterId" value={encounter.id} />
+                <Button type="submit" size="sm" variant="primary">
+                  Create PA case from encounter
+                </Button>
+              </form>
+            </>
           )}
-          <form action={createPriorAuthCaseFromEncounter} className="mt-3">
-            <input type="hidden" name="orgSlug" value={orgSlug} />
-            <input type="hidden" name="encounterId" value={encounter.id} />
-            <Button type="submit" size="sm" variant="primary">
-              Create PA case from encounter
-            </Button>
-          </form>
         </Card>
       ) : null}
 
@@ -307,8 +340,8 @@ export default async function EncounterDetailPage({
         </Card>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="p-5 lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="p-6 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">
             Clinical note (seed / EHR)
           </h2>

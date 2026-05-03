@@ -66,7 +66,7 @@ export default async function ConnectClaimsPage({
       : "Use Connect after Build approval to track payer-facing status, EDI events, and what should flow into patient responsibility.";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ConnectSubnav orgSlug={orgSlug} current="claims" />
 
       <PageHeader
@@ -79,7 +79,27 @@ export default async function ConnectClaimsPage({
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      {eff.has(ModuleKey.CONNECT) ? (
+        <Card className="border-slate-200 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.04]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Where prior auth fits
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-slate-700">
+            Use <span className="font-medium text-slate-900">Claims</span> for
+            submission and adjudication timeline. When a service needs payer
+            approval first, open{" "}
+            <Link
+              href={`/o/${orgSlug}/connect/authorizations`}
+              className="font-medium text-brand-navy underline"
+            >
+              Authorizations
+            </Link>{" "}
+            to track the case alongside the claim.
+          </p>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-3">
         <Card className="border-slate-200 bg-white p-4 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">
             What this module is for

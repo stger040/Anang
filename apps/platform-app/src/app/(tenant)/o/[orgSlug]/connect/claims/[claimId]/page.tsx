@@ -64,26 +64,34 @@ export default async function ClaimTimelinePage({
     claim.encounterId ?? claim.claimDraft?.encounterId ?? null;
   const latestStatement = claim.statements[0] ?? null;
 
+  const priorAuthForClaim = await tenantPrisma(orgSlug).priorAuthCase.findMany({
+    where: { tenantId: ctx.tenant.id, claimId: claim.id },
+    select: { id: true, caseNumber: true, status: true },
+    orderBy: { updatedAt: "desc" },
+  });
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ConnectSubnav orgSlug={orgSlug} current="claims" />
 
       {buildEncounterId ? (
-        <Card className="border-slate-200 bg-slate-50/80 p-4">
+        <Card className="border-slate-200 bg-slate-50/80 p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
             Related in other modules
           </p>
-          <p className="mt-1 text-sm text-slate-800">
+          <p className="mt-2 text-sm leading-relaxed text-slate-800">
             {claim.encounter ? (
               <>
-                Linked encounter (DOS{" "}
+                This claim was generated from the linked Build encounter (DOS{" "}
                 {claim.encounter.dateOfService.toLocaleDateString()}).
               </>
             ) : (
-              <>Linked to the Build encounter for this claim.</>
+              <>
+                This claim ties back to the Build encounter for the same visit.
+              </>
             )}
             {claim.claimDraft ? (
-              <span className="mt-1 block text-xs text-slate-600">
+              <span className="mt-2 block text-xs text-slate-600">
                 Source draft{" "}
                 <span className="font-mono">{claim.claimDraft.id.slice(0, 8)}</span>
                 · {claim.claimDraft.status.replaceAll("_", " ")}
@@ -143,8 +151,39 @@ export default async function ClaimTimelinePage({
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="p-5 lg:col-span-2">
+      {priorAuthForClaim.length ? (
+        <Card className="border-sky-100 bg-sky-50/50 p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-900">
+            Prior authorization
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-slate-800">
+            Prior authorization may be required before submission for some
+            services or is tracked alongside payer processing. Linked case
+            {priorAuthForClaim.length === 1 ? "" : "s"} for this claim:
+          </p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {priorAuthForClaim.map((pa) => (
+              <li key={pa.id}>
+                <Link
+                  href={`/o/${orgSlug}/connect/authorizations/${pa.id}`}
+                  className="font-medium text-brand-navy underline"
+                >
+                  {pa.caseNumber}
+                </Link>
+                <span className="ml-2 text-xs text-slate-600">
+                  {String(pa.status).replaceAll("_", " ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-slate-600">
+            Full checklist and history: Connect → Authorizations.
+          </p>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="p-6 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">
             Payer & remittance
           </h2>

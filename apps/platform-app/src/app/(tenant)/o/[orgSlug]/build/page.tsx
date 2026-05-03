@@ -37,7 +37,7 @@ export default async function BuildQueuePage({
       : "Use Build when a visit is ready for coding review. Typical actions: verify encounter note, review draft lines, resolve issues, and approve the draft before Connect lifecycle tracking.";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="Build — encounter queue"
         description={subtitle}
@@ -128,7 +128,7 @@ export default async function BuildQueuePage({
           </p>
           <p className="mt-2 text-sm text-amber-950/90">
             Open any encounter below with{" "}
-            <span className="font-medium">Review encounter &amp; draft</span> —
+            <span className="font-medium">Review encounter and draft</span> —
             that page has the clinical note, claim lines, rule findings, and
             buttons to clear lines, create a blank draft, or{" "}
             <span className="font-medium">Suggest draft from encounter</span>.
@@ -141,7 +141,7 @@ export default async function BuildQueuePage({
           <span className="font-medium text-slate-900">Next step</span>
           <span className="text-slate-600">
             {" "}
-            — use <span className="font-medium">Review encounter &amp; draft</span>{" "}
+            — use <span className="font-medium">Review encounter and draft</span>{" "}
             on a row to work the claim (codes, charges, rules, approval
             {buildAiOn ? ", Build AI" : ""}).
           </span>
