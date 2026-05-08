@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SessionPayload } from "@/lib/session";
 
-import { createPriorAuthCaseDb, updatePriorAuthCaseStatusDb } from "./mutations";
+import {
+  createPriorAuthCaseDb,
+  linkPriorAuthToClaimDb,
+  updatePriorAuthCaseStatusDb,
+} from "./mutations";
 
 vi.mock("@/lib/platform-log", () => ({
   platformLog: vi.fn(),
@@ -37,16 +41,21 @@ describe("createPriorAuthCaseDb", () => {
   });
 
   it("persists case, checklist, event, and audit", async () => {
+    const year = new Date().getUTCFullYear();
     const priorAuthCase = {
-      count: vi.fn().mockResolvedValue(0),
-      create: vi.fn().mockResolvedValue({ id: "case1", caseNumber: "PA-2026-00001" }),
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: "case1", caseNumber: `PA-${year}-00001` }),
     };
-    const db = {
-      patient: { findFirst: vi.fn().mockResolvedValue({ id: "p1" }) },
+    const tx = {
       priorAuthCase,
       priorAuthChecklistItem: { createMany: vi.fn() },
       priorAuthEvent: { create: vi.fn() },
       auditEvent: { create: vi.fn() },
+    };
+    const db = {
+      patient: { findFirst: vi.fn().mockResolvedValue({ id: "p1" }) },
+      priorAuthCase,
+      $transaction: vi.fn(async (cb) => cb(tx)),
     } as unknown as PrismaClient;
 
     const out = await createPriorAuthCaseDb({
@@ -57,11 +66,114 @@ describe("createPriorAuthCaseDb", () => {
       input: { patientId: "p1", payerName: "Payer A" },
     });
 
-    expect(out).toEqual({ id: "case1", caseNumber: "PA-2026-00001" });
+    expect(out).toEqual({ id: "case1", caseNumber: `PA-${year}-00001` });
     expect(priorAuthCase.create).toHaveBeenCalled();
-    expect(db.priorAuthChecklistItem.createMany).toHaveBeenCalled();
-    expect(db.priorAuthEvent.create).toHaveBeenCalled();
-    expect(db.auditEvent.create).toHaveBeenCalled();
+    expect(tx.priorAuthChecklistItem.createMany).toHaveBeenCalled();
+    expect(tx.priorAuthEvent.create).toHaveBeenCalled();
+    expect(tx.auditEvent.create).toHaveBeenCalled();
+  });
+
+  it("rejects a linked claim from another patient", async () => {
+    const db = {
+      patient: { findFirst: vi.fn().mockResolvedValue({ id: "p1" }) },
+      claim: { findFirst: vi.fn().mockResolvedValue(null) },
+      priorAuthCase: { findFirst: vi.fn(), create: vi.fn() },
+      $transaction: vi.fn(),
+    } as unknown as PrismaClient;
+
+    await expect(
+      createPriorAuthCaseDb({
+        db,
+        orgSlug: "acme",
+        tenantId: "t1",
+        session,
+        input: { patientId: "p1", claimId: "claim-other", payerName: "Payer A" },
+      }),
+    ).rejects.toThrow("Claim not found for patient");
+    expect(db.claim.findFirst).toHaveBeenCalledWith({
+      where: { id: "claim-other", tenantId: "t1", patientId: "p1" },
+    });
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("retries case creation when a concurrent request takes the next case number", async () => {
+    const year = new Date().getUTCFullYear();
+    const priorAuthCase = {
+      findFirst: vi
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ caseNumber: `PA-${year}-00001` }),
+      create: vi
+        .fn()
+        .mockRejectedValueOnce({
+          code: "P2002",
+          meta: { target: ["tenantId", "caseNumber"] },
+        })
+        .mockResolvedValueOnce({ id: "case2", caseNumber: `PA-${year}-00002` }),
+    };
+    const tx = {
+      priorAuthCase,
+      priorAuthChecklistItem: { createMany: vi.fn() },
+      priorAuthEvent: { create: vi.fn() },
+      auditEvent: { create: vi.fn() },
+    };
+    const db = {
+      patient: { findFirst: vi.fn().mockResolvedValue({ id: "p1" }) },
+      priorAuthCase,
+      $transaction: vi.fn(async (cb) => cb(tx)),
+    } as unknown as PrismaClient;
+
+    const out = await createPriorAuthCaseDb({
+      db,
+      orgSlug: "acme",
+      tenantId: "t1",
+      session,
+      input: { patientId: "p1", payerName: "Payer A" },
+    });
+
+    expect(out).toEqual({ id: "case2", caseNumber: `PA-${year}-00002` });
+    expect(db.$transaction).toHaveBeenCalledTimes(2);
+    expect(priorAuthCase.create).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ caseNumber: `PA-${year}-00002` }),
+      }),
+    );
+  });
+});
+
+describe("linkPriorAuthToClaimDb", () => {
+  const session: SessionPayload = {
+    userId: "u1",
+    email: "a@test",
+    appRole: AppRole.STAFF,
+  };
+
+  it("requires the claim to belong to the case patient", async () => {
+    const db = {
+      priorAuthCase: {
+        findFirst: vi.fn().mockResolvedValue({ id: "case1", patientId: "p1" }),
+        update: vi.fn(),
+      },
+      claim: { findFirst: vi.fn().mockResolvedValue(null) },
+      priorAuthEvent: { create: vi.fn() },
+      auditEvent: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    await expect(
+      linkPriorAuthToClaimDb({
+        db,
+        orgSlug: "acme",
+        tenantId: "t1",
+        session,
+        caseId: "case1",
+        claimId: "claim-other",
+      }),
+    ).rejects.toThrow("Claim not found for patient");
+
+    expect(db.claim.findFirst).toHaveBeenCalledWith({
+      where: { id: "claim-other", tenantId: "t1", patientId: "p1" },
+    });
+    expect(db.priorAuthCase.update).not.toHaveBeenCalled();
   });
 });
 
