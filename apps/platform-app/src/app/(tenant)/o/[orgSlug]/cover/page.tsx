@@ -15,7 +15,7 @@ export default async function CoverPage({
   const { orgSlug } = await params;
   const { patientId: patientIdParam } = await searchParams;
 
-  const w = await loadTenantWorkspacePageContext(orgSlug);
+  const w = await loadTenantWorkspacePageContext(orgSlug, ModuleKey.COVER);
   if (!w) return null;
   const { ctx, operational, fullSuiteDashboard } = w;
 

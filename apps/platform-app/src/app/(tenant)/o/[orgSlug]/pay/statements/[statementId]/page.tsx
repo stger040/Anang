@@ -26,7 +26,7 @@ export default async function StatementDetailPage({
   const session = await getSession();
   if (!session) notFound();
   const ctx = await assertOrgAccess(session, orgSlug);
-  if (!ctx) notFound();
+  if (!ctx?.effectiveModules.has(ModuleKey.PAY)) notFound();
 
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) notFound();

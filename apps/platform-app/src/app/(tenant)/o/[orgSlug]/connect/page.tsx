@@ -27,7 +27,7 @@ export default async function ConnectClaimsPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const w = await loadTenantWorkspacePageContext(orgSlug);
+  const w = await loadTenantWorkspacePageContext(orgSlug, ModuleKey.CONNECT);
   if (!w) return null;
   const { ctx, operational, fullSuiteDashboard } = w;
   const eff = ctx.effectiveModules;

@@ -1,5 +1,8 @@
+import { loadTenantWorkspacePageContext } from "@/lib/workspace-page-context";
 import { Card, PageHeader, Badge, Button } from "@anang/ui";
+import { ModuleKey } from "@prisma/client";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 /** Pre-visit financial surface — grouped with Pay in product story (MODULES_CUSTOMER). */
 export default async function PayPreVisitPage({
@@ -8,6 +11,8 @@ export default async function PayPreVisitPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  const w = await loadTenantWorkspacePageContext(orgSlug, ModuleKey.PAY);
+  if (!w) notFound();
 
   return (
     <div className="space-y-6">

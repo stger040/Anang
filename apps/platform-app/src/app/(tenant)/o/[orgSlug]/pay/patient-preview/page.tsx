@@ -1,7 +1,10 @@
 import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
 import { tenantPrisma } from "@/lib/prisma";
+import { loadTenantWorkspacePageContext } from "@/lib/workspace-page-context";
 import { Badge, Button, Card, PageHeader } from "@anang/ui";
+import { ModuleKey } from "@prisma/client";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 export default async function PayPatientPreviewPage({
   params,
@@ -9,6 +12,9 @@ export default async function PayPatientPreviewPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  const w = await loadTenantWorkspacePageContext(orgSlug, ModuleKey.PAY);
+  if (!w) notFound();
+
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) return null;
 

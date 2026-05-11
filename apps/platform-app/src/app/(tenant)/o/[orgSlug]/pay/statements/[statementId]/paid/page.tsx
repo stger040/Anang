@@ -1,7 +1,10 @@
 import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
 import { tenantPrisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
 import { getStripe } from "@/lib/stripe-server";
+import { assertOrgAccess } from "@/lib/tenant-context";
 import { Badge, Button, Card, PageHeader } from "@anang/ui";
+import { ModuleKey } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -14,6 +17,10 @@ export default async function StatementPaidPage({
 }) {
   const { orgSlug, statementId } = await params;
   const { session_id: sessionId } = await searchParams;
+  const session = await getSession();
+  if (!session) notFound();
+  const ctx = await assertOrgAccess(session, orgSlug);
+  if (!ctx?.effectiveModules.has(ModuleKey.PAY)) notFound();
 
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) notFound();

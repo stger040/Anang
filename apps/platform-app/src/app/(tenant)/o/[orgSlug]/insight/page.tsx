@@ -11,7 +11,7 @@ export default async function InsightPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const w = await loadTenantWorkspacePageContext(orgSlug);
+  const w = await loadTenantWorkspacePageContext(orgSlug, ModuleKey.INSIGHT);
   if (!w) return null;
   const { ctx, operational, fullSuiteDashboard } = w;
 
