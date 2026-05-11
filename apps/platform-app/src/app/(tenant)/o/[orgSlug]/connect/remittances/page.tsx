@@ -1,5 +1,8 @@
 import { tenantPrisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
+import { assertOrgAccess } from "@/lib/tenant-context";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
+import { ModuleKey } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -11,6 +14,11 @@ export default async function ConnectRemittancesPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
+  const session = await getSession();
+  if (!session) notFound();
+  const ctx = await assertOrgAccess(session, orgSlug);
+  if (!ctx?.effectiveModules.has(ModuleKey.CONNECT)) notFound();
+
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
     select: { id: true },

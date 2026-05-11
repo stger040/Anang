@@ -55,7 +55,7 @@ export default async function EncounterDetailPage({
   params: Promise<{ orgSlug: string; encounterId: string }>;
 }) {
   const { orgSlug, encounterId } = await params;
-  const w = await loadTenantWorkspacePageContext(orgSlug);
+  const w = await loadTenantWorkspacePageContext(orgSlug, ModuleKey.BUILD);
   if (!w) notFound();
   const { ctx } = w;
 

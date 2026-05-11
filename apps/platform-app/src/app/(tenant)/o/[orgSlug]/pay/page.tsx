@@ -12,7 +12,7 @@ export default async function PayStatementsPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const w = await loadTenantWorkspacePageContext(orgSlug);
+  const w = await loadTenantWorkspacePageContext(orgSlug, ModuleKey.PAY);
   if (!w) return null;
   const { ctx, operational, fullSuiteDashboard } = w;
 
