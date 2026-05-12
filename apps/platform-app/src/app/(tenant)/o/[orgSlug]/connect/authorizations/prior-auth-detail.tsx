@@ -285,7 +285,11 @@ export function PriorAuthDetail({
               <form action={updatePriorAuthChecklistItem} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="orgSlug" value={orgSlug} />
                 <input type="hidden" name="itemId" value={item.id} />
-                <select name="status" className="rounded border border-slate-200 px-2 py-1 text-xs">
+                <select
+                  name="status"
+                  defaultValue={item.status}
+                  className="rounded border border-slate-200 px-2 py-1 text-xs"
+                >
                   <option value="PENDING">Pending</option>
                   <option value="DONE">Done</option>
                   <option value="NA">N/A</option>
@@ -293,6 +297,7 @@ export function PriorAuthDetail({
                 </select>
                 <input
                   name="notes"
+                  defaultValue={item.notes ?? ""}
                   placeholder="Notes"
                   className="min-w-[8rem] flex-1 rounded border border-slate-200 px-2 py-1 text-xs"
                 />
