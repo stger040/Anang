@@ -1,5 +1,5 @@
 import { platformLog, readRequestId } from "@/lib/platform-log";
-import { allocatePaymentToPlanInstallments } from "@/lib/pay/plan-installment-allocation";
+import { postStripeCheckoutCompletedPayment } from "@/lib/pay/stripe-webhook-posting";
 import { prisma, tenantPrisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe-server";
 import { NextResponse } from "next/server";
@@ -77,86 +77,39 @@ async function handleCheckoutCompleted(
   const amountTotal = session.amount_total ?? 0;
   if (amountTotal <= 0) return;
 
-  const existing = await db.payment.findFirst({
-    where: { stripeCheckoutSessionId: sessionId },
-  });
-  if (existing) return;
-
   try {
-    await db.$transaction(async (tx) => {
-      const dup = await tx.payment.findFirst({
-        where: { stripeCheckoutSessionId: sessionId },
-      });
-      if (dup) return;
-
-      const stmt = await tx.statement.findFirst({
-        where: { id: statementId, tenantId },
-      });
-      if (!stmt) {
-        platformLog("warn", "pay.stripe.statement_not_found_in_webhook", {
-          requestId,
-          tenantId,
-          statementId,
-          stripeCheckoutSessionId: sessionId,
-        });
-        return;
-      }
-
-      const newBalance = Math.max(0, stmt.balanceCents - amountTotal);
-
-      const payment = await tx.payment.create({
-        data: {
-          tenantId,
-          statementId,
-          amountCents: amountTotal,
-          status: "posted",
-          method: "stripe",
-          paidAt: new Date(),
-          stripeCheckoutSessionId: sessionId,
-        },
-      });
-
-      await tx.statement.update({
-        where: { id: statementId },
-        data: {
-          balanceCents: newBalance,
-          status: newBalance === 0 ? "paid" : stmt.status,
-        },
-      });
-
-      await allocatePaymentToPlanInstallments(tx, {
+    const posted = await postStripeCheckoutCompletedPayment(db, {
+      tenantId,
+      statementId,
+      stripeCheckoutSessionId: sessionId,
+      stripeEventId,
+      amountCents: amountTotal,
+      requestId,
+    });
+    if (posted.status === "duplicate" || posted.status === "ignored_zero_amount") {
+      return;
+    }
+    if (posted.status === "statement_not_found") {
+      platformLog("warn", "pay.stripe.statement_not_found_in_webhook", {
+        requestId,
         tenantId,
         statementId,
-        paymentId: payment.id,
-        amountCents: amountTotal,
+        stripeCheckoutSessionId: sessionId,
       });
-
-      await tx.auditEvent.create({
-        data: {
-          tenantId,
-          actorUserId: null,
-          action: "pay.stripe.payment_posted",
-          resource: "payment",
-          metadata: {
-            paymentId: payment.id,
-            statementId,
-            amountCents: amountTotal,
-            stripeCheckoutSessionId: sessionId,
-            stripeEventId,
-            ...(requestId ? { requestId } : {}),
-          },
-        },
-      });
-
+      return;
+    }
+    if (posted.status === "posted") {
       platformLog("info", "pay.stripe.payment_posted", {
         requestId,
         tenantId,
         statementId,
-        paymentId: payment.id,
+        paymentId: posted.paymentId,
         stripeCheckoutSessionId: sessionId,
-        amountCents: amountTotal,
+        amountCents: posted.amountCents,
+        appliedCents: posted.appliedCents,
+        unappliedCents: posted.unappliedCents,
       });
-    });
+    }
   } catch (e) {
     const stillThere = await db.payment.findFirst({
       where: { stripeCheckoutSessionId: sessionId },
