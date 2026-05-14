@@ -1,8 +1,10 @@
 import { platformLog, readRequestId } from "@/lib/platform-log";
 import { allocatePaymentToPlanInstallments } from "@/lib/pay/plan-installment-allocation";
+import { calculateStatementPaymentApplication } from "@/lib/pay/statement-payment-application";
 import { prisma, tenantPrisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe-server";
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import type Stripe from "stripe";
 
 export const runtime = "nodejs";
@@ -89,8 +91,9 @@ async function handleCheckoutCompleted(
       });
       if (dup) return;
 
-      const stmt = await tx.statement.findFirst({
-        where: { id: statementId, tenantId },
+      const stmt = await lockStatementForStripePayment(tx, {
+        tenantId,
+        statementId,
       });
       if (!stmt) {
         platformLog("warn", "pay.stripe.statement_not_found_in_webhook", {
@@ -102,7 +105,10 @@ async function handleCheckoutCompleted(
         return;
       }
 
-      const newBalance = Math.max(0, stmt.balanceCents - amountTotal);
+      const application = calculateStatementPaymentApplication({
+        currentBalanceCents: stmt.balanceCents,
+        capturedCents: amountTotal,
+      });
 
       const payment = await tx.payment.create({
         data: {
@@ -119,8 +125,8 @@ async function handleCheckoutCompleted(
       await tx.statement.update({
         where: { id: statementId },
         data: {
-          balanceCents: newBalance,
-          status: newBalance === 0 ? "paid" : stmt.status,
+          balanceCents: application.nextBalanceCents,
+          status: application.nextBalanceCents === 0 ? "paid" : stmt.status,
         },
       });
 
@@ -128,7 +134,7 @@ async function handleCheckoutCompleted(
         tenantId,
         statementId,
         paymentId: payment.id,
-        amountCents: amountTotal,
+        amountCents: application.appliedCents,
       });
 
       await tx.auditEvent.create({
@@ -141,6 +147,8 @@ async function handleCheckoutCompleted(
             paymentId: payment.id,
             statementId,
             amountCents: amountTotal,
+            appliedCents: application.appliedCents,
+            overpaymentCents: application.overpaymentCents,
             stripeCheckoutSessionId: sessionId,
             stripeEventId,
             ...(requestId ? { requestId } : {}),
@@ -155,6 +163,8 @@ async function handleCheckoutCompleted(
         paymentId: payment.id,
         stripeCheckoutSessionId: sessionId,
         amountCents: amountTotal,
+        appliedCents: application.appliedCents,
+        overpaymentCents: application.overpaymentCents,
       });
     });
   } catch (e) {
@@ -171,4 +181,22 @@ async function handleCheckoutCompleted(
       });
     }
   }
+}
+
+async function lockStatementForStripePayment(
+  tx: Prisma.TransactionClient,
+  args: { tenantId: string; statementId: string },
+) {
+  const rows = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM "Statement"
+    WHERE id = ${args.statementId}
+      AND "tenantId" = ${args.tenantId}
+    FOR UPDATE
+  `;
+  if (rows.length === 0) return null;
+
+  return tx.statement.findFirst({
+    where: { id: args.statementId, tenantId: args.tenantId },
+  });
 }
