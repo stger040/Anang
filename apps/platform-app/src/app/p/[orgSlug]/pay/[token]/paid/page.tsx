@@ -1,4 +1,5 @@
 import { PatientPayLinkErrorPanel } from "@/components/patient-pay-link-error";
+import { stripeSessionMatchesPatientPaidStatement } from "@/lib/patient-pay-receipt";
 import { verifyPatientPayTokenDetailed } from "@/lib/patient-pay-token";
 import { tenantPrisma } from "@/lib/prisma";
 import { readRequestIdFromHeaders } from "@/lib/platform-log";
@@ -42,15 +43,7 @@ export default async function PatientPayPaidPage({
 
   if (sessionId && stripe) {
     try {
-      const s = await stripe.checkout.sessions.retrieve(sessionId);
-      stripeSession = s;
-      if (
-        s.payment_status === "paid" &&
-        s.metadata?.tenantId === tenant.id &&
-        s.metadata?.statementId
-      ) {
-        statementId = s.metadata.statementId;
-      }
+      stripeSession = await stripe.checkout.sessions.retrieve(sessionId);
     } catch {
       /* ignore */
     }
@@ -109,10 +102,11 @@ export default async function PatientPayPaidPage({
 
   let sessionOk = false;
   if (sessionId && stripeSession) {
-    sessionOk =
-      stripeSession.payment_status === "paid" &&
-      stripeSession.metadata?.statementId === statementId &&
-      stripeSession.metadata?.tenantId === tenant.id;
+    sessionOk = stripeSessionMatchesPatientPaidStatement({
+      session: stripeSession,
+      tenantId: tenant.id,
+      statementId,
+    });
   }
 
   const receiptAmountCents =
