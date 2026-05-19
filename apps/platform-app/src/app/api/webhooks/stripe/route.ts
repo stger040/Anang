@@ -3,6 +3,7 @@ import { allocatePaymentToPlanInstallments } from "@/lib/pay/plan-installment-al
 import { prisma, tenantPrisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe-server";
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import type Stripe from "stripe";
 
 export const runtime = "nodejs";
@@ -55,7 +56,20 @@ export async function POST(req: Request) {
   return NextResponse.json({ received: true });
 }
 
-async function handleCheckoutCompleted(
+async function lockStatementForPosting(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  statementId: string,
+): Promise<void> {
+  await tx.$queryRaw`
+    SELECT id
+    FROM "Statement"
+    WHERE id = ${statementId} AND "tenantId" = ${tenantId}
+    FOR UPDATE
+  `;
+}
+
+export async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   requestId: string | undefined,
   stripeEventId: string,
@@ -89,6 +103,8 @@ async function handleCheckoutCompleted(
       });
       if (dup) return;
 
+      await lockStatementForPosting(tx, tenantId, statementId);
+
       const stmt = await tx.statement.findFirst({
         where: { id: statementId, tenantId },
       });
@@ -102,7 +118,9 @@ async function handleCheckoutCompleted(
         return;
       }
 
-      const newBalance = Math.max(0, stmt.balanceCents - amountTotal);
+      const appliedCents = Math.min(amountTotal, Math.max(0, stmt.balanceCents));
+      const overpaymentCents = amountTotal - appliedCents;
+      const newBalance = stmt.balanceCents - appliedCents;
 
       const payment = await tx.payment.create({
         data: {
@@ -128,7 +146,7 @@ async function handleCheckoutCompleted(
         tenantId,
         statementId,
         paymentId: payment.id,
-        amountCents: amountTotal,
+        amountCents: appliedCents,
       });
 
       await tx.auditEvent.create({
@@ -141,6 +159,8 @@ async function handleCheckoutCompleted(
             paymentId: payment.id,
             statementId,
             amountCents: amountTotal,
+            appliedCents,
+            overpaymentCents,
             stripeCheckoutSessionId: sessionId,
             stripeEventId,
             ...(requestId ? { requestId } : {}),
@@ -155,6 +175,8 @@ async function handleCheckoutCompleted(
         paymentId: payment.id,
         stripeCheckoutSessionId: sessionId,
         amountCents: amountTotal,
+        appliedCents,
+        overpaymentCents,
       });
     });
   } catch (e) {
