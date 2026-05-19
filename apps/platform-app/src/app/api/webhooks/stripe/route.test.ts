@@ -41,12 +41,18 @@ function checkoutSession(
       statementId: "stmt_1",
       orgSlug: "synthetic-test",
     },
-  } as Stripe.Checkout.Session;
+  } as unknown as Stripe.Checkout.Session;
 }
 
 function makeDb(statementBalanceCents: number) {
   const tx = {
-    $queryRaw: vi.fn(async () => []),
+    $queryRaw: vi.fn(
+      async (
+        _strings: TemplateStringsArray,
+        _statementId: string,
+        _tenantId: string,
+      ) => [],
+    ),
     payment: {
       findFirst: vi.fn(async () => null),
       create: vi.fn(async () => ({ id: "pay_1" })),
@@ -86,7 +92,7 @@ describe("handleCheckoutCompleted", () => {
 
     expect(tx.$queryRaw).toHaveBeenCalledOnce();
     const [strings, statementId, tenantId] = tx.$queryRaw.mock.calls[0]!;
-    expect((strings as TemplateStringsArray).join("")).toContain("FOR UPDATE");
+    expect(strings.join("")).toContain("FOR UPDATE");
     expect(statementId).toBe("stmt_1");
     expect(tenantId).toBe("tenant_1");
     expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
