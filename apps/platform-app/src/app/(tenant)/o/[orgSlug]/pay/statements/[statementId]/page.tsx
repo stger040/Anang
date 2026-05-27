@@ -52,7 +52,8 @@ export default async function StatementDetailPage({
   });
   if (!stmt) notFound();
 
-  const priorAuthForClaim = stmt.claim
+  const canReadConnectPriorAuth = ctx.effectiveModules.has(ModuleKey.CONNECT);
+  const priorAuthForClaim = canReadConnectPriorAuth && stmt.claim
     ? await tenantPrisma(orgSlug).priorAuthCase.findMany({
         where: { tenantId: tenant.id, claimId: stmt.claim.id },
         select: { id: true, caseNumber: true, status: true },
