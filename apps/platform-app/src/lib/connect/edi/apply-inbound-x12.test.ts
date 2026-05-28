@@ -28,7 +28,10 @@ describe("applyInboundX12ToTenant", () => {
       claimAdjudication: {
         upsert: vi.fn().mockResolvedValue({ id: "adj1" }),
       },
-      remittanceAdjudicationLine: { create: vi.fn() },
+      remittanceAdjudicationLine: {
+        deleteMany: vi.fn(),
+        create: vi.fn(),
+      },
     } as unknown as PrismaClient;
 
     const result = await applyInboundX12ToTenant({
