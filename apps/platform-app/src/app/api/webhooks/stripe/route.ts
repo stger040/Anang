@@ -89,6 +89,12 @@ async function handleCheckoutCompleted(
       });
       if (dup) return;
 
+      await tx.$queryRaw`
+        SELECT id FROM "Statement"
+        WHERE id = ${statementId} AND "tenantId" = ${tenantId}
+        FOR UPDATE
+      `;
+
       const stmt = await tx.statement.findFirst({
         where: { id: statementId, tenantId },
       });
@@ -102,7 +108,9 @@ async function handleCheckoutCompleted(
         return;
       }
 
-      const newBalance = Math.max(0, stmt.balanceCents - amountTotal);
+      const appliedCents = Math.min(amountTotal, Math.max(0, stmt.balanceCents));
+      const overpaymentCents = amountTotal - appliedCents;
+      const newBalance = stmt.balanceCents - appliedCents;
 
       const payment = await tx.payment.create({
         data: {
@@ -116,19 +124,21 @@ async function handleCheckoutCompleted(
         },
       });
 
-      await tx.statement.update({
-        where: { id: statementId },
-        data: {
-          balanceCents: newBalance,
-          status: newBalance === 0 ? "paid" : stmt.status,
-        },
-      });
+      if (appliedCents > 0 || stmt.status !== "paid") {
+        await tx.statement.update({
+          where: { id: statementId },
+          data: {
+            balanceCents: newBalance,
+            status: newBalance === 0 ? "paid" : stmt.status,
+          },
+        });
+      }
 
       await allocatePaymentToPlanInstallments(tx, {
         tenantId,
         statementId,
         paymentId: payment.id,
-        amountCents: amountTotal,
+        amountCents: appliedCents,
       });
 
       await tx.auditEvent.create({
@@ -141,6 +151,8 @@ async function handleCheckoutCompleted(
             paymentId: payment.id,
             statementId,
             amountCents: amountTotal,
+            appliedCents,
+            overpaymentCents,
             stripeCheckoutSessionId: sessionId,
             stripeEventId,
             ...(requestId ? { requestId } : {}),
@@ -155,6 +167,8 @@ async function handleCheckoutCompleted(
         paymentId: payment.id,
         stripeCheckoutSessionId: sessionId,
         amountCents: amountTotal,
+        appliedCents,
+        overpaymentCents,
       });
     });
   } catch (e) {

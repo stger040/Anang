@@ -367,7 +367,11 @@ async function apply835Row(
   if (payCents != null && payCents > 0) {
     nextStatus = ClaimLifecycleStatus.PAID;
     paidUpdate = payCents;
-  } else if (DENIED_835.has(row.statusCode)) {
+  } else if (
+    DENIED_835.has(row.statusCode) &&
+    claim.status !== ClaimLifecycleStatus.PAID &&
+    claim.status !== ClaimLifecycleStatus.APPEALED
+  ) {
     nextStatus = ClaimLifecycleStatus.DENIED;
   }
 
