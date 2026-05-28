@@ -129,78 +129,112 @@ export async function markPaymentPlanInstallmentPaidAction(
 
   const tenantId = ctx.tenant.id;
 
-  const inst = await tenantPrisma(orgSlug).paymentPlanInstallment.findFirst({
-    where: { id: installmentId, plan: { tenantId } },
-    include: { plan: { include: { statement: true } } },
-  });
-  if (!inst) {
-    return { ok: false, error: "Installment not found" };
-  }
+  let statementId: string;
+  try {
+    const result = await tenantPrisma(orgSlug).$transaction(async (tx) => {
+      const inst = await tx.paymentPlanInstallment.findFirst({
+        where: { id: installmentId, plan: { tenantId } },
+        include: { plan: { include: { statement: true } } },
+      });
+      if (!inst) {
+        throw new Error("Installment not found");
+      }
 
-  const stmt = inst.plan.statement;
-  if (!stmt || stmt.tenantId !== tenantId) {
-    return { ok: false, error: "Statement not found" };
-  }
+      const stmt = inst.plan.statement;
+      if (!stmt || stmt.tenantId !== tenantId) {
+        throw new Error("Statement not found");
+      }
 
-  const remaining = Math.max(0, inst.amountCents - inst.satisfiedCents);
-  if (remaining <= 0) {
-    return { ok: false, error: "Installment already satisfied" };
-  }
+      if (inst.status === "paid" || inst.status === "skipped") {
+        throw new Error("Installment already satisfied");
+      }
 
-  if (stmt.balanceCents < remaining) {
+      const remaining = Math.max(0, inst.amountCents - inst.satisfiedCents);
+      if (remaining <= 0) {
+        throw new Error("Installment already satisfied");
+      }
+
+      const claimedInstallment = await tx.paymentPlanInstallment.updateMany({
+        where: {
+          id: inst.id,
+          satisfiedCents: inst.satisfiedCents,
+          status: inst.status,
+        },
+        data: {
+          satisfiedCents: inst.amountCents,
+          status: "paid",
+        },
+      });
+      if (claimedInstallment.count !== 1) {
+        throw new Error("Installment already satisfied");
+      }
+
+      const debitedStatement = await tx.statement.updateMany({
+        where: {
+          id: stmt.id,
+          tenantId,
+          balanceCents: { gte: remaining },
+        },
+        data: {
+          balanceCents: { decrement: remaining },
+        },
+      });
+      if (debitedStatement.count !== 1) {
+        throw new Error("Statement balance is less than this installment remainder.");
+      }
+
+      const payment = await tx.payment.create({
+        data: {
+          tenantId,
+          statementId: stmt.id,
+          amountCents: remaining,
+          status: "posted",
+          method: "staff_mark_paid",
+          paidAt: new Date(),
+        },
+      });
+
+      await tx.paymentPlanInstallment.update({
+        where: { id: inst.id },
+        data: { paymentId: payment.id },
+      });
+
+      const updatedStmt = await tx.statement.findUnique({
+        where: { id: stmt.id },
+        select: { balanceCents: true, status: true },
+      });
+      if (updatedStmt?.balanceCents === 0 && updatedStmt.status !== "paid") {
+        await tx.statement.update({
+          where: { id: stmt.id },
+          data: { status: "paid" },
+        });
+      }
+
+      await tx.auditEvent.create({
+        data: {
+          tenantId,
+          actorUserId: session.userId,
+          action: "pay.plan_installment.staff_mark_paid",
+          resource: "payment_plan_installment",
+          metadata: {
+            installmentId: inst.id,
+            paymentId: payment.id,
+            statementId: stmt.id,
+            amountCents: remaining,
+          },
+        },
+      });
+
+      return { statementId: stmt.id };
+    });
+    statementId = result.statementId;
+  } catch (e) {
     return {
       ok: false,
-      error: "Statement balance is less than this installment remainder.",
+      error: e instanceof Error ? e.message : "Unable to mark installment paid",
     };
   }
 
-  await tenantPrisma(orgSlug).$transaction(async (tx) => {
-    const payment = await tx.payment.create({
-      data: {
-        tenantId,
-        statementId: stmt.id,
-        amountCents: remaining,
-        status: "posted",
-        method: "staff_mark_paid",
-        paidAt: new Date(),
-      },
-    });
-
-    const newBalance = Math.max(0, stmt.balanceCents - remaining);
-
-    await tx.paymentPlanInstallment.update({
-      where: { id: inst.id },
-      data: {
-        satisfiedCents: inst.amountCents,
-        status: "paid",
-        paymentId: payment.id,
-      },
-    });
-
-    await tx.statement.update({
-      where: { id: stmt.id },
-      data: {
-        balanceCents: newBalance,
-        status: newBalance === 0 ? "paid" : stmt.status,
-      },
-    });
-
-    await tx.auditEvent.create({
-      data: {
-        tenantId,
-        actorUserId: session.userId,
-        action: "pay.plan_installment.staff_mark_paid",
-        resource: "payment_plan_installment",
-        metadata: {
-          installmentId: inst.id,
-          paymentId: payment.id,
-          statementId: stmt.id,
-          amountCents: remaining,
-        },
-      },
-    });
-  });
-
-  revalidatePath(`/o/${orgSlug}/pay/statements/${stmt.id}`);
+  revalidatePath(`/o/${orgSlug}/pay/statements/${statementId}`);
   return { ok: true };
 }

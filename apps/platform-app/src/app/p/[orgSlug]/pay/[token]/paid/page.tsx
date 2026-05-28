@@ -40,17 +40,10 @@ export default async function PatientPayPaidPage({
     | Awaited<ReturnType<NonNullable<typeof stripe>["checkout"]["sessions"]["retrieve"]>>
     | null = null;
 
-  if (sessionId && stripe) {
+  if (sessionId && stripe && statementId) {
     try {
       const s = await stripe.checkout.sessions.retrieve(sessionId);
       stripeSession = s;
-      if (
-        s.payment_status === "paid" &&
-        s.metadata?.tenantId === tenant.id &&
-        s.metadata?.statementId
-      ) {
-        statementId = s.metadata.statementId;
-      }
     } catch {
       /* ignore */
     }
