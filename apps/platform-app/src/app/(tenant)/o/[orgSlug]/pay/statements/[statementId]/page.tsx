@@ -4,6 +4,7 @@ import { PayWithStripeButton } from "@/components/pay-with-stripe-button";
 import { StatementLineExplain } from "@/components/statement-line-explain";
 import { CrossModuleActionRow } from "@/components/cross-module-action-row";
 import { isFhirFixtureImportStatementNumber } from "@/lib/fhir-pay-statement";
+import { canShowStatementPriorAuthLinks } from "@/lib/pay/statement-prior-auth-links";
 import { tenantPrisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
@@ -52,7 +53,10 @@ export default async function StatementDetailPage({
   });
   if (!stmt) notFound();
 
-  const priorAuthForClaim = stmt.claim
+  const canShowPriorAuthLinks = canShowStatementPriorAuthLinks(
+    ctx.effectiveModules,
+  );
+  const priorAuthForClaim = canShowPriorAuthLinks && stmt.claim
     ? await tenantPrisma(orgSlug).priorAuthCase.findMany({
         where: { tenantId: tenant.id, claimId: stmt.claim.id },
         select: { id: true, caseNumber: true, status: true },
