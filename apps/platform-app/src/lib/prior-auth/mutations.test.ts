@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SessionPayload } from "@/lib/session";
 
-import { createPriorAuthCaseDb, updatePriorAuthCaseStatusDb } from "./mutations";
+import {
+  createPriorAuthCaseDb,
+  linkPriorAuthToClaimDb,
+  updatePriorAuthCaseStatusDb,
+} from "./mutations";
 
 vi.mock("@/lib/platform-log", () => ({
   platformLog: vi.fn(),
@@ -63,6 +67,31 @@ describe("createPriorAuthCaseDb", () => {
     expect(db.priorAuthEvent.create).toHaveBeenCalled();
     expect(db.auditEvent.create).toHaveBeenCalled();
   });
+
+  it("rejects a claim from another patient", async () => {
+    const db = {
+      patient: { findFirst: vi.fn().mockResolvedValue({ id: "p1" }) },
+      claim: { findFirst: vi.fn().mockResolvedValue(null) },
+      priorAuthCase: { count: vi.fn(), create: vi.fn() },
+      priorAuthChecklistItem: { createMany: vi.fn() },
+      priorAuthEvent: { create: vi.fn() },
+      auditEvent: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    await expect(
+      createPriorAuthCaseDb({
+        db,
+        orgSlug: "acme",
+        tenantId: "t1",
+        session,
+        input: { patientId: "p1", claimId: "claim-other", payerName: "Payer" },
+      }),
+    ).rejects.toThrow("Claim not found for patient");
+    expect(db.claim.findFirst).toHaveBeenCalledWith({
+      where: { id: "claim-other", tenantId: "t1", patientId: "p1" },
+    });
+    expect(db.priorAuthCase.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("updatePriorAuthCaseStatusDb", () => {
@@ -80,7 +109,7 @@ describe("updatePriorAuthCaseStatusDb", () => {
           encounterId: null,
           claimId: null,
         }),
-        update: vi.fn(),
+        updateMany: vi.fn(),
       },
       priorAuthEvent: { create: vi.fn() },
       auditEvent: { create: vi.fn() },
@@ -96,6 +125,73 @@ describe("updatePriorAuthCaseStatusDb", () => {
         nextStatus: PriorAuthStatus.APPROVED,
       }),
     ).rejects.toThrow(/Illegal prior auth status transition/);
+    expect(db.priorAuthCase.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects stale concurrent status updates", async () => {
+    const db = {
+      priorAuthCase: {
+        findFirst: vi.fn().mockResolvedValue({
+          status: PriorAuthStatus.SUBMITTED,
+          encounterId: null,
+          claimId: null,
+        }),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      priorAuthEvent: { create: vi.fn() },
+      auditEvent: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    await expect(
+      updatePriorAuthCaseStatusDb({
+        db,
+        orgSlug: "acme",
+        tenantId: "t1",
+        session,
+        caseId: "c1",
+        nextStatus: PriorAuthStatus.APPROVED,
+      }),
+    ).rejects.toThrow("Case status changed");
+    expect(db.priorAuthEvent.create).not.toHaveBeenCalled();
+    expect(db.auditEvent.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("linkPriorAuthToClaimDb", () => {
+  const session: SessionPayload = {
+    userId: "u1",
+    email: "a@test",
+    appRole: AppRole.STAFF,
+  };
+
+  it("rejects linking a claim from another patient", async () => {
+    const db = {
+      priorAuthCase: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "case1",
+          patientId: "p1",
+          encounterId: null,
+        }),
+        update: vi.fn(),
+      },
+      claim: { findFirst: vi.fn().mockResolvedValue(null) },
+      priorAuthEvent: { create: vi.fn() },
+      auditEvent: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    await expect(
+      linkPriorAuthToClaimDb({
+        db,
+        orgSlug: "acme",
+        tenantId: "t1",
+        session,
+        caseId: "case1",
+        claimId: "claim-other",
+      }),
+    ).rejects.toThrow("Claim not found for patient");
+    expect(db.claim.findFirst).toHaveBeenCalledWith({
+      where: { id: "claim-other", tenantId: "t1", patientId: "p1" },
+    });
     expect(db.priorAuthCase.update).not.toHaveBeenCalled();
   });
 });

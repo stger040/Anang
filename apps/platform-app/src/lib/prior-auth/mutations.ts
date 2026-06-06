@@ -64,9 +64,9 @@ export async function createPriorAuthCaseDb(args: {
   }
   if (input.claimId) {
     const cl = await db.claim.findFirst({
-      where: { id: input.claimId, tenantId },
+      where: { id: input.claimId, tenantId, patientId: input.patientId },
     });
-    if (!cl) throw new Error("Claim not found");
+    if (!cl) throw new Error("Claim not found for patient");
   }
   if (input.coverageId) {
     const cv = await db.coverage.findFirst({
@@ -161,13 +161,16 @@ export async function updatePriorAuthCaseStatusDb(args: {
   if (!row) throw new Error("Case not found");
   assertLegalPriorAuthTransition(row.status, nextStatus);
 
-  await db.priorAuthCase.update({
-    where: { id: caseId },
+  const updated = await db.priorAuthCase.updateMany({
+    where: { id: caseId, tenantId, status: row.status },
     data: {
       status: nextStatus,
       ...patch,
     },
   });
+  if (updated.count !== 1) {
+    throw new Error("Case status changed; reload before updating");
+  }
 
   const requestId = await readRequestIdFromHeaders();
   await db.priorAuthEvent.create({
@@ -390,9 +393,9 @@ export async function linkPriorAuthToClaimDb(args: {
   const row = await db.priorAuthCase.findFirst({ where: { id: caseId, tenantId } });
   if (!row) throw new Error("Case not found");
   const cl = await db.claim.findFirst({
-    where: { id: claimId, tenantId },
+    where: { id: claimId, tenantId, patientId: row.patientId },
   });
-  if (!cl) throw new Error("Claim not found");
+  if (!cl) throw new Error("Claim not found for patient");
 
   await db.priorAuthCase.update({
     where: { id: caseId },
