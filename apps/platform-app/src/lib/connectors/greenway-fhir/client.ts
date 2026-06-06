@@ -82,6 +82,46 @@ const FHIR_JSON_HEADERS = {
   accept: "application/fhir+json, application/json",
 } as const;
 
+function withoutTrailingSlash(value: string): string {
+  return value.replace(/\/$/, "");
+}
+
+function isUrlUnderBase(candidate: URL, base: URL): boolean {
+  const basePath = withoutTrailingSlash(base.pathname);
+  return (
+    candidate.origin === base.origin &&
+    (candidate.pathname === basePath ||
+      candidate.pathname.startsWith(`${basePath}/`))
+  );
+}
+
+export function greenwayFhirResolveFhirHref(
+  baseUrl: string,
+  href: string,
+): string {
+  const h = href.trim();
+  if (!h) {
+    throw new Error("greenwayFhirGetFhirHref: empty href");
+  }
+
+  const base = new URL(withoutTrailingSlash(baseUrl));
+  const basePath = withoutTrailingSlash(base.pathname);
+
+  const candidates = /^https?:\/\//i.test(h)
+    ? [new URL(h)]
+    : h.startsWith("/")
+      ? [new URL(h, base.origin), new URL(`${basePath}${h}`, base.origin)]
+      : [new URL(`${basePath}/${h.replace(/^\//, "")}`, base.origin)];
+
+  for (const candidate of candidates) {
+    if (isUrlUnderBase(candidate, base)) {
+      return candidate.toString();
+    }
+  }
+
+  throw new Error("greenwayFhirGetFhirHref: href is outside configured FHIR base URL");
+}
+
 /**
  * GET a FHIR URL from a Bundle `link.url` value: absolute https URL or path
  * relative to **config.baseUrl**.
@@ -96,19 +136,7 @@ export async function greenwayFhirGetFhirHref(
       "Greenway FHIR access token is not configured (GREENWAY_FHIR_ACCESS_TOKEN)",
     );
   }
-  const h = href.trim();
-  if (!h) {
-    throw new Error("greenwayFhirGetFhirHref: empty href");
-  }
-  const base = config.baseUrl.replace(/\/$/, "");
-  let url: string;
-  if (/^https?:\/\//i.test(h)) {
-    url = h;
-  } else if (h.startsWith("/")) {
-    url = `${base}${h}`;
-  } else {
-    url = `${base}/${h.replace(/^\//, "")}`;
-  }
+  const url = greenwayFhirResolveFhirHref(config.baseUrl, href);
   const res = await fetch(url, {
     ...init,
     method: "GET",
