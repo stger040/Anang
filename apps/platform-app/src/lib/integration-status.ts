@@ -107,7 +107,7 @@ export function getIntegrationStatus(): IntegrationStatusPayload {
       ? {
           lane: "not_configured" as const,
           detail:
-            "Greenway FHIR base is set but no bearer token or OAuth trio (GREENWAY_FHIR_CLIENT_ID / CLIENT_SECRET / TOKEN_URL).",
+            "Greenway FHIR base is set but no bearer token or OAuth client auth (CLIENT_ID + TOKEN_URL + CLIENT_PRIVATE_KEY or CLIENT_SECRET).",
         }
       : {
           lane: "local" as const,

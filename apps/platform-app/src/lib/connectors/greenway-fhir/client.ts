@@ -103,6 +103,13 @@ export async function greenwayFhirGetFhirHref(
   const base = config.baseUrl.replace(/\/$/, "");
   let url: string;
   if (/^https?:\/\//i.test(h)) {
+    const baseOrigin = new URL(base).origin;
+    const nextOrigin = new URL(h).origin;
+    if (nextOrigin !== baseOrigin) {
+      throw new Error(
+        "greenwayFhirGetFhirHref: refusing cross-origin FHIR Bundle link",
+      );
+    }
     url = h;
   } else if (h.startsWith("/")) {
     url = `${base}${h}`;
