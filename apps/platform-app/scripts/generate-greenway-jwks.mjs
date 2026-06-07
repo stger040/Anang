@@ -57,14 +57,16 @@ if (privateKeyOut) {
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, pem, "utf8");
   console.log(`Private key written to: ${abs}`);
-  console.log("Store this file in a secrets manager — do NOT commit it.");
+  console.log(
+    "Store this as GREENWAY_FHIR_CLIENT_PRIVATE_KEY in a secrets manager — do NOT commit it.",
+  );
 } else {
   console.log("Private key was not written. To save PKCS#8 PEM:");
   console.log(
     "  node scripts/generate-greenway-jwks.mjs --private-key-out /secure/path/greenway-es384-private.pem",
   );
   console.log(
-    "When signing JWTs for Greenway, load that PEM server-side (env or secret store), not from git.",
+    "When signing JWTs for Greenway, load that PEM server-side as GREENWAY_FHIR_CLIENT_PRIVATE_KEY, not from git.",
   );
 }
 console.log("");
