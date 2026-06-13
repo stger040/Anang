@@ -1,6 +1,11 @@
 import type { PrismaClient } from "@prisma/client";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/prisma", () => ({
+  prisma: {},
+  tenantPrisma: vi.fn(),
+}));
+
 import { postStripeCheckoutPayment } from "./route";
 
 function createPaymentHarness(args: { balanceCents: number; installmentAmountCents?: number }) {
