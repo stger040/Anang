@@ -24,6 +24,7 @@ export default async function ClaimTimelinePage({
 
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) notFound();
+  if (!ctx.effectiveModules.has(ModuleKey.CONNECT)) notFound();
 
   const claim = await tenantPrisma(orgSlug).claim.findFirst({
     where: { id: claimId, tenantId: ctx.tenant.id },

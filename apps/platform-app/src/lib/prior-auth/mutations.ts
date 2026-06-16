@@ -64,9 +64,16 @@ export async function createPriorAuthCaseDb(args: {
   }
   if (input.claimId) {
     const cl = await db.claim.findFirst({
-      where: { id: input.claimId, tenantId },
+      where: { id: input.claimId, tenantId, patientId: input.patientId },
     });
-    if (!cl) throw new Error("Claim not found");
+    if (!cl) throw new Error("Claim not found for patient");
+    if (
+      input.encounterId &&
+      cl.encounterId &&
+      cl.encounterId !== input.encounterId
+    ) {
+      throw new Error("Claim encounter does not match prior auth encounter");
+    }
   }
   if (input.coverageId) {
     const cv = await db.coverage.findFirst({
@@ -390,9 +397,12 @@ export async function linkPriorAuthToClaimDb(args: {
   const row = await db.priorAuthCase.findFirst({ where: { id: caseId, tenantId } });
   if (!row) throw new Error("Case not found");
   const cl = await db.claim.findFirst({
-    where: { id: claimId, tenantId },
+    where: { id: claimId, tenantId, patientId: row.patientId },
   });
-  if (!cl) throw new Error("Claim not found");
+  if (!cl) throw new Error("Claim not found for patient");
+  if (row.encounterId && cl.encounterId && row.encounterId !== cl.encounterId) {
+    throw new Error("Claim encounter does not match prior auth encounter");
+  }
 
   await db.priorAuthCase.update({
     where: { id: caseId },

@@ -7,6 +7,7 @@ import { CLAIM_STATUSES } from "@anang/types";
 import { Badge, Card, PageHeader, Button } from "@anang/ui";
 import { ModuleKey } from "@prisma/client";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { ConnectSubnav } from "./connect-subnav";
 
@@ -31,6 +32,7 @@ export default async function ConnectClaimsPage({
   if (!w) return null;
   const { ctx, operational, fullSuiteDashboard } = w;
   const eff = ctx.effectiveModules;
+  if (!eff.has(ModuleKey.CONNECT)) notFound();
 
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { slug: orgSlug },
