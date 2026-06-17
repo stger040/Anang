@@ -52,7 +52,8 @@ export default async function StatementDetailPage({
   });
   if (!stmt) notFound();
 
-  const priorAuthForClaim = stmt.claim
+  const canViewConnectPriorAuth = ctx.effectiveModules.has(ModuleKey.CONNECT);
+  const priorAuthForClaim = canViewConnectPriorAuth && stmt.claim
     ? await tenantPrisma(orgSlug).priorAuthCase.findMany({
         where: { tenantId: tenant.id, claimId: stmt.claim.id },
         select: { id: true, caseNumber: true, status: true },
@@ -92,7 +93,7 @@ export default async function StatementDetailPage({
               : null}
             .
           </p>
-          {priorAuthForClaim.length ? (
+          {canViewConnectPriorAuth && priorAuthForClaim.length ? (
             <p className="mt-2 text-xs leading-relaxed text-slate-600">
               Prior authorization for the same episode:{" "}
               {priorAuthForClaim.map((pa, i) => (
