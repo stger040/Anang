@@ -58,6 +58,7 @@ export default async function EncounterDetailPage({
   const w = await loadTenantWorkspacePageContext(orgSlug);
   if (!w) notFound();
   const { ctx } = w;
+  const canAccessConnect = ctx.effectiveModules.has(ModuleKey.CONNECT);
 
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({ where: { slug: orgSlug } });
   if (!tenant) notFound();
@@ -137,7 +138,7 @@ export default async function EncounterDetailPage({
   const fixtureMeta = parseFhirVisitSummaryMeta(encounter.visitSummary);
 
   const priorAuthCases =
-    ctx.effectiveModules.has(ModuleKey.CONNECT) && draft
+    canAccessConnect && draft
       ? await tenantPrisma(orgSlug).priorAuthCase.findMany({
           where: { tenantId: tenant.id, encounterId: encounter.id },
           select: { id: true, caseNumber: true, status: true },
@@ -182,12 +183,22 @@ export default async function EncounterDetailPage({
             Related in other modules
           </p>
           <p className="mt-2 text-sm leading-relaxed text-slate-800">
-            This claim was generated from this encounter (claim{" "}
-            <span className="font-mono text-xs">
-              {submittedFromDrafts.claimNumber}
-            </span>
-            ). Open Connect for payer timeline; use Authorizations if PA applies
-            to the same services.
+            {canAccessConnect ? (
+              <>
+                This claim was generated from this encounter (claim{" "}
+                <span className="font-mono text-xs">
+                  {submittedFromDrafts.claimNumber}
+                </span>
+                ). Open Connect for payer timeline; use Authorizations if PA
+                applies to the same services.
+              </>
+            ) : (
+              <>
+                This encounter has generated a claim in Connect. Open Connect for
+                payer timeline; use Authorizations if PA applies to the same
+                services.
+              </>
+            )}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <CrossModuleActionRow
@@ -229,7 +240,7 @@ export default async function EncounterDetailPage({
         </Card>
       )}
 
-      {ctx.effectiveModules.has(ModuleKey.CONNECT) && draft ? (
+      {canAccessConnect && draft ? (
         <Card className="border-sky-100 bg-sky-50/40 p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-900">
             Prior authorization (Connect)
