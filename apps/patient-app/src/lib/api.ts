@@ -23,8 +23,8 @@ export async function clearSession() {
   await SecureStore.deleteItemAsync(ORG_KEY);
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getStoredToken();
+async function apiFetch<T>(path: string, init?: RequestInit, explicitToken?: string): Promise<T> {
+  const token = explicitToken ?? (await getStoredToken());
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -40,86 +40,110 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export type StatementCharge = {
+  id: string;
+  code: string | null;
+  description: string;
+  amountCents: number;
+};
+
+export type StatementPayment = {
+  id: string;
+  amountCents: number;
+  method: string | null;
+  paidAt: string | null;
+  status: string;
+};
+
+export type PaymentPlan = {
+  id: string;
+  status: string;
+  installmentCount: number;
+  intervalWeeks: number;
+  perInstallmentCents: number;
+};
+
+export type Coverage = {
+  planName: string | null;
+  memberId: string | null;
+  groupNumber: string | null;
+  payerName: string;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+};
+
 export type Statement = {
   id: string;
+  number: string | null;
   totalCents: number;
   amountDueCents: number;
   dueDateIso: string | null;
   status: string;
-  charges: Array<{
-    id: string;
-    description: string;
-    cptCode: string | null;
-    amountCents: number;
-    patientShareCents: number;
-  }>;
-  payments: Array<{
-    id: string;
-    amountCents: number;
-    paidAt: string;
-  }>;
-  paymentPlan: {
-    id: string;
-    frequencyMonths: number;
-    installmentCents: number;
-    status: string;
-  } | null;
+  charges: StatementCharge[];
+  payments: StatementPayment[];
+  paymentPlan: PaymentPlan | null;
+  coverage: Coverage | null;
 };
 
 export type PatientSummary = {
   orgSlug: string;
   orgName: string;
-  statements: Statement[];
   totalOwedCents: number;
+  statements: Array<{
+    id: string;
+    number: string | null;
+    totalCents: number;
+    amountDueCents: number;
+    dueDateIso: string | null;
+    status: string;
+    paymentPlan: PaymentPlan | null;
+  }>;
 };
 
-export async function fetchPatientSummary(
-  orgSlug: string,
-  token: string
-): Promise<PatientSummary> {
-  return apiFetch<PatientSummary>(
-    `/api/patient/summary?orgSlug=${encodeURIComponent(orgSlug)}&token=${encodeURIComponent(token)}`
-  );
+export async function fetchPatientSummary(): Promise<PatientSummary> {
+  return apiFetch<PatientSummary>("/api/patient/summary");
 }
 
-export async function fetchStatement(
-  orgSlug: string,
-  token: string
-): Promise<Statement> {
-  return apiFetch<Statement>(
-    `/api/patient/statement?orgSlug=${encodeURIComponent(orgSlug)}&token=${encodeURIComponent(token)}`
-  );
+export async function fetchStatement(statementId?: string): Promise<Statement> {
+  const qs = statementId ? `?id=${encodeURIComponent(statementId)}` : "";
+  return apiFetch<Statement>(`/api/patient/statement${qs}`);
 }
 
-export async function askAiBillQuestion(
-  orgSlug: string,
-  token: string,
-  question: string
-): Promise<{ answer: string }> {
+/** Used from the pay/[token] deep-link screen where SecureStore may not be set yet. */
+export async function fetchStatementWithToken(token: string, statementId?: string): Promise<Statement> {
+  const qs = statementId ? `?id=${encodeURIComponent(statementId)}` : "";
+  return apiFetch<Statement>(`/api/patient/statement${qs}`, undefined, token);
+}
+
+export async function askAiBillQuestion(question: string): Promise<{ answer: string }> {
   return apiFetch<{ answer: string }>("/api/patient/ask-ai", {
     method: "POST",
-    body: JSON.stringify({ orgSlug, token, question }),
+    body: JSON.stringify({ question }),
   });
 }
 
-export async function createPaymentIntent(
-  orgSlug: string,
-  token: string,
-  amountCents: number
-): Promise<{ clientSecret: string }> {
+export async function createPaymentIntent(amountCents: number): Promise<{ clientSecret: string }> {
   return apiFetch<{ clientSecret: string }>("/api/patient/payment-intent", {
     method: "POST",
-    body: JSON.stringify({ orgSlug, token, amountCents }),
+    body: JSON.stringify({ amountCents }),
   });
 }
 
-export async function acknowledgePaymentPlan(
-  orgSlug: string,
+/** Used from the pay/[token] deep-link screen. */
+export async function createPaymentIntentWithToken(
   token: string,
-  planId: string
-): Promise<{ ok: boolean }> {
+  amountCents: number,
+): Promise<{ clientSecret: string }> {
+  return apiFetch<{ clientSecret: string }>(
+    "/api/patient/payment-intent",
+    { method: "POST", body: JSON.stringify({ amountCents }) },
+    token,
+  );
+}
+
+export async function acknowledgePaymentPlan(planId: string): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>("/api/patient/acknowledge-plan", {
     method: "POST",
-    body: JSON.stringify({ orgSlug, token, planId }),
+    body: JSON.stringify({ planId }),
   });
 }
