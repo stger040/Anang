@@ -1,54 +1,127 @@
-# Roadmap (starter → enterprise)
+# Anang — Product Roadmap
 
-This document translates the scaffold into a credible production path without committing to premature microservices.
+**Vision:** The AI-native revenue cycle platform for U.S. health systems. Two products: **Claims AI** (stop denials before they happen) and **Patient Pay** (collect from patients with an AI agent). Sold together to healthcare administrators.
 
-**Module story:** Prisma **`ModuleKey`** entitlements today — **Core, Build, Pay, Connect, Insight, Support, Cover** — with **customer-facing names** in **`docs/MODULES_CUSTOMER.md`**.
+---
 
-**Dental module (vertical):** **Cedar Orthodontics–class** packaging — **same** Pay / Cover / Support / Build / Connect / Insight / Core **spine**, with **dental-specific** workflows and semantics (e.g. **CDT**-native thinking, **treatment plans**, **installments**, **family/guarantor** billing, **DMS/PMS** integration paths such as Dentrix-class). **Not** a separate product silo: it is **how we sell and tune** the suite for dental. **Implementation today:** `Tenant.settings` / feature flags for “dental mode”; **optional future** **`DENTAL`** `ModuleKey` for a hard contract line — see **`docs/MODULES_CUSTOMER.md`** § *Dental vertical*.
+## Phase 0 — Foundation ✅ (current state)
 
-**Vision additions** (SMS → web → native, parity across shells) live in **`docs/PRODUCT_SURFACES_VISION.md`** and **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`** — they describe **where** and **how** patients encounter Pay / Cover / Support (including dental overlays).
+### Platform infrastructure
+- [x] Monorepo: marketing-site + platform-app + patient-app (Expo)
+- [x] Multi-tenant Prisma schema (Neon PostgreSQL)
+- [x] Next-Auth v5 with per-tenant OIDC/SSO + magic links
+- [x] Module entitlement system (ModuleKey per tenant)
+- [x] Stripe Checkout integration (web patient portal)
+- [x] Audit logging (AuditEvent)
+- [x] Super-admin console
+- [x] Marketing site homepage (revamped June 2026)
 
-## Phase 0 — Pilot ready (current repo)
+### Claims AI (BUILD module)
+- [x] Claims worklist UI (draft, flagged, ready, submitted)
+- [x] AI suggestion runs (BuildSuggestionRun)
+- [x] Encounter detail with linked claim and PA cases
+- [x] Prior authorization case tracking (Connect Authorizations)
+- [x] Deterministic rule layer foundation
 
-- [x] Split marketing vs platform apps
-- [x] Prisma schema + seed tenants with varied entitlements
-- [x] Build module MVP (queue, detail, AI rationales, issues, approval)
-- [x] Pay / Connect / Insight MVPs with credible UI
-- [x] **Connect → Authorizations** — medical-benefit **prior authorization** case tracking (queue, checklist, links to encounter/claim, audit); **Build** deterministic PA **signals** + encounter CTA to create prefilled case — see **`docs/PRIOR_AUTHORIZATION.md`**
-- [x] Super admin + tenant settings shell
-- [x] Cover + Support staff queues (`CoverAssistanceCase`, `SupportTask`) + Pay `/pay/pre` hub
-- [x] Vercel-oriented deployment notes
+### Patient Pay (PAY module)
+- [x] Magic link token system
+- [x] Web patient portal (/p/[orgSlug]/pay/[token])
+- [x] Statement + charge display
+- [x] Stripe Checkout for web
+- [x] Bill line AI explanation (explainStatementLine)
+- [x] Expo patient app scaffolded (iOS + Android)
+- [x] Mobile API routes (/api/patient/*)
+- [x] Stripe Payment Sheet for mobile
 
-## Phase 1 — Real auth & org lifecycle
+---
 
-- Replace demo cookie with SSO (OIDC/SAML) and durable sessions (**per-tenant OIDC + policy already ship** in platform-app — tighten defaults for pilots: `sso_required` when IT is ready)
-- Self-service org provisioning + billing (Stripe) mapped to `ModuleEntitlement`
-- Invites & JIT membership provisioning (invite + JIT paths exist — productize enrollment UX)
-- **BAA-aware logging and retention** — document and enforce for any environment that stores or transits **PHI** (`PLATFORM_LOGGING.md`, optional `PLATFORM_LOG_WEBHOOK_URL`); no raw FHIR/clinical payloads in application logs
+## Phase 1 — Pilot-Ready (Next 6 Weeks)
 
-## Phase 2 — Integrations
+Goal: One real health system live, collecting real payments, seeing real denial prevention.
 
-- EMR / FHIR or vendor SDK for clinical documentation ingestion (Build)
-- Clearinghouse + 837/277/835 processing (Connect)
-- Patient payment gateway + PMS/PM posting (Pay) — **platform-app** already supports **Stripe Checkout + webhook** behind env; extend to **patient** shells and **attribution** for success fees per **`PRODUCT_SURFACES_VISION`**
-- **Patient channel:** responsive **billing web** (magic links from SMS), then **PWA / native** for parity journeys (Cover + Pay + Support)
-- Data warehouse export for Insight (dbt / Snowflake / BigQuery)
+### Claims AI
+- [ ] Deterministic rule engine v1 — 50 payer-specific edits covering top 10 denial reason codes
+- [ ] Denial reason normalization — Parse 835 remittance CARC/RARC codes into categories
+- [ ] Denial inbox — Staff workspace for routing and working denied claims
+- [ ] Appeal template generator — AI drafts appeal letter from denial reason + original claim
+- [ ] Shadow mode — Run AI suggestions without blocking submission; measure accuracy vs real denials
+- [ ] Training data pipeline — Ingest successful claim history to tune denial prediction per payer
 
-## Phase 3 — Intelligence & AI services
+### Patient Pay
+- [ ] Patient app: real data wiring — Coverage, home, ask-ai pulling from API (no hardcoded data)
+- [ ] Payment plan flow — pay/plan.tsx calls /api/patient/acknowledge-plan
+- [ ] Push notifications — Patient notified when new statement arrives
+- [ ] SMS outreach — Magic link SMS when staff marks statement ready
+- [ ] Web/mobile parity — Same data and actions on web and mobile
 
-- **Build:** rules engine + retrieval (BAA-aware where content is sensitive) + **shadow** narrow scores; **LLM** for explanations only where approved — see **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**
-- **Support:** separate tool-driven assistant (not Build’s core engine)
-- Model hosting (VPC / Azure OpenAI) aligned to contract; evaluation harness and replay on historical remits
-- Human feedback loop for **rules + thresholds + optional models**
+### Connectors
+- [ ] FHIR R4 encounter import — Epic open sandbox (open.epic.com) for demo
+- [ ] CSV fallback connector — Accept encounter/claim data as CSV upload
+- [ ] 835 remittance parser — Ingest ERA files to auto-close paid statements
 
-## Phase 4 — Enterprise hardening
+### Infrastructure
+- [ ] BAA-ready logging — Remove PHI from application logs
+- [ ] Rate limiting on patient API routes
+- [ ] Stripe webhook — Handle payment_intent.succeeded to mark statement paid
 
-- Row-level security, field-level encryption where required
-- Dedicated environments per client (optional) vs shared multi-tenant with strong isolation
-- SOC2 Type II controls aligned to customer security questionnaires
+---
+
+## Phase 2 — Growth (3–6 Months)
+
+Goal: 5 health systems live. Denial rate measurably improving. Patient collection rate measurably improving.
+
+### Claims AI
+- [ ] Predictive denial scoring — ML model per tenant trained on their claims/remittances history
+- [ ] Rules editor UI — Billing supervisors add custom payer rules without engineering
+- [ ] Denial trend analytics — Which payers deny most, trending over time
+- [ ] Auto-appeal for common denial types — CO-4, CO-97 appeals auto-generated after staff approval
+- [ ] EHR integration: Epic production — SMART on FHIR sidebar app
+- [ ] EHR integration: athenahealth — REST API connector
+
+### Patient Pay
+- [ ] AI agent v2 — Multi-turn conversation; proactively suggests next action
+- [ ] Medicaid/ACA screener — In-app eligibility questionnaire; routes to enrollment
+- [ ] Charity care intake — Digital application, document upload, status tracking
+- [ ] Payment plan installments — Auto-charge scheduled installments via Stripe
+- [ ] Pre-visit estimates — Good faith estimate delivery before appointment
+- [ ] Outbound campaigns — Automated follow-up sequences for unpaid balances
+
+### Platform
+- [ ] Self-service onboarding — Health system provisions themselves with Stripe subscription
+- [ ] Reporting API — Webhook/export for health system's BI tools
+- [ ] SOC 2 Type II controls — Evidence collection begins
+
+---
+
+## Phase 3 — Scale (6–18 Months)
+
+### Claims AI — Neural Network
+- [ ] Federated learning pipeline — Learn from every tenant's successful/denied claims without sharing PHI
+- [ ] Payer behavior modeling — Model each payer's adjudication patterns, update monthly
+- [ ] Underpayment detection — Claims paid below contracted rate; flag for secondary billing
+- [ ] Prior auth automation — Predict which encounters need prior auth proactively
+
+### Patient Pay — Full Cedar Parity
+- [ ] Voice AI agent — Patient can call a number and speak to AI
+- [ ] HSA/FSA integration — Patient sees balance; can pay directly
+- [ ] Family billing — Guarantor view across multiple patients
+- [ ] Dental vertical — CDT-native, treatment plan billing
+
+### Epic SMART on FHIR (Demo)
+- [ ] SMART app — Claims AI panel inside Epic clinical workflow
+- [ ] Demo using open.epic.com — Recorded: encounter → AI flags → clean claim
+- [ ] App Orchard listing — Epic marketplace
+
+---
 
 ## Principles
 
-- **One platform** — modules share identity, navigation, and data contracts.
-- **Modular entitlements** — sales can compose SKUs without forked codebases.
-- **Solo-founder friendly** — keep the critical path in one TypeScript repo until revenue funds specialization.
+1. **Measure what matters.** Denial rate before/after. Patient collection rate before/after.
+2. **Learn from your own data.** AI improves per health system's payer mix, not just generic training.
+3. **Human in the loop for claims.** AI never submits without staff approval.
+4. **Mobile-first for patients.** Every patient UI decision: can a confused patient pay in under 3 minutes?
+5. **One platform.** Claims AI and Patient Pay share tenant, data, and audit trail.
+
+---
+
+*Last updated: 2026-06-19*
