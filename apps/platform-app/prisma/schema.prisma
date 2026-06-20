@@ -806,6 +806,8 @@ model Payment {
   paidAt                  DateTime?
   /// Set when checkout originated from Stripe (webhook idempotency).
   stripeCheckoutSessionId String?  @unique
+  /// Set when payment came from Stripe Payment Sheet on mobile (webhook idempotency).
+  stripePaymentIntentId   String?  @unique
 
   tenant                     Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   statement                  Statement?                @relation(fields: [statementId], references: [id])

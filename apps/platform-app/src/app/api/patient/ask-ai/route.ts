@@ -1,6 +1,7 @@
 import { explainStatementLine } from "@/lib/bill-line-explain";
 import { verifyPatientPayToken } from "@/lib/patient-pay-token";
 import { tenantPrisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limit";
 import { ModuleKey } from "@prisma/client";
 import { NextResponse } from "next/server";
 
@@ -19,6 +20,10 @@ function getBearerToken(req: Request): string | null {
  * specific charge line. Otherwise generates a general answer about the statement.
  */
 export async function POST(req: Request) {
+  // 20 AI questions per minute per IP
+  const limited = await applyRateLimit(req, "patient-ask-ai", 20, 60);
+  if (limited) return limited;
+
   const token = getBearerToken(req);
   if (!token) {
     return NextResponse.json({ error: "Authorization header required" }, { status: 401 });

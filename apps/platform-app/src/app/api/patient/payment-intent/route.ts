@@ -1,6 +1,7 @@
 import { platformLog, readRequestId } from "@/lib/platform-log";
 import { verifyPatientPayToken } from "@/lib/patient-pay-token";
 import { tenantPrisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limit";
 import { getStripe } from "@/lib/stripe-server";
 import { ModuleKey } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -20,6 +21,10 @@ function getBearerToken(req: Request): string | null {
  * Returns { clientSecret } which the mobile app passes to the Stripe SDK.
  */
 export async function POST(req: Request) {
+  // 10 payment attempts per minute per IP
+  const limited = await applyRateLimit(req, "patient-payment-intent", 10, 60);
+  if (limited) return limited;
+
   const requestId = readRequestId(req);
 
   const token = getBearerToken(req);

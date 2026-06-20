@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPatientPayToken } from "@/lib/patient-pay-token";
 import { tenantPrisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  // 5 token registrations per minute per IP
+  const limited = await applyRateLimit(req, "patient-push-token", 5, 60);
+  if (limited) return limited;
+
   const authHeader = req.headers.get("authorization") ?? "";
   const rawToken = authHeader.replace(/^Bearer\s+/i, "").trim();
 
