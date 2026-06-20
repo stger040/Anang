@@ -136,6 +136,7 @@ model Tenant {
   remittanceAdjudicationAdjustments RemittanceAdjudicationAdjustment[]
   statementPaymentPlans   StatementPaymentPlan[]
   patientPushSubscriptions PatientPushSubscription[]
+  patientExpoPushTokens    PatientExpoPushToken[]
   patientPortalIdentities  PatientPortalIdentity[]
   feeSchedules            FeeSchedule[]
   buildSuggestionRuns     BuildSuggestionRun[]
@@ -277,6 +278,7 @@ model Patient {
   coverages            Coverage[]
   portalIdentity       PatientPortalIdentity?
   priorAuthCases       PriorAuthCase[]
+  expoPushTokens       PatientExpoPushToken[]
 
   @@index([tenantId])
 }
@@ -661,6 +663,22 @@ model PatientPushSubscription {
 
   @@unique([tenantId, endpoint])
   @@index([tenantId])
+}
+
+/// Expo mobile push token for patient billing notifications.
+model PatientExpoPushToken {
+  id        String   @id @default(cuid())
+  tenantId  String
+  patientId String
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, token])
+  @@index([tenantId, patientId])
 }
 
 /// Outbound 837 correlation (manual or partner-reported) — not a generated X12 payload.

@@ -5,6 +5,8 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { colors } from "@/lib/theme";
+import { getStoredToken } from "@/lib/api";
+import { registerForPushNotifications } from "@/lib/push";
 
 const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
@@ -13,6 +15,14 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
+  }, []);
+
+  useEffect(() => {
+    getStoredToken().then((token) => {
+      if (token) {
+        registerForPushNotifications();
+      }
+    });
   }, []);
 
   return (
