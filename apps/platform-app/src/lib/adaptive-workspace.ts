@@ -83,15 +83,12 @@ export async function postSignInTenantPath(
   return adaptiveTenantEntryPath(orgSlug, ctx.effectiveModules);
 }
 
-export const MODULE_PLAIN_NAME: Record<
-  ModuleKey,
-  string
-> = {
+export const MODULE_PLAIN_NAME: Record<ModuleKey, string> = {
   CORE: "Core",
-  BUILD: "Build",
-  CONNECT: "Connect",
-  PAY: "Pay",
-  INSIGHT: "Insight",
-  SUPPORT: "Support",
-  COVER: "Cover",
+  BUILD: "Claims AI",
+  CONNECT: "EHR & Claims",
+  PAY: "Patient Billing",
+  INSIGHT: "Analytics",
+  SUPPORT: "Follow-up",
+  COVER: "Assistance",
 };

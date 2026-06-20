@@ -1,16 +1,15 @@
-import { ModuleKey } from "@prisma/client";
-import { PageHeader, StatCard, Card, Badge } from "@anang/ui";
+import { PageHeader, StatCard, Card } from "@anang/ui";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  isCompactWorkspaceMode,
-  moduleHomePath,
-  MODULE_PLAIN_NAME,
-} from "@/lib/adaptive-workspace";
-import { unlockAllModulesForTesting } from "@/lib/auth-config";
+import { moduleHomePath, operationalEffectiveModules } from "@/lib/adaptive-workspace";
 import { tenantPrisma } from "@/lib/prisma";
-import { canAccessTenantAdminRoutes } from "@/lib/tenant-admin-guard";
 import { loadTenantWorkspacePageContext } from "@/lib/workspace-page-context";
+
+function formatUsd(cents: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(
+    cents / 100,
+  );
+}
 
 export default async function DashboardPage({
   params,
@@ -21,358 +20,299 @@ export default async function DashboardPage({
   const w = await loadTenantWorkspacePageContext(orgSlug);
   if (!w) return null;
 
-  const { ctx, operational, fullSuiteDashboard, session } = w;
+  const { ctx, operational } = w;
+
+  // Single-module tenants go directly to that module
   if (operational.length === 1) {
     redirect(moduleHomePath(orgSlug, operational[0]!));
   }
 
-  const compact = isCompactWorkspaceMode(operational) && !fullSuiteDashboard;
-
-  const tenantMods = unlockAllModulesForTesting()
-    ? (Object.values(ModuleKey) as ModuleKey[])
-    : Array.from(ctx.enabledModules);
-
-  const tenantHas = (m: ModuleKey) => tenantMods.includes(m);
-  const userHas = (m: ModuleKey) => ctx.effectiveModules.has(m);
-
-  const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
-    where: { id: ctx.tenant.id },
-  });
+  const db = tenantPrisma(orgSlug);
+  const tenant = await db.tenant.findUnique({ where: { id: ctx.tenant.id } });
   if (!tenant) return null;
 
-  const claimAgg = await tenantPrisma(orgSlug).claim.groupBy({
-    by: ["status"],
-    where: { tenantId: tenant.id },
-    _count: true,
-  });
+  const has = (m: string) => ctx.effectiveModules.has(m as never);
+
+  // ── Claims AI metrics ──────────────────────────────────────────────────────
+  const [claimAgg, pendingReviewCount, deniedRecent] = await Promise.all([
+    db.claim.groupBy({ by: ["status"], where: { tenantId: tenant.id }, _count: true }),
+    db.encounter.count({ where: { tenantId: tenant.id, reviewStatus: { not: "approved" } } }),
+    db.claim.count({
+      where: {
+        tenantId: tenant.id,
+        status: "DENIED",
+        updatedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      },
+    }),
+  ]);
   const totalClaims = claimAgg.reduce((s, g) => s + g._count, 0);
-  const denied = claimAgg.find((g) => g.status === "DENIED")?._count ?? 0;
-  const denialRate =
-    totalClaims > 0 ? Math.round((denied / totalClaims) * 100) : 0;
+  const deniedTotal = claimAgg.find((g) => g.status === "DENIED")?._count ?? 0;
+  const denialRate = totalClaims > 0 ? Math.round((deniedTotal / totalClaims) * 100) : null;
 
-  const openBuild = await tenantPrisma(orgSlug).encounter.count({
-    where: { tenantId: tenant.id, reviewStatus: { not: "approved" } },
-  });
+  // ── Patient Pay metrics ────────────────────────────────────────────────────
+  const [arAgg, openStatements, recentPayments] = await Promise.all([
+    db.statement.aggregate({ where: { tenantId: tenant.id }, _sum: { balanceCents: true } }),
+    db.statement.count({ where: { tenantId: tenant.id, status: { not: "PAID" } } }),
+    db.payment.aggregate({
+      where: {
+        tenantId: tenant.id,
+        status: "succeeded",
+        paidAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      },
+      _sum: { amountCents: true },
+    }),
+  ]);
+  const totalAr = arAgg._sum.balanceCents ?? 0;
+  const collected30d = recentPayments._sum.amountCents ?? 0;
 
-  const latestEncounter = await tenantPrisma(orgSlug).encounter.findFirst({
-    where: { tenantId: tenant.id },
-    orderBy: { dateOfService: "desc" },
-    select: { id: true, patient: { select: { firstName: true, lastName: true } } },
-  });
-  const latestClaim = await tenantPrisma(orgSlug).claim.findFirst({
-    where: { tenantId: tenant.id },
-    orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
-    select: { id: true, claimNumber: true, status: true },
-  });
-  const latestStatement = await tenantPrisma(orgSlug).statement.findFirst({
-    where: { tenantId: tenant.id },
-    orderBy: { dueDate: "desc" },
-    select: { id: true, number: true, status: true },
-  });
-
-  const arAgg = await tenantPrisma(orgSlug).statement.aggregate({
-    where: { tenantId: tenant.id },
-    _sum: { balanceCents: true },
-  });
-
-  const showTenantAdmin = canAccessTenantAdminRoutes(
-    session,
-    ctx.membershipRole,
-  );
+  // ── Recent items for quick links ──────────────────────────────────────────
+  const [latestEncounter, latestDenial, latestStatement] = await Promise.all([
+    has("BUILD")
+      ? db.encounter.findFirst({
+          where: { tenantId: tenant.id, reviewStatus: { not: "approved" } },
+          orderBy: { dateOfService: "desc" },
+          select: { id: true, dateOfService: true, patient: { select: { firstName: true, lastName: true } } },
+        })
+      : null,
+    has("CONNECT")
+      ? db.claim.findFirst({
+          where: { tenantId: tenant.id, status: "DENIED" },
+          orderBy: { updatedAt: "desc" },
+          select: { id: true, claimNumber: true },
+        })
+      : null,
+    has("PAY")
+      ? db.statement.findFirst({
+          where: { tenantId: tenant.id, status: { not: "PAID" } },
+          orderBy: { dueDate: "asc" },
+          select: { id: true, number: true, balanceCents: true, dueDate: true },
+        })
+      : null,
+  ]);
 
   return (
     <div className="space-y-8">
       <PageHeader
-        title={
-          fullSuiteDashboard
-            ? "Start here — staff workflow"
-            : compact
-              ? "Your workspace"
-              : "Home — your modules"
-        }
-        description={
-          fullSuiteDashboard
-            ? "Use this page as the demo entry point: Build claim readiness, Connect claim status, Pay patient responsibility, then follow up in Support/Cover and summarize in Insight."
-            : compact
-              ? `You have ${operational.length} modules for this organization. This page highlights only your workflow — there is no implied “missing” product surface elsewhere.`
-              : `You have access to ${operational.length} operational modules. Use the shortcuts below; each module landing page is written to stand on its own.`
-        }
+        title="Home"
+        description={`${tenant.displayName} · Revenue cycle overview`}
       />
 
-      {fullSuiteDashboard ? (
-        <Card className="border-sky-100 bg-sky-50/40 p-5">
-          <h2 className="text-sm font-semibold text-slate-900">
-            One-patient demo journey
-          </h2>
-          <p className="mt-2 text-sm text-slate-700">
-            Typical flow for a first-time viewer:
-            <span className="font-medium">
-              {" "}
-              Build → Connect → Pay → Support / Cover → Insight
-            </span>
-            . Each module has quick links and “next step” guidance so you can keep
-            a coherent narrative while you click.
-          </p>
-          <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
-            <JourneyStep
-              href={`/o/${orgSlug}/build`}
-              label="1. Build"
-              detail="Review encounter and draft."
-              enabled={tenantHas("BUILD")}
-            />
-            <JourneyStep
-              href={`/o/${orgSlug}/connect`}
-              label="2. Connect"
-              detail="Track claim status and payer events."
-              enabled={tenantHas("CONNECT")}
-            />
-            <JourneyStep
-              href={`/o/${orgSlug}/pay`}
-              label="3. Pay"
-              detail="Show statement and patient balance."
-              enabled={tenantHas("PAY")}
-            />
-            <JourneyStep
-              href={
-                tenantHas("SUPPORT")
-                  ? `/o/${orgSlug}/support`
-                  : `/o/${orgSlug}/cover`
-              }
-              label="4. Support / Cover"
-              detail="Resolve patient questions and affordability."
-              enabled={tenantHas("SUPPORT") || tenantHas("COVER")}
-            />
-            <JourneyStep
-              href={`/o/${orgSlug}/insight`}
-              label="5. Insight"
-              detail="Summarize operational impact."
-              enabled={tenantHas("INSIGHT")}
-            />
-          </div>
-        </Card>
-      ) : (
-        <Card className="border-teal-100 bg-teal-50/30 p-5">
-          <h2 className="text-sm font-semibold text-slate-900">
-            {compact ? "Your workflow (this role)" : "Your modules"}
-          </h2>
-          <p className="mt-2 text-sm text-slate-700">
-            {compact
-              ? "Work moves across the cards below in the order that matches your access — no disabled placeholders, no “locked” steps."
-              : "Open any module below. Cross-module work your organization does elsewhere is described on each landing page as context, not as broken navigation."}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {operational.map((m, i) => (
-              <Link
-                key={m}
-                href={moduleHomePath(orgSlug, m)}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-brand-navy shadow-sm hover:bg-slate-50"
-              >
-                <span className="text-xs font-semibold text-slate-500">
-                  {i + 1}.{" "}
-                </span>
-                {MODULE_PLAIN_NAME[m]}
-              </Link>
-            ))}
-          </div>
-        </Card>
-      )}
-
+      {/* ── KPI row ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Your modules"
-          value={operational.length.toString()}
-          hint="What you can open in this org"
+          label="Denial rate"
+          value={denialRate !== null ? `${denialRate}%` : "—"}
+          hint={
+            denialRate !== null
+              ? denialRate <= 20
+                ? "✓ At or below target (20%)"
+                : "Target: reduce to 20% with Claims AI"
+              : "No claims data yet"
+          }
         />
-        {userHas("CONNECT") ? (
-          <StatCard
-            label="Denial rate"
-            value={`${denialRate}%`}
-            hint="From claim rows in Connect"
-          />
-        ) : (
-          <StatCard
-            label="Denial rate"
-            value="—"
-            hint="Open Connect to see payer outcomes"
-          />
+        <StatCard
+          label="Claims AI queue"
+          value={pendingReviewCount.toString()}
+          hint="Encounters awaiting review before submission"
+        />
+        <StatCard
+          label="Open patient AR"
+          value={totalAr > 0 ? formatUsd(totalAr) : "—"}
+          hint={`${openStatements} open statement${openStatements !== 1 ? "s" : ""}`}
+        />
+        <StatCard
+          label="Collected (30 days)"
+          value={collected30d > 0 ? formatUsd(collected30d) : "—"}
+          hint="Patient payments via Anang"
+        />
+      </div>
+
+      {/* ── Two product panels ── */}
+      <div className="grid gap-6 lg:grid-cols-2">
+
+        {/* Claims AI */}
+        {has("BUILD") && (
+          <Card className="p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                  Claims AI
+                </span>
+                <h2 className="mt-2 text-base font-semibold text-slate-900">
+                  Denial prevention
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  AI reviews every claim before it reaches the payer — catching coding errors,
+                  modifier issues, and payer-specific rule violations before they become denials.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <p className="text-xs font-medium text-slate-500">Pending review</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">{pendingReviewCount}</p>
+                <p className="text-xs text-slate-400">encounters to approve</p>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <p className="text-xs font-medium text-slate-500">Denied (30d)</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">{deniedRecent}</p>
+                <p className="text-xs text-slate-400">claims to appeal</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <Link
+                href={`/o/${orgSlug}/build`}
+                className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50/50 px-4 py-2.5 text-sm font-medium text-blue-800 hover:bg-blue-50"
+              >
+                <span>Open Claims AI queue →</span>
+                {pendingReviewCount > 0 && (
+                  <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
+                    {pendingReviewCount}
+                  </span>
+                )}
+              </Link>
+              {latestEncounter && (
+                <Link
+                  href={`/o/${orgSlug}/build/encounters/${latestEncounter.id}`}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <span>
+                    Next up: {latestEncounter.patient.lastName},{" "}
+                    {latestEncounter.patient.firstName}
+                    {latestEncounter.dateOfService && (
+                      <span className="ml-2 text-xs text-slate-400">
+                        {new Date(latestEncounter.dateOfService).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-slate-400">→</span>
+                </Link>
+              )}
+              {has("CONNECT") && latestDenial && (
+                <Link
+                  href={`/o/${orgSlug}/connect/claims/${latestDenial.id}`}
+                  className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50/50 px-4 py-2.5 text-sm text-red-700 hover:bg-red-50"
+                >
+                  <span>Latest denial: {latestDenial.claimNumber} — appeal needed</span>
+                  <span className="text-red-400">→</span>
+                </Link>
+              )}
+              {has("CONNECT") && (
+                <Link
+                  href={`/o/${orgSlug}/connect`}
+                  className="block rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  EHR & Claims — submission status →
+                </Link>
+              )}
+            </div>
+          </Card>
         )}
-        {userHas("BUILD") ? (
-          <StatCard
-            label="Encounters in review"
-            value={openBuild.toString()}
-            hint="Build queue"
-          />
-        ) : (
-          <StatCard
-            label="Encounters in review"
-            value="—"
-            hint="Handled in Build for your org"
-          />
-        )}
-        {userHas("PAY") ? (
-          <StatCard
-            label="Open patient balance"
-            value={formatUsd(arAgg._sum.balanceCents ?? 0)}
-            hint="Sum of statement balances"
-          />
-        ) : (
-          <StatCard
-            label="Open patient balance"
-            value="—"
-            hint="Patient balances live in Pay"
-          />
+
+        {/* Patient Pay */}
+        {has("PAY") && (
+          <Card className="p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                  Patient Pay
+                </span>
+                <h2 className="mt-2 text-base font-semibold text-slate-900">
+                  Patient collections
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Patients receive a magic link, open the mobile app or web portal, and pay with
+                  help from an AI agent that explains their bill in plain English.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <p className="text-xs font-medium text-slate-500">Open AR</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">
+                  {totalAr > 0 ? formatUsd(totalAr) : "—"}
+                </p>
+                <p className="text-xs text-slate-400">{openStatements} unpaid statements</p>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <p className="text-xs font-medium text-slate-500">Collected (30d)</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">
+                  {collected30d > 0 ? formatUsd(collected30d) : "—"}
+                </p>
+                <p className="text-xs text-slate-400">via patient app + web</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <Link
+                href={`/o/${orgSlug}/pay`}
+                className="flex items-center justify-between rounded-lg border border-green-100 bg-green-50/50 px-4 py-2.5 text-sm font-medium text-green-800 hover:bg-green-50"
+              >
+                <span>Open Patient Billing →</span>
+                {openStatements > 0 && (
+                  <span className="rounded-full bg-green-600 px-2 py-0.5 text-xs text-white">
+                    {openStatements} open
+                  </span>
+                )}
+              </Link>
+              {latestStatement && (
+                <Link
+                  href={`/o/${orgSlug}/pay/statements/${latestStatement.id}`}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <span>
+                    Next due: statement {latestStatement.number}
+                    <span className="ml-2 text-xs font-semibold text-red-600">
+                      {formatUsd(latestStatement.balanceCents)}
+                    </span>
+                  </span>
+                  <span className="text-slate-400">→</span>
+                </Link>
+              )}
+              {has("COVER") && (
+                <Link
+                  href={`/o/${orgSlug}/cover`}
+                  className="block rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  Assistance — Medicaid, charity care screening →
+                </Link>
+              )}
+              {has("SUPPORT") && (
+                <Link
+                  href={`/o/${orgSlug}/support`}
+                  className="block rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  Follow-up queue →
+                </Link>
+              )}
+            </div>
+          </Card>
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <h2 className="text-sm font-semibold text-slate-900">
-            {fullSuiteDashboard
-              ? "Enabled modules (tenant)"
-              : "Modules you can use"}
-          </h2>
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {(fullSuiteDashboard ? tenantMods : operational).map((m) => (
-              <Badge key={m} tone="teal">
-                {m}
-              </Badge>
-            ))}
-          </ul>
-          <p className="mt-3 text-xs text-slate-500">
-            {fullSuiteDashboard
-              ? "Disabled modules are hidden from navigation — entitlement-driven UX for selective deployment per client."
-              : "Navigation and this page only emphasize modules in your access set. Other product areas may run elsewhere in your organization."}
-          </p>
+      {/* Analytics link if enabled */}
+      {has("INSIGHT") && (
+        <Card className="flex items-center justify-between p-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Analytics</p>
+            <p className="text-xs text-slate-500">
+              Denial trends by payer, AR aging, collection rate over time
+            </p>
+          </div>
+          <Link
+            href={`/o/${orgSlug}/insight`}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            View analytics →
+          </Link>
         </Card>
-        <Card className="p-5">
-          <h2 className="text-sm font-semibold text-slate-900">
-            What to open first
-          </h2>
-          <ul className="mt-3 space-y-3 text-sm text-slate-700">
-            {userHas("BUILD") ? (
-              <li>
-                <Link className="text-brand-navy underline" href={`/o/${orgSlug}/build`}>
-                  Open Build queue
-                </Link>
-                <p className="text-xs text-slate-500">
-                  Review encounters and drafts before payer submission.
-                </p>
-              </li>
-            ) : null}
-            {latestEncounter && userHas("BUILD") ? (
-              <li>
-                <Link
-                  className="text-brand-navy underline"
-                  href={`/o/${orgSlug}/build/encounters/${latestEncounter.id}`}
-                >
-                  Latest encounter: {latestEncounter.patient.lastName},{" "}
-                  {latestEncounter.patient.firstName}
-                </Link>
-              </li>
-            ) : null}
-            {userHas("CONNECT") ? (
-              <li>
-                <Link className="text-brand-navy underline" href={`/o/${orgSlug}/connect`}>
-                  Open Connect
-                </Link>
-                <p className="text-xs text-slate-500">
-                  Claim lifecycle, remits, and payer-facing status.
-                </p>
-              </li>
-            ) : null}
-            {latestClaim && userHas("CONNECT") ? (
-              <li>
-                <Link
-                  className="text-brand-navy underline"
-                  href={`/o/${orgSlug}/connect/claims/${latestClaim.id}`}
-                >
-                  Latest claim: {latestClaim.claimNumber}
-                </Link>
-                <p className="text-xs text-slate-500">
-                  Status: {latestClaim.status.toLowerCase()}
-                </p>
-              </li>
-            ) : null}
-            {userHas("PAY") ? (
-              <li>
-                <Link className="text-brand-navy underline" href={`/o/${orgSlug}/pay`}>
-                  Open Pay
-                </Link>
-                <p className="text-xs text-slate-500">
-                  Statements, balances, and patient-facing flows.
-                </p>
-              </li>
-            ) : null}
-            {latestStatement && userHas("PAY") ? (
-              <li>
-                <Link
-                  className="text-brand-navy underline"
-                  href={`/o/${orgSlug}/pay/statements/${latestStatement.id}`}
-                >
-                  Latest statement: {latestStatement.number}
-                </Link>
-                <p className="text-xs text-slate-500">
-                  Status: {latestStatement.status.replaceAll("_", " ")}
-                </p>
-              </li>
-            ) : null}
-            {userHas("INSIGHT") ? (
-              <li>
-                <Link className="text-brand-navy underline" href={`/o/${orgSlug}/insight`}>
-                  Open Insight
-                </Link>
-                <p className="text-xs text-slate-500">
-                  KPI recap when you need the rollup view.
-                </p>
-              </li>
-            ) : null}
-            {showTenantAdmin ? (
-              <li>
-                <Link className="text-brand-navy underline" href={`/o/${orgSlug}/settings`}>
-                  Tenant admin
-                </Link>
-                <p className="text-xs text-slate-500">
-                  Users, audit, and implementation settings.
-                </p>
-              </li>
-            ) : null}
-          </ul>
-        </Card>
-      </div>
+      )}
     </div>
   );
-}
-
-function JourneyStep({
-  href,
-  label,
-  detail,
-  enabled,
-}: {
-  href: string;
-  label: string;
-  detail: string;
-  enabled: boolean;
-}) {
-  if (!enabled) {
-    return (
-      <div className="rounded-lg border border-dashed border-slate-200 bg-white/70 p-3">
-        <p className="text-xs font-semibold text-slate-500">{label}</p>
-        <p className="mt-1 text-xs text-slate-400">Module not enabled</p>
-      </div>
-    );
-  }
-  return (
-    <Link href={href} className="rounded-lg border border-slate-200 bg-white p-3 hover:bg-slate-50">
-      <p className="text-xs font-semibold text-slate-700">{label}</p>
-      <p className="mt-1 text-xs text-slate-500">{detail}</p>
-    </Link>
-  );
-}
-
-function formatUsd(cents: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(cents / 100);
 }

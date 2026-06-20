@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { getStoredOrg, getStoredToken, askAiBillQuestion } from "@/lib/api";
+import { askAiBillQuestion } from "@/lib/api";
 import { colors, spacing, typography, radius } from "@/lib/theme";
 
 type Message = { role: "user" | "ai"; text: string };
@@ -44,9 +44,7 @@ export default function AskAiScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
-      const org = await getStoredOrg();
-      const token = await getStoredToken();
-      const { answer } = await askAiBillQuestion(org ?? "", token ?? "", q);
+      const { answer } = await askAiBillQuestion(q);
       setMessages((prev) => [...prev, { role: "ai", text: answer }]);
     } catch {
       setMessages((prev) => [

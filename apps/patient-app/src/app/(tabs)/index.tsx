@@ -10,6 +10,7 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { getStoredOrg, getStoredToken, fetchPatientSummary, type PatientSummary } from "@/lib/api";
+// getStoredOrg/getStoredToken used only for session guard check
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
@@ -42,7 +43,7 @@ export default function HomeTab() {
         router.replace("/");
         return;
       }
-      const data = await fetchPatientSummary(org, token);
+      const data = await fetchPatientSummary();
       setSummary(data);
     } catch {
       setError("Couldn't load your bill. Pull down to try again.");
