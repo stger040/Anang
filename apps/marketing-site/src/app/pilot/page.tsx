@@ -15,8 +15,9 @@ export default async function PilotPage() {
       </h1>
       <p className="mt-4 max-w-2xl text-slate-600">
         We’re onboarding a small number of design partners. Tell us about your
-        health system and which {b.product.suiteName} modules matter most —
-        especially <strong>Build</strong> for denial prevention.
+        health system and which products matter most —{" "}
+        <strong>Claims AI</strong> for denial prevention,{" "}
+        <strong>Patient Pay</strong> for patient financial engagement, or both.
       </p>
 
       <div className="mt-10 max-w-lg space-y-6 rounded-xl border border-slate-200 bg-white p-8 shadow-sm">

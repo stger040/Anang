@@ -39,7 +39,7 @@ export default async function BuildQueuePage({
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Build — encounter queue"
+        title="Claims AI — encounter queue"
         description={subtitle}
         actions={
           <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
@@ -51,12 +51,14 @@ export default async function BuildQueuePage({
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="border-slate-200 bg-white p-4 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">
-            What this module is for
+            What Claims AI does
           </h2>
           <p className="mt-2 text-sm text-slate-700">
-            Build is where clinical documentation becomes a clean claim draft:
-            codes, charges, rule findings, and approval. You can complete your
-            work here without leaving for payer status — that is Connect’s job.
+            Claims AI catches documentation gaps, missing modifiers, and payer-specific
+            denial risks before the claim leaves your system. Every encounter goes through
+            a rules + retrieval pass — your team reviews findings and approves the draft
+            before submission. Over time, the AI trains on your successful claims to
+            reduce denial rates.
           </p>
           <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
             What should I do today?
@@ -64,7 +66,7 @@ export default async function BuildQueuePage({
           <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-700">
             <li>Clear encounters still in review or waiting on draft fixes.</li>
             <li>Approve drafts that are ready so the claim can be submitted.</li>
-            <li>Use per-row review to work the note, lines, and issues in one place.</li>
+            <li>Use per-row review to work the note, lines, and AI findings in one place.</li>
           </ul>
         </Card>
         <Card className="border-teal-100 bg-teal-50/40 p-4">
@@ -95,8 +97,8 @@ export default async function BuildQueuePage({
       <Card className="border-slate-200 bg-slate-50/70 p-4">
         <h2 className="text-sm font-semibold text-slate-900">Handoffs</h2>
         <p className="mt-1 text-sm text-slate-700">
-          After approval, payer submission and remittance context are tracked in
-          Connect. Patient balances and follow-up live in Pay and Support when
+          After approval, payer submission and remittance tracking moves to EHR &amp; Claims.
+          Patient balances and collections live in Patient Billing and Follow-up when
           your org uses those modules.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -106,17 +108,17 @@ export default async function BuildQueuePage({
             effectiveModules={ctx.effectiveModules}
             emphasis
           >
-            Next often: Connect
+            Next often: EHR &amp; Claims
           </CrossModuleChip>
           <CrossModuleChip orgSlug={orgSlug} targetModule={ModuleKey.PAY} effectiveModules={ctx.effectiveModules}>
-            Balances: Pay
+            Balances: Patient Billing
           </CrossModuleChip>
           <CrossModuleChip
             orgSlug={orgSlug}
             targetModule={ModuleKey.SUPPORT}
             effectiveModules={ctx.effectiveModules}
           >
-            Billing questions: Support
+            Billing questions: Follow-up
           </CrossModuleChip>
         </div>
       </Card>

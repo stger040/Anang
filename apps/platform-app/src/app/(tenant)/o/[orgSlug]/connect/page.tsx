@@ -70,7 +70,7 @@ export default async function ConnectClaimsPage({
       <ConnectSubnav orgSlug={orgSlug} current="claims" />
 
       <PageHeader
-        title="Connect — claims lifecycle"
+        title="EHR & Claims — submission & remittance"
         description={subtitle}
         actions={
           <span className="text-xs text-slate-500">
@@ -101,13 +101,14 @@ export default async function ConnectClaimsPage({
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="border-slate-200 bg-white p-4 lg:col-span-2">
-          <h2 className="text-sm font-semibold text-slate-900">
-            What this module is for
+          <h2 className=”text-sm font-semibold text-slate-900”>
+            What EHR &amp; Claims does
           </h2>
-          <p className="mt-2 text-sm text-slate-700">
-            Connect is your workspace for claim lifecycle: submission, payer
-            responses, denials, appeals, and ERA-backed adjudication. Everything
-            you need to answer “where is this claim with the payer?” lives here.
+          <p className=”mt-2 text-sm text-slate-700”>
+            EHR &amp; Claims is your workspace for the full claim lifecycle: EHR data
+            ingestion, submission, payer responses, denials, appeals, and ERA-backed
+            adjudication. Everything you need to answer “where is this claim with the
+            payer?” lives here. Denial outcomes feed back into Claims AI training.
           </p>
           <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
             What should I do today?
@@ -166,7 +167,7 @@ export default async function ConnectClaimsPage({
             targetModule={ModuleKey.BUILD}
             effectiveModules={eff}
           >
-            Related: Build
+            Related: Claims AI
           </CrossModuleChip>
           <CrossModuleChip
             orgSlug={orgSlug}
@@ -174,21 +175,21 @@ export default async function ConnectClaimsPage({
             effectiveModules={eff}
             emphasis
           >
-            Next often: Pay
+            Next often: Patient Billing
           </CrossModuleChip>
           <CrossModuleChip
             orgSlug={orgSlug}
             targetModule={ModuleKey.SUPPORT}
             effectiveModules={eff}
           >
-            Then: Support
+            Then: Follow-up
           </CrossModuleChip>
           <CrossModuleChip
             orgSlug={orgSlug}
             targetModule={ModuleKey.COVER}
             effectiveModules={eff}
           >
-            Escalations: Cover
+            Escalations: Assistance
           </CrossModuleChip>
         </div>
       </Card>

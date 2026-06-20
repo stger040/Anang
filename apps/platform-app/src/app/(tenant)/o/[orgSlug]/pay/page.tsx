@@ -40,19 +40,21 @@ export default async function PayStatementsPage({
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Pay — patient financials"
+        title="Patient Billing — statements & collections"
         description={subtitle}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="border-slate-200 bg-white p-4 lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-900">
-            What this module is for
+            What Patient Billing does
           </h2>
           <p className="mt-2 text-sm text-slate-700">
-            Pay is where staff explain what the patient owes, collect balances,
-            and configure pre-visit flows. Claim status itself stays in Connect;
-            affordability programs often sit in Cover.
+            Patient Billing is where staff explain what the patient owes, collect balances,
+            and send patients to the mobile billing app. Patients get an AI agent that
+            answers their questions in plain English, flexible payment plans, and one-tap
+            payments — so you collect more without additional phone calls. Claim status
+            stays in EHR &amp; Claims; affordability programs live in Assistance.
           </p>
           <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
             What should I do today?
@@ -102,7 +104,7 @@ export default async function PayStatementsPage({
             targetModule={ModuleKey.CONNECT}
             effectiveModules={ctx.effectiveModules}
           >
-            Claim context: Connect
+            Claim context: EHR &amp; Claims
           </CrossModuleChip>
           <CrossModuleChip
             orgSlug={orgSlug}
@@ -110,17 +112,17 @@ export default async function PayStatementsPage({
             effectiveModules={ctx.effectiveModules}
             emphasis
           >
-            Follow-up: Support
+            Collections: Follow-up
           </CrossModuleChip>
           <CrossModuleChip orgSlug={orgSlug} targetModule={ModuleKey.COVER} effectiveModules={ctx.effectiveModules}>
-            Affordability: Cover
+            Affordability: Assistance
           </CrossModuleChip>
           <CrossModuleChip
             orgSlug={orgSlug}
             targetModule={ModuleKey.INSIGHT}
             effectiveModules={ctx.effectiveModules}
           >
-            Rollup: Insight
+            Trends: Analytics
           </CrossModuleChip>
         </div>
       </Card>
