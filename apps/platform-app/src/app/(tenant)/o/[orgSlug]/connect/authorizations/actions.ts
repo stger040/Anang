@@ -91,7 +91,14 @@ export async function createPriorAuthCaseFromEncounter(formData: FormData) {
     where: { id: encounterId, tenantId: ctx.tenant.id },
     include: {
       patient: true,
-      drafts: { take: 1, orderBy: { id: "desc" }, include: { lines: true } },
+      drafts: {
+        take: 1,
+        orderBy: { id: "desc" },
+        include: {
+          lines: true,
+          submittedClaim: { select: { id: true, tenantId: true, patientId: true } },
+        },
+      },
     },
   });
   if (!enc) throw new Error("Encounter not found");
@@ -107,6 +114,24 @@ export async function createPriorAuthCaseFromEncounter(formData: FormData) {
 
   const payerName = cov?.payerName?.trim() || "Unknown payer (confirm)";
   const payerPlanName = cov?.planName?.trim() || null;
+  const draft = enc.drafts[0];
+  const draftClaim =
+    draft?.submittedClaim?.tenantId === ctx.tenant.id &&
+    draft.submittedClaim.patientId === enc.patientId
+      ? draft.submittedClaim
+      : null;
+  const encounterClaim = draftClaim
+    ? null
+    : await db.claim.findFirst({
+        where: {
+          tenantId: ctx.tenant.id,
+          encounterId: enc.id,
+          patientId: enc.patientId,
+        },
+        select: { id: true },
+        orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+      });
+  const claimId = draftClaim?.id ?? encounterClaim?.id ?? null;
 
   const created = await createPriorAuthCaseDb({
     db,
@@ -116,6 +141,7 @@ export async function createPriorAuthCaseFromEncounter(formData: FormData) {
     input: {
       patientId: enc.patientId,
       encounterId: enc.id,
+      claimId,
       coverageId: cov?.id ?? null,
       payerName,
       payerPlanName,
@@ -126,7 +152,6 @@ export async function createPriorAuthCaseFromEncounter(formData: FormData) {
     },
   });
 
-  const draft = enc.drafts[0];
   if (draft?.lines.length) {
     await db.priorAuthService.createMany({
       data: draft.lines.map((l, i) => ({
