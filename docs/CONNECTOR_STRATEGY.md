@@ -1,208 +1,167 @@
-# Connector & integration strategy — Anang
+# EHR & Clearinghouse Integration Strategy
 
-**Purpose:** Treat **connectors as first-class product infrastructure**: repeatable patterns, tenant-level mapping, and a path from **vendor sandbox → production** without hardcoding one integration style.
-
-**Product context:** Anang is an **AI-powered revenue-cycle intelligence layer** that sits **beside** EHRs, PM systems, clearinghouses, and payer workflows — **not** a replacement EHR.
-
-**Related:** [`CORE_DATA_MODEL.md`](./CORE_DATA_MODEL.md) (where connector output lands), [`FIRST_CLIENT_ONBOARDING_6W.md`](./FIRST_CLIENT_ONBOARDING_6W.md) (pilot rhythm), [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) (long-horizon phases).
-
-## Commercial pilot sequence (authoritative)
-
-| Wave | Customer / system | Role in repo |
-|------|-------------------|--------------|
-| **Pilot 1** | **Greenway / Intergy** EHR | First production-style **FHIR R4** lane: `apps/platform-app/src/lib/connectors/greenway-fhir/`, Implementation hub test, secured cron probe. Env: `.env.example`. **Roadmap:** [`PILOT_CONNECTOR_ROADMAP.md`](./PILOT_CONNECTOR_ROADMAP.md). |
-| **Pilot 2** | **Tamarack Health** (Epic) | **Planned** — Epic on FHIR / App Orchard / org endpoints; no live worker until BAA + app approval. **Plan:** [`EPIC_FHIR_INTEGRATION_PLAN.md`](./EPIC_FHIR_INTEGRATION_PLAN.md). |
+**North star:** Anang is a layer on top of existing healthcare infrastructure. We connect to EHRs to read clinical data. We connect to clearinghouses to send claims and receive remittances. We do not replace either.
 
 ---
 
-## 1. Connector categories
+## The Data Flow
 
-| Category | Examples | Typical artifacts | Lands in (canonical) |
-|----------|----------|-------------------|----------------------|
-| **EHR / PM clinical & demographics** | Greenway, Intergy-class PM, Epic, athena; **dental DMS/PMS** (e.g. Dentrix-class, Open Dental–class) per **`docs/MODULES_CUSTOMER.md`** *Dental vertical* | FHIR R4, proprietary APIs, HL7 v2, vendor exports | `Patient`, `Encounter`, providers/facilities |
-| **EHR / PM charges & claim prep** | Same vendors + billing modules; **dental** often **CDT**-centric lines | Charge exports, claim excerpts, APIs | `ClaimDraft` lines / future **Charge** rows |
-| **Claims submission & lifecycle** | Clearinghouse, direct payer | 837, 277, portals | `Claim`, **claim lines**, `ClaimTimelineEvent` ✳ |
-| **Prior authorization (medical benefit)** | Staff workflow today; payer portals / ePA **later** | Manual status + attachments metadata in product | **`PriorAuthCase`** (+ children) under **Connect → Authorizations** — **`docs/PRIOR_AUTHORIZATION.md`** |
-| **Pharmacy e-claims (optional)** | Switch, PBM feeds | NCPDP Telecommunication / batch (see Appendix B) | Same **`Claim`** timeline pattern or future pharmacy-specific entities — **contract-gated** |
-| **Remittance & denials** | 835 ERA, payer portals, workbench CSV | 835, downloadable CSV | **Remittance**, **adjustment**, **denial** (future tables) |
-| **Patient financial / AR** | Statement print files, PM AR export | PDF/CSV, API | `Statement`, `StatementLine` |
-| **Identity / SSO** | Okta, Entra | OIDC | Existing auth (`Tenant` + memberships) |
+```
+EHR / PM System
+    │  Encounters, Patients, Coverage
+    │  (FHIR R4 or CSV)
+    ▼
+Anang platform-app
+    │  Claims AI reviews draft claims
+    │  Staff approves
+    ▼
+Clearinghouse (Availity / Waystar)
+    │  837 claim submission
+    ▼
+Payer (UHC, BCBS, Aetna, etc.)
+    │  Adjudicates claim
+    │  835 remittance (paid / denied + reason code)
+    ▼
+Clearinghouse → Anang
+    │  Parses 835, records denial reason
+    ▼
+Claims AI model updates
+    (learns which patterns get denied by which payers)
+```
 
-✳ *Partially implemented today.*
-
----
-
-## 2. Priority order (recommended)
-
-1. **Canonical data model + idempotent upsert pattern** — Every connector must map into the same tenant-scoped entities (see core data model doc).
-2. **First PM/EHR path for pilot** — Driven by first contract; see §4 (Greenway / Intergy).
-3. **CSV / batch fallback** — Always available for go-live rescue and shadow validation.
-4. **Claims + remittance ingestion** — Required for serious Connect and Build loop closure.
-5. **Clearinghouse partner connector** — Phase after internal parsers and ops runbooks exist.
-
----
-
-## 3. Design principles
-
-- **No single vendor assumes one protocol** — A given product line may offer FHIR, batch export, partner API, or mixed; **capability matrix per product** beats assumptions.
-- **Raw + normalized** — Store or reference **raw payload** (or hash + object storage pointer) alongside normalized rows for audits and replays.
-- **Tenant mapping layer** — Per-tenant field maps, code set maps (payer IDs, department → place of service), and **validation rules** tuned in onboarding — not global hardcodes.
-- **Shadow mode** — Ingest and **score** in parallel with existing billing ops before flipping “staff sees Anang suggestions.”
+The 835 remittance loop is the most important: every denial is a training signal. Over time the model learns what works with each payer.
 
 ---
 
-## 4. First integration target: Greenway (research before build)
+## Three Connector Tiers
 
-**Greenway** is called out as the **first real integration target**; **Intergy** may appear in the same enterprise. Important cautions:
+### Tier 1 — CSV/XLSX Upload (Day 1, zero IT)
 
-- **Multiple products** exist under the Greenway umbrella over time (e.g., different PM/EHR lines). **Do not** code to one API name until **contract + SKU** clarifies which product is in scope.
-- **Research tasks (documentation gate before implementation):**
-  - Which **product** is licensed (name + major version)?
-  - **FHIR / SMART on FHIR** availability, scopes, and BAA path (if any).
-  - **Vendor-documented APIs** (REST/SOAP) vs **batch export** (CSV, HL7) for charges and patients.
-  - **Claims export** and **remittance** practical path (clearinghouse vs direct).
-  - **Sandbox** access, test patient policies, and rate limits.
+**Use for:** Every pilot, every new client, any EHR without a good API.
 
-### 4.1 Public Greenway FHIR documentation (no account required to read)
+Health system exports from their PM system → uploads CSV to Anang → Claims AI runs immediately. No IT involvement. No EHR access required. Gets a pilot live in days.
 
-Greenway publishes a **FHIR R4** program on the [Developer Platform](https://developers.greenwayhealth.com/developer-platform/reference/getting-started-1). Use it as the **baseline** for HTTP shape and auth **before** a tenant-specific endpoint list is in hand.
+What to ingest:
+- Encounters (visit date, provider, facility, diagnosis codes, procedure codes)
+- Patients (demographics, MRN)
+- Statements (balance, due date)
 
-| Topic | Link | Notes |
-|--------|------|--------|
-| Getting started | [Getting started](https://developers.greenwayhealth.com/developer-platform/reference/getting-started-1) | FHIR R4 overview, example `curl`/Python |
-| SMART apps | [How to Create and Publish SMART-on-FHIR apps](https://developers.greenwayhealth.com/developer-platform/docs/how-to-create-and-publish-smart-on-fhir-apps) | App registration path |
-| OAuth | [FHIR Authentication and Authorization](https://developers.greenwayhealth.com/developer-platform/docs/authentication-and-authorization) | Bearer tokens; follow for production/staging |
-| Customer base URLs | [FHIR base URLs](https://developers.greenwayhealth.com/developer-platform/page/fhir-base-urls) | **Tenant-specific** endpoints may differ — prefer this list per deployment |
-| Developer signup | [Registration](https://devplatform.greenwayhealth.com/developer/registration) | Required to deploy/register apps |
+**Fallback for anything.** Never block a pilot on connector delays.
 
-**Documented host pattern (verify against [FHIR base URLs](https://developers.greenwayhealth.com/developer-platform/page/fhir-base-urls) for each customer):**
+### Tier 2 — FHIR R4 Background Sync (Phase 1 automated)
 
-- **Production-style:** `https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/{TENANT_ID}`
-- **Staging-style:** `https://fhir-api.fhirstaging.aws.greenwayhealth.com/fhir/R4/{TENANT_ID}`
+**Use for:** Ongoing automated data sync without requiring EHR access during the clinical workflow.
 
-Authenticated requests use `Authorization: Bearer <token>` after OAuth; production access is tied to **Greenway Identity** per their guide. A **public sandbox** was described as coming soon on the getting-started page — plan pilot credentials accordingly.
+Uses backend credentials (OAuth2 client_credentials, not SMART launch). Anang polls for new/updated encounters on a schedule.
 
-**Repo:** URL builder, env-backed read helpers, optional **OAuth2 client_credentials** (`GREENWAY_FHIR_CLIENT_ID`, `GREENWAY_FHIR_CLIENT_SECRET`, `GREENWAY_FHIR_TOKEN_URL`, optional `GREENWAY_FHIR_OAUTH_SCOPE`), **FHIR Patient/Encounter normalizers**, and transactional **`syncGreenwayPatientEncounters`** (canonical **`Patient` / `Encounter`** + **`IngestionBatch`** connectorKind **`greenway_fhir`**). **Settings → Implementation hub** — Patient read (see `.env.example`). Cron: **`GET` or `POST` `/api/cron/greenway-fhir-sync`** with **`Authorization: Bearer`** **`CRON_SECRET`**; optional **`?patientId=`** — **probe-only** JSON when **`GREENWAY_FHIR_SYNC_TENANT_SLUG`** is unset, else **upsert** Patient + **`Encounter?patient=`** for that tenant slug when a bearer token is available (**PHI** — BAA staging only).
+**FHIR Resources we need:**
+- `Patient` — demographics, MRN
+- `Encounter` — visit date, provider, facility, type
+- `Condition` — diagnoses (ICD-10)
+- `Procedure` — procedures (CPT/HCPCS)
+- `Coverage` — insurance, payer, member ID
+- `ExplanationOfBenefit` — remittance data (if exposed)
 
-**Deliverable:** A short **connector brief** (internal memo or appendix in onboarding notes) listing **approved connection path**, **fallback**, and **data element coverage** — signed off by product + engineering before Prisma/adapter specificity.
+**Priority order by market share:**
+1. **Epic** (~27% of US hospitals) — Best FHIR R4, sandbox at open.epic.com, App Orchard for distribution. Start here.
+2. **athenahealth** (~10%) — Strong FHIR R4, REST webhooks available.
+3. **Oracle Health / Cerner** (~8%) — FHIR R4 via Millennium APIs.
+4. **Greenway** (~5%) — FHIR R4 at `fhir-api.fhirprod.aws.greenwayhealth.com`. Auth documented at developers.greenwayhealth.com.
+5. **eClinicalWorks, Allscripts, etc.** — Evaluate per client.
 
----
+Implementation pattern:
+- `apps/platform-app/src/lib/connectors/<ehr-name>/` — one directory per EHR
+- `syncEncounters(tenantSlug, since)` — idempotent upsert via `ExternalIdentifier`
+- `IngestionBatch` records every sync run with status, count, errors
+- Cron job at `/api/cron/<ehr-name>-sync` with `CRON_SECRET` auth
 
-## 5. Fallback import strategy
+### Tier 3 — SMART on FHIR (Phase 2, in-workflow)
 
-| Method | When | Guardrails |
-|--------|------|------------|
-| **CSV importer** | Vendor delay, partial API, historical load | Schema validation, dry-run report, tenant mapping UI |
-| **FHIR Bundle upload** | Implementation hub (pilot / validation bundles) | Strict mode, FX toggles — see `docs/DEPLOYMENT.md` |
-| **Manual queue** | Exception workflow | Staff UI + audit |
+**Use for:** Claims AI embedded inside the EHR during clinical documentation. Provider types the encounter note → Anang sidebar shows real-time flags.
 
-**Idempotent fixture re-import (pilot):** When R4 `Patient.id` / `Encounter.id` are present, **Settings → FHIR import** finds canonical rows via `ExternalIdentifier`, **updates** demographics and visit fields, and **upserts** the id map. Pay: if a statement exists for that encounter with **no posted payments**, lines and balances are **replaced**; if payments exist, a **second statement** (`…-P` suffix) is created so history is preserved. A bundle whose Encounter id already maps to a **different** patient in the tenant is **rejected** with an error (data integrity).
+Requires:
+- Epic App Orchard registration (for Epic)
+- SMART launch parameters (`launch`, `iss` URL params)
+- Scopes: `patient/Encounter.read`, `patient/Condition.read`, `patient/Procedure.read`
 
-Each import creates a **`SourceArtifact`** row (linked to `IngestionBatch`) with **SHA-256** of the raw bundle text and, when under **`FHIR_IMPORT_MAX_INLINE_PAYLOAD_BYTES`**, the full JSON for replay. Oversize payloads store fingerprint only until object storage is used (`storageUri`).
-
-All fallbacks should **populate the same canonical entities** so Build / Pay / Insight do not fork.
-
----
-
-## 6. Mapping into the core data model
-
-1. **Extract** — Connector pulls source record.
-2. **Normalize** — Map to Anang types (patient, encounter, line items, financial events).
-3. **Key** — Resolve stable internal IDs via external identifier map (idempotency).
-4. **Validate** — Tenant rules + global RCM sanity (e.g. DOS present, amounts ≥ 0).
-5. **Publish** — Available to modules (Build rules engine reads canonical + raw pointer).
+This is also the **Epic demo video** — see `docs/ROADMAP.md` Phase 3.
 
 ---
 
-## 7. Compliance & operations
+## Clearinghouse Strategy
 
-- **PHI** only in environments covered by **BAA** and approved retention.
-- **Logging** — Correlation IDs, tenant IDs; no raw PHI in application logs (see `docs/PLATFORM_LOGGING.md` if present).
-- **Runbooks** — Connector degradation (poll failures, 401 refresh, partial file) with replay and alerting.
+**Do not connect to payers directly.** Connect to one clearinghouse; they handle the payer network.
 
----
+**Recommended:** Start with **Availity** (largest US clearinghouse network). **Waystar** (acquired Change Healthcare) is the alternative.
 
----
+What we need from the clearinghouse:
+- **837 submission** — Send clean claims outbound
+- **277 claim status** — Poll for acceptance/rejection
+- **835 ERA** — Receive remittance files (the denial training signal)
 
-## Appendix A — Greenway & Intergy connector brief (living doc)
-
-**Status:** Synthesis for onboarding and sales engineering — **not** a vendor certification. **Sign off** the “approved path” row per tenant contract before hardening a dedicated adapter name in code.
-
-### A.1 Product landscape (why SKU matters)
-
-| Brand / line (public positioning) | Notes for integration planning |
-|-----------------------------------|--------------------------------|
-| **Greenway** | Portfolio has evolved through acquisitions; “Greenway” can mean different **practice management / billing** stacks and API programs depending on **contract and product generation**. |
-| **Intergy** | Often discussed in the **Greenway / Intergy** enterprise context; treat as a **separate SKU confirmation** — API, batch export, and partner programs may differ from other Greenway-named products. |
-
-**Rule:** The **first integration target** named in §4 is a **commercial and product decision**. Engineering implements against the **documented interface** for the SKU in scope (FHIR app, REST partner API, HL7 v2, scheduled CSV/NCPDP-class exports, clearinghouse-mediated files, etc.).
-
-### A.2 Candidate connection paths (pick one per engagement)
-
-| Path | When to prefer | Risks / prerequisites |
-|------|----------------|------------------------|
-| **SMART on FHIR / FHIR R4 API** | Vendor offers patient-centric or bulk FHIR with your **registered app**, scopes cover **Patient, Encounter, Coverage**, and (if available) **ChargeItem / Claim** analogs. | OAuth, BAA, rate limits, **incomplete charge** coverage vs PM export. |
-| **Vendor REST / SOAP partner API** | Documented developer program; stable **sandbox**; entity coverage matches pilot **Patient + Encounter + financial**. | Version drift; certification timelines. |
-| **HL7 v2 (ADT, DFT, BAR)** | Legacy but common; strong for **feeds** when API is weak. | Interface engine, segment mapping, **idempotency** on MRN/visit number. |
-| **Batch CSV / fixed-width** | Fastest **pilot rescue**; vendor delivers nightly extracts. | Mapping UI, validation, **manual reconciliation** — use Anang **`csv_upload`** path for rehearsal (Implementation hub). |
-| **Clearinghouse / 837-835 loop** | Claim lifecycle already planned under **Connect** — complementary, not a substitute for **demographics + charge** from PM. | Depends on **submission channel**, not always full clinical context. |
-
-**Pilot rehearsal in this repo:** **FHIR Bundle paste** and **CSV v1** populate the same **canonical** `Patient`, `Encounter`, and (with PAY) `Statement` / `StatementLine` rows as vendor paths should eventually do.
-
-### A.3 Data element coverage checklist (minimum viable for Build + Pay rehearsal)
-
-| Domain | Minimum | Stretch |
-|--------|---------|---------|
-| Patient | MRN, name, DOB | Identifiers, telecom, preferred language |
-| Encounter | DOS, department/POS, **link to patient** | External visit id, attending |
-| Financial (Pay) | **Line-level** charges: code, description, amount | Diagnosis pointers, modifiers |
-| Provenance | Stable **source keys** for idempotent upsert | Raw artifact hash (`SourceArtifact`) |
-
-### A.4 Intergy-specific questions (add answers per RFP)
-
-1. Which **product generation** and **hosting** model (cloud vs hosted) is in contract?
-2. Is there a **developer portal** with non-production **credentials** and **test patients**?
-3. For **charges**, is the **API** authoritative or is **batch export** the operational source of truth?
-4. What is the **supported path** for **remittance** (clearinghouse vs portal CSV)?
-
-### A.5 Sign-off (copy into client folder when filled)
-
-| Field | Owner | Date |
-|-------|-------|------|
-| SKU in scope | | |
-| Approved primary path (from A.2) | | |
-| Fallback path | | |
-| Sandbox access granted | Y/N | |
-| BAA / DPA status | | |
+The clearinghouse connection is the `CONNECT` module. It's separate from the EHR connectors.
 
 ---
 
-## Appendix B — Pharmacy e-claims / NCPDP (optional SKU, E2b2b6)
+## Data Model
 
-**Status:** Scaffold only in repo — **no production Teleclaim/SCRIPT parser** until a customer contract explicitly adds pharmacy e-claims beyond **X12 medical** (837P/I professional/institutional).
+Every connector writes to the same canonical models:
 
-### B.1 When this appendix applies
+| Connector produces | Canonical model |
+|-------------------|----------------|
+| Patient demographics | `Patient` |
+| Visit data | `Encounter` |
+| Insurance | `Coverage` |
+| Draft claim | `ClaimDraft` → `Claim` |
+| Claim submission | `Claim837EdiSubmission` |
+| Remittance / denial | `Remittance835` |
+| Raw data reference | `IngestionBatch` + `SourceArtifact` (SHA-256 hash) |
+| External IDs | `ExternalIdentifier` (idempotency key for upserts) |
 
-| Situation | Action |
-|-----------|--------|
-| Pilot is **medical professional/institutional only** | Rely on **Connect** X12 path (837/277/835/997); ignore NCPDP scaffolding. |
-| Contract includes **retail / mail-order pharmacy** submission or switch files | Open a **product tic** for the exact partner format (ASCII Telecommunication Standard vs batch, version, cert). |
-
-### B.2 Repo scaffolding (today)
-
-| Artifact | Purpose |
-|----------|---------|
-| `ConnectorKind.ncpdp_pharmacy` | Parallel batch kind for `IngestionBatch` when pharmacy ingest is wired — **reserved** until workers exist. |
-| `apps/platform-app/src/lib/connect/ncpdp/ncpdp-claim-hints.ts` | Heuristic `detectNcpdpClaimAsciiHint` for routing/tests — **not** a compliance validator. |
-| Env **`NCPDP_CONNECTOR_ENABLED`** | When `1`/`true`/`yes`, **Settings → Integration readiness** and `GET /api/integrations/status` report **test_ready** for the pharmacy lane (ops visibility). |
-
-### B.3 Implementation checklist (when contracted)
-
-1. Obtain **authoritative sample files** (anonymized) + vendor implementation guide version.
-2. Map **BIN/PCN/Group** and **claim** segments to canonical **Claim** / timeline (or new pharmacy-specific entities if product requires).
-3. Add **webhook or poll worker** with same **`SourceArtifact`** + optional **S3** pattern as X12 (E2b2b5).
-4. Add **golden tests** per segment type before enabling tenants.
+**Every import is idempotent.** If the same encounter ID arrives twice, it updates — doesn't duplicate.
 
 ---
 
-*Document version: 1.5 — connector table: **PriorAuth** staff lane (not ingest); Appendix B NCPDP scaffold (E2b2b6).*
+## Compliance
+
+- All connectors write to PHI-governed environments only (BAA in place).
+- Raw FHIR payloads are NOT logged to application logs — only correlation IDs and counts.
+- `SourceArtifact` stores SHA-256 of the raw payload for audit; full JSON stored only when under `FHIR_IMPORT_MAX_INLINE_PAYLOAD_BYTES`.
+- FHIR credentials (`CLIENT_ID`, `CLIENT_SECRET`) stored as env vars; never in the database.
+
+---
+
+## Environment Variables (per connector)
+
+```bash
+# Epic
+EPIC_FHIR_CLIENT_ID=...
+EPIC_FHIR_PRIVATE_KEY=...        # RSA private key for JWT auth
+EPIC_FHIR_TENANT_FHIR_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4
+
+# Greenway (existing connector)
+GREENWAY_FHIR_CLIENT_ID=...
+GREENWAY_FHIR_CLIENT_SECRET=...
+GREENWAY_FHIR_TOKEN_URL=...
+GREENWAY_FHIR_SYNC_TENANT_SLUG=...
+
+# Cron auth (shared)
+CRON_SECRET=...
+
+# Clearinghouse
+AVAILITY_API_KEY=...
+AVAILITY_API_SECRET=...
+```
+
+---
+
+## What NOT to Do
+
+- Don't try to build a direct payer connection. Clearinghouse handles this.
+- Don't block a pilot on EHR integration. CSV is always available.
+- Don't build Greenway-first just because it was the original plan. Epic has 5x the market share.
+- Don't store raw FHIR bundles with PHI in application logs.
+
+---
+
+*Last updated: 2026-06-19 — Rewritten around tiered connector approach: CSV → FHIR R4 → SMART on FHIR.*

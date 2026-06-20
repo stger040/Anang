@@ -9,20 +9,15 @@ export function PlatformShell({
   userEmail,
   extraTopActions,
   showDashboardInNav = true,
-  dashboardNavLabel = "Start Here",
-  dashboardNavShortHelp = "Guided demo flow",
   children,
 }: {
   orgSlug: string;
   tenantName: string;
   enabledModules: ModuleKey[];
-  /** Org-level Admin rail (`/settings`): tenant admins + platform super-admins only. */
   showTenantAdminNav: boolean;
   userEmail: string;
   extraTopActions?: React.ReactNode;
   showDashboardInNav?: boolean;
-  dashboardNavLabel?: string;
-  dashboardNavShortHelp?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -34,8 +29,6 @@ export function PlatformShell({
       userEmail={userEmail}
       extraTopActions={extraTopActions}
       showDashboardInNav={showDashboardInNav}
-      dashboardNavLabel={dashboardNavLabel}
-      dashboardNavShortHelp={dashboardNavShortHelp}
     >
       {children}
     </TenantWorkspace>
