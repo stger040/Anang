@@ -153,6 +153,10 @@ async function apply277Row(
 
 const DENIED_835 = new Set(["2", "4", "22", "23"]);
 
+export function inbound835RemittanceKey(x12: string): string {
+  return `edi835:sha:${createHash("sha256").update(x12, "utf8").digest("hex").slice(0, 32)}`;
+}
+
 async function upsertRemittance835FromInbound835(
   db: DbClient,
   tenantId: string,
@@ -678,9 +682,7 @@ export async function applyInboundX12ToTenant(args: {
     transactionSet === "835" ? findClpSegmentIndices(segments) : [];
 
   if (transactionSet === "835" && rows.length > 0) {
-    const remittanceKey = ingestionBatchId
-      ? `edi835:batch:${ingestionBatchId}`
-      : `edi835:sha:${createHash("sha256").update(x12, "utf8").digest("hex").slice(0, 32)}`;
+    const remittanceKey = inbound835RemittanceKey(x12);
     const header = await upsertRemittance835FromInbound835(db, tenantId, {
       remittanceKey,
       eraTraceNumber: trnRefs[0] ?? null,
