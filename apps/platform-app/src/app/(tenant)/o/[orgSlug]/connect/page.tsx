@@ -107,8 +107,8 @@ export default async function ConnectClaimsPage({
           <p className="mt-2 text-sm text-slate-700">
             EHR &amp; Claims is your workspace for the full claim lifecycle: EHR data
             ingestion, submission, payer responses, denials, appeals, and ERA-backed
-            adjudication. Everything you need to answer "where is this claim with the
-            payer?" lives here. Denial outcomes feed back into Claims AI training.
+            adjudication. Everything you need to answer &ldquo;where is this claim with the
+            payer?&rdquo; lives here. Denial outcomes feed back into Claims AI training.
           </p>
           <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
             What should I do today?
