@@ -148,7 +148,10 @@ export async function createPriorAuthCaseDb(args: {
       });
       break;
     } catch (error) {
-      if (isUniqueConstraintError(error) && attempt < CASE_NUMBER_RETRY_LIMIT - 1) {
+      if (
+        isUniqueConstraintError(error) &&
+        attempt < CASE_NUMBER_RETRY_LIMIT - 1
+      ) {
         continue;
       }
       throw error;
@@ -168,7 +171,7 @@ export async function createPriorAuthCaseDb(args: {
     requestId: requestId ?? null,
   });
 
-  return { id: row.id, caseNumber };
+  return { id: row.id, caseNumber: row.caseNumber };
 }
 
 export async function updatePriorAuthCaseStatusDb(args: {
