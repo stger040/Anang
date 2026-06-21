@@ -13,6 +13,27 @@ export const brandDefaults = {
       "Unified platform for patient financial engagement, claims intelligence, and proactive denial prevention.",
   },
 
+  products: {
+    claimsAi: {
+      label: "Claims AI",
+      tagline: "Stop denials before submission",
+      description:
+        "AI-assisted claims build that surfaces documentation gaps, missing modifiers, and payer-specific denial risks before the claim leaves your system. Human-in-the-loop — your team approves every change.",
+    },
+    patientPay: {
+      label: "Patient Pay",
+      tagline: "Patient financial engagement, reimagined",
+      description:
+        "Mobile-first patient billing portal with digital statements, flexible payment plans, AI-powered bill explanations, coverage navigation, and financial assistance matching.",
+    },
+    intelligence: {
+      label: "Intelligence",
+      tagline: "Revenue insights that drive action",
+      description:
+        "Denial trend analytics, clean claim rate tracking, propensity-to-pay scoring, and AR performance dashboards — so your RCM leaders can act on data, not hunches.",
+    },
+  },
+
   modules: {
     core: {
       key: "CORE" as const,
@@ -21,23 +42,23 @@ export const brandDefaults = {
     },
     build: {
       key: "BUILD" as const,
-      label: "Build",
+      label: "Claims AI",
       description:
         "AI-assisted claims build, documentation gaps, denial risk — human-in-the-loop.",
     },
     pay: {
       key: "PAY" as const,
-      label: "Pay",
-      description: "Patient statements, balances, payments, and staff views.",
+      label: "Patient Pay",
+      description: "Patient statements, balances, payments, mobile app, and staff views.",
     },
     connect: {
       key: "CONNECT" as const,
-      label: "Connect",
+      label: "RCM Ops",
       description: "Claim lifecycle, payer status, remittance, clearinghouse readiness.",
     },
     insight: {
       key: "INSIGHT" as const,
-      label: "Insight",
+      label: "Intelligence",
       description: "Denial trends, clean claim rate, AR, and revenue leakage signals.",
     },
     support: {

@@ -52,10 +52,10 @@ export function SiteHeaderBar({ bookUrl, appUrl }: SiteHeaderBarProps) {
           aria-label="Primary"
         >
           <Link href="/platform" className="transition hover:text-white">
-            Platform
+            Claims AI
           </Link>
           <Link href="/modules" className="transition hover:text-white">
-            Modules
+            Patient Pay
           </Link>
           <Link href="/about" className="transition hover:text-white">
             About
@@ -134,14 +134,14 @@ export function SiteHeaderBar({ bookUrl, appUrl }: SiteHeaderBarProps) {
             className="rounded-lg px-3 py-2.5 text-sm font-medium text-white/85 transition hover:bg-white/10 hover:text-white"
             onClick={close}
           >
-            Platform
+            Claims AI
           </Link>
           <Link
             href="/modules"
             className="rounded-lg px-3 py-2.5 text-sm font-medium text-white/85 transition hover:bg-white/10 hover:text-white"
             onClick={close}
           >
-            Modules
+            Patient Pay
           </Link>
           <Link
             href="/about"

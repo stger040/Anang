@@ -64,64 +64,64 @@ function SupportRailIcon({ className }: { className?: string }) {
 const ALL: NavItem[] = [
   {
     href: "dashboard",
-    label: "Start Here",
-    shortHelp: "Guided demo flow",
+    label: "Home",
+    shortHelp: "Workspace overview",
     icon: <span className="text-base">◆</span>,
     module: undefined,
     iconTone: "text-purple-600",
   },
   {
     href: "build",
-    label: "Build",
-    shortHelp: "Prepare claim drafts",
+    label: "Claims AI",
+    shortHelp: "Denial prevention",
     icon: <span className="text-base">▣</span>,
     module: "BUILD",
     iconTone: "text-blue-600",
   },
   {
-    href: "pay",
-    label: "Pay",
-    shortHelp: "Statements and balances",
-    icon: <span className="text-base">$</span>,
-    module: "PAY",
-    iconTone: "text-green-600",
-  },
-  {
     href: "connect",
-    label: "Connect",
-    shortHelp: "Claim lifecycle",
+    label: "EHR & Claims",
+    shortHelp: "Connections & submission",
     icon: <span className="text-base">⇄</span>,
     module: "CONNECT",
     iconTone: "text-red-600",
   },
   {
-    href: "insight",
-    label: "Insight",
-    shortHelp: "RCM KPI summary",
-    icon: <span className="text-base">◇</span>,
-    module: "INSIGHT",
-    iconTone: "text-emerald-800",
-  },
-  {
-    href: "support",
-    label: "Support",
-    shortHelp: "Follow-up queue",
-    icon: <SupportRailIcon />,
-    module: "SUPPORT",
-    iconTone: "text-violet-900",
+    href: "pay",
+    label: "Patient Billing",
+    shortHelp: "Statements & collections",
+    icon: <span className="text-base">$</span>,
+    module: "PAY",
+    iconTone: "text-green-600",
   },
   {
     href: "cover",
-    label: "Cover",
-    shortHelp: "Coverage and affordability",
+    label: "Assistance",
+    shortHelp: "Coverage & affordability",
     icon: <span className="text-base">◎</span>,
     module: "COVER",
     iconTone: "text-orange-600",
   },
   {
+    href: "support",
+    label: "Follow-up",
+    shortHelp: "Collections queue",
+    icon: <SupportRailIcon />,
+    module: "SUPPORT",
+    iconTone: "text-violet-900",
+  },
+  {
+    href: "insight",
+    label: "Analytics",
+    shortHelp: "Denial trends & AR",
+    icon: <span className="text-base">◇</span>,
+    module: "INSIGHT",
+    iconTone: "text-emerald-800",
+  },
+  {
     href: "settings",
-    label: "Admin",
-    shortHelp: "Users and implementation",
+    label: "Settings",
+    shortHelp: "Users & integrations",
     tenantAdminOnly: true,
     icon: <span className="text-base">⚙</span>,
     module: undefined,
@@ -130,10 +130,10 @@ const ALL: NavItem[] = [
 ];
 
 const NAV_GROUPS_BASE: Array<{ title: string; hrefs: string[] }> = [
-  { title: "Start", hrefs: ["dashboard"] },
-  { title: "Claims operations", hrefs: ["build", "connect"] },
-  { title: "Patient financial journey", hrefs: ["pay", "support", "cover"] },
-  { title: "Analytics and admin", hrefs: ["insight", "settings"] },
+  { title: "Overview", hrefs: ["dashboard"] },
+  { title: "Claims AI", hrefs: ["build", "connect"] },
+  { title: "Patient Pay", hrefs: ["pay", "cover", "support"] },
+  { title: "Analytics & Admin", hrefs: ["insight", "settings"] },
 ];
 
 export function AppSidebar({
@@ -145,8 +145,6 @@ export function AppSidebar({
   collapsed,
   onToggleCollapsed,
   showDashboardInNav = true,
-  dashboardNavLabel = "Start Here",
-  dashboardNavShortHelp = "Guided demo flow",
 }: {
   orgSlug: string;
   enabledModules: ModuleKey[];
@@ -156,38 +154,21 @@ export function AppSidebar({
   collapsed: boolean;
   onToggleCollapsed: () => void;
   showDashboardInNav?: boolean;
-  dashboardNavLabel?: string;
-  dashboardNavShortHelp?: string;
 }) {
   const pathname = usePathname();
   const enabled = new Set(enabledModules);
   const orgAbbrev = abbrevOrgDisplayName(tenantName);
   const slugAbbrev = abbrevOrgSlugForSidebar(orgSlug);
 
-  const NAV_GROUPS =
-    dashboardNavLabel === "Home"
-      ? NAV_GROUPS_BASE.map((g, i) =>
-          i === 0 ? { ...g, title: "Workspace" } : g,
-        )
-      : NAV_GROUPS_BASE;
+  const NAV_GROUPS = NAV_GROUPS_BASE;
 
-  const navItems = ALL.map((n) =>
-    n.href === "dashboard"
-      ? {
-          ...n,
-          label: dashboardNavLabel,
-          shortHelp: dashboardNavShortHelp,
-        }
-      : n,
-  );
-
-  const allowedItems = navItems.filter((n) => {
+  const allowedItems = ALL.filter((n) => {
     if (n.href === "dashboard" && !showDashboardInNav) return false;
     if (n.tenantAdminOnly && !showTenantAdminNav) return false;
     if (!n.module) return true;
     return enabled.has(n.module);
   });
-  const itemByHref = new Map(allowedItems.map((item) => [item.href, item]));
+  const itemByHref = new Map(allowedItems.map((item: NavItem) => [item.href, item]));
   const groupedItems = NAV_GROUPS.map((group) => ({
     title: group.title,
     items: group.hrefs
@@ -337,7 +318,7 @@ export function AppSidebar({
             collapsed ? "hidden" : "block"
           }`}
         >
-          Pilot seed data · not PHI · EHR replaces
+          HIPAA-compliant · Audit logged · anang.ai
         </div>
       </div>
     </aside>

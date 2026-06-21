@@ -60,3 +60,6 @@ Thumbs.db
 # Optional: Python / tooling noise from local envs
 .venv/
 __pycache__/
+
+# Claude Code local session state
+.claude/

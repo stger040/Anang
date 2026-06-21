@@ -50,9 +50,137 @@ export async function POST(req: Request) {
       requestId,
       event.id,
     );
+  } else if (event.type === "payment_intent.succeeded") {
+    await handlePaymentIntentSucceeded(
+      event.data.object as Stripe.PaymentIntent,
+      requestId,
+      event.id,
+    );
   }
 
   return NextResponse.json({ received: true });
+}
+
+async function handlePaymentIntentSucceeded(
+  intent: Stripe.PaymentIntent,
+  requestId: string | undefined,
+  stripeEventId: string,
+) {
+  // Only process mobile Patient Pay payments (flagged in metadata at creation time)
+  if (intent.metadata?.patientPay !== "1" || intent.metadata?.channel !== "mobile") return;
+
+  const intentId = intent.id;
+  const tenantId = intent.metadata?.tenantId;
+  const statementId = intent.metadata?.statementId;
+  const orgSlug = intent.metadata?.orgSlug?.trim();
+
+  if (!tenantId || !statementId) {
+    platformLog("warn", "pay.stripe.payment_intent.bad_metadata", {
+      requestId,
+      stripePaymentIntentId: intentId,
+    });
+    return;
+  }
+
+  const amountTotal = intent.amount_received ?? 0;
+  if (amountTotal <= 0) return;
+
+  const db = orgSlug ? tenantPrisma(orgSlug) : prisma;
+
+  const existing = await db.payment.findFirst({
+    where: { stripePaymentIntentId: intentId },
+  });
+  if (existing) return;
+
+  try {
+    await db.$transaction(async (tx) => {
+      const dup = await tx.payment.findFirst({
+        where: { stripePaymentIntentId: intentId },
+      });
+      if (dup) return;
+
+      const stmt = await tx.statement.findFirst({
+        where: { id: statementId, tenantId },
+      });
+      if (!stmt) {
+        platformLog("warn", "pay.stripe.payment_intent.statement_not_found", {
+          requestId,
+          tenantId,
+          statementId,
+          stripePaymentIntentId: intentId,
+        });
+        return;
+      }
+
+      const newBalance = Math.max(0, stmt.balanceCents - amountTotal);
+
+      const payment = await tx.payment.create({
+        data: {
+          tenantId,
+          statementId,
+          amountCents: amountTotal,
+          status: "posted",
+          method: "stripe_mobile",
+          paidAt: new Date(),
+          stripePaymentIntentId: intentId,
+        },
+      });
+
+      await tx.statement.update({
+        where: { id: statementId },
+        data: {
+          balanceCents: newBalance,
+          status: newBalance === 0 ? "paid" : stmt.status,
+        },
+      });
+
+      await allocatePaymentToPlanInstallments(tx, {
+        tenantId,
+        statementId,
+        paymentId: payment.id,
+        amountCents: amountTotal,
+      });
+
+      await tx.auditEvent.create({
+        data: {
+          tenantId,
+          actorUserId: null,
+          action: "pay.stripe.mobile_payment_posted",
+          resource: "payment",
+          metadata: {
+            paymentId: payment.id,
+            statementId,
+            amountCents: amountTotal,
+            stripePaymentIntentId: intentId,
+            stripeEventId,
+            ...(requestId ? { requestId } : {}),
+          },
+        },
+      });
+
+      platformLog("info", "pay.stripe.mobile_payment_posted", {
+        requestId,
+        tenantId,
+        statementId,
+        paymentId: payment.id,
+        stripePaymentIntentId: intentId,
+        amountCents: amountTotal,
+      });
+    });
+  } catch (e) {
+    const stillThere = await db.payment.findFirst({
+      where: { stripePaymentIntentId: intentId },
+    });
+    if (!stillThere) {
+      platformLog("error", "pay.stripe.mobile_payment_intent_transaction_failed", {
+        requestId,
+        stripePaymentIntentId: intentId,
+        tenantId,
+        statementId,
+        message: e instanceof Error ? e.message : "unknown",
+      });
+    }
+  }
 }
 
 async function handleCheckoutCompleted(

@@ -20,8 +20,9 @@ export default async function ModulesPage() {
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
       <h1 className="text-3xl font-semibold text-slate-900">Modules</h1>
       <p className="mt-4 max-w-2xl text-slate-600">
-        License only what you need. Each module is designed to share the same
-        tenant boundary, security model, and audit trail.
+        Anang ships as two products — <strong>Claims AI</strong> and <strong>Patient Pay</strong> —
+        built on a shared module layer. License only what you need. Each module shares the same
+        tenant boundary, security model, and HIPAA audit trail.
       </p>
       <div className="mt-12 divide-y divide-slate-200 border-y border-slate-200">
         {mods.map((m) => (

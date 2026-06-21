@@ -15,6 +15,7 @@ import type {
   NormalizedFhirPatientEncounter,
 } from "@/lib/fhir-fixture-import";
 import type { PrismaClient } from "@prisma/client";
+import { sendNewStatementPush } from "@/lib/push/send-patient-push";
 
 export const PATIENT_ENCOUNTER_IMPORT_ENCOUNTER_PATIENT_MISMATCH =
   "PATIENT_ENCOUNTER_IMPORT_ENCOUNTER_PATIENT_MISMATCH";
@@ -22,6 +23,7 @@ export const PATIENT_ENCOUNTER_IMPORT_ENCOUNTER_PATIENT_MISMATCH =
 export type PersistPatientEncounterImportResult = {
   encounterId: string;
   statementId?: string;
+  patientId?: string;
   payStatementCreated: boolean;
   idempotentPatient: boolean;
   idempotentEncounter: boolean;
@@ -59,7 +61,7 @@ export async function persistPatientEncounterImport(
   const claimLines = args.claimLines;
   const fromClaim = args.fromClaim;
 
-  return prisma.$transaction(async (tx) => {
+  const txResult = await prisma.$transaction(async (tx) => {
     const ingest = await createIngestionBatchRecordingRawPayload(tx, {
       tenantId: args.tenantId,
       connectorKind: args.connectorKind,
@@ -273,6 +275,7 @@ export async function persistPatientEncounterImport(
     return {
       encounterId: encounter.id,
       statementId: stmtId,
+      patientId: patient.id,
       payStatementCreated: true,
       idempotentPatient: ipat,
       idempotentEncounter: ienc,
@@ -280,4 +283,16 @@ export async function persistPatientEncounterImport(
       sourceArtifactMeta: sourceArtifactMetaTx,
     };
   });
+
+  // Fire-and-forget push notification for new statements (best-effort)
+  if (txResult.payStatementCreated && txResult.statementId) {
+    void sendNewStatementPush(
+      prisma,
+      args.tenantId,
+      txResult.patientId,
+      args.statementTotalCents,
+    ).catch(() => {/* best-effort */});
+  }
+
+  return txResult;
 }

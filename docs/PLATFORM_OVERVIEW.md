@@ -1,152 +1,202 @@
-# Platform overview — for developers and AI assistants
+# Platform Overview — Anang
 
-**Purpose:** Bring a new engineer or AI agent up to speed on what **Anang** is building, why, and where everything lives in the repo.
+**Purpose:** Bring any engineer or AI agent up to speed on what Anang is, what it does, and where everything lives.
 
-**Company:** **Anang**  
-**Domain:** **https://anang.ai**  
-**Market reference:** [Cedar](https://www.cedar.com) — patient financial experience + related services; we aim for a **similar breadth** plus **explicit RCM depth** and **AI differentiation**.
+**Company:** Anang · [anang.ai](https://anang.ai) · [app.anang.ai](https://app.anang.ai)
 
 ---
 
-## 1. What we are building (one paragraph)
+## 1. What Anang Does (One Paragraph)
 
-**Anang** is building an **enterprise, multi-tenant SaaS platform** for **U.S. healthcare providers** (health systems, hospitals, large groups) that **unifies the patient financial journey** with a **revenue-cycle intelligence layer** (not an EHR): digital billing and payments, coverage and affordability programs, communications, optional contact center / voice AI, **clearinghouse-style claim connectivity**, and **Build** — **deterministic-first** validation, retrieval, narrow scoring, and **optional** LLM explanations so staff ship cleaner claims. Patients get **Pay / Cover / Support / Core**; staff get **Build / Connect / Insight**. It is **one platform** with **many modules**, sharing tenants, identity boundaries, and analytics.
+Anang is an **AI-powered healthcare revenue cycle platform** with two products sold together to health system administrators — CFOs, VPs of Revenue Cycle, and Practice Managers:
 
----
+1. **Claims AI** — Reduces insurance claim denial rates from the industry average of 40–60% down to 20% over time. An AI layer sits between the clinical encounter and claim submission, catching coding errors, missing documentation, payer-specific rule violations, and prior auth gaps *before* the claim goes out the door. When denials still happen, a second AI workflow routes them to the right staff member with a suggested appeal response.
 
-## 2. Who buys it and how it is sold
-
-- **Buyers:** CFO / VP Revenue Cycle, CIO, often Patient Experience; contract is **B2B** with the health system.
-- **Delivery:** Primarily **multi-tenant cloud SaaS**; optional dedicated environments for large deals. **White-label** per client (logo, colors, domains) on top of shared code.
-- **Distribution:** Direct enterprise sales + long implementations (EHR integration, clearinghouse enrollment). See `BUILD_PLAN.md` §11.
-
-### Product surfaces (where people use the platform)
-
-**Vision:** Deliver **patient** and **staff** experiences on **desktop web**, **mobile web / PWA**, and **native iOS & Android** as modules mature—**one backend**, **parity** for patient Pay / Cover / Support / Core over time. **Transaction / success-fee** economics tie to **Pay** and **attribution**, not to whether the patient used Safari or the store app. Full rationale and a **web vs native** capability framing: **[`PRODUCT_SURFACES_VISION.md`](./PRODUCT_SURFACES_VISION.md)**.
-
-**Today’s repo** still centers on **`apps/platform-app`** (authenticated staff web workspace) plus marketing; **patient** Pay flows use **`/p/*`** (token/cookie gate) separate from staff NextAuth. **Roles, route separation, and module-vs-user access** are documented in **[`ACCESS_MODEL.md`](./ACCESS_MODEL.md)**.
+2. **Patient Pay** — A mobile-first patient billing experience with an AI agent that helps patients understand their bill, qualify for financial assistance, and pay. Designed to look and work like Cedar.com's patient financial platform — but with conversational AI that Cedar does not yet offer. Health systems earn more from patient collections because patients actually understand and pay what they owe.
 
 ---
 
-## 3. Product modules (conceptual — names in code: `packages/brand`)
+## 2. Who Buys It
 
-**Buyer-friendly module list** aligned with Cedar naming (Pay, Cover, Support, Pre) plus Build / Connect / Insight: **[`MODULES_CUSTOMER.md`](./MODULES_CUSTOMER.md)**.
-
-| Module | Role |
-|--------|------|
-| **Pre** | Pre-visit estimates, reminders, deposits; **good-faith estimates / transparency** (regulatory posture TBD with counsel). |
-| **Pay** | Statements, payment plans, discounts, omnichannel outreach, HSA/FSA display, patient portal, **PWA**. |
-| **Cover** | Medicaid/ACA, renewals, financial assistance, **reactive** patient-facing denials resolution (CoB, dual coverage, etc.). |
-| **Support** | Early-out, campaigns, **agent workspace**, copilot. |
-| **Voice** | AI voice agent for billing (comparable positioning to Cedar’s Kora). |
-| **Claims Build** | **Proactive denial prevention**: AI-assisted coding, documentation gaps, **deterministic prior-auth likelihood signals** on drafts (with staff **Connect** case workflow), pre-submit risk — **not** offered by Cedar as a headline. |
-| **Connect** | **837 / 835 / 277**, clearinghouse partner, claim lifecycle — **required** for serious RCM, not “portal only.” Includes **Authorizations** (staff prior auth case tracking — medical benefit Phase 1; see **[`PRIOR_AUTHORIZATION.md`](./PRIOR_AUTHORIZATION.md)**). |
-| **RCM denials (billing)** | Payer denial inbox, appeals, root-cause analytics — **complements** Cover’s **patient-side** denials flows. |
-| **Eligibility** | 270/271-style eligibility (roadmap; not the same surface as PA tracking). **Prior auth (medical benefit) case tracking** ships under Connect — **`PRIOR_AUTHORIZATION.md`**. |
-| **Cash & credits** | Posting, reconciliation, refunds, credit balances, bad-debt / agency handoff rules. |
-| **Intelligence** | Events, dashboards, propensity models, personalization, experiments. |
-| **Platform** | Multi-tenant admin, **API + webhooks**, consent, i18n/a11y, feature flags per tenant. |
-
-**AI differentiation (two tracks — neither is “LLM decides everything”):**
-
-1. **Patient / Support:** Plain-language billing education and **guardrailed** support (retrieval + tools + escalation); templates / minimal-payload modes for sensitive text — see **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**.  
-2. **Staff / Build:** **Rules + retrieval + narrow models** first; LLM as **explanation layer**; human acceptance **before** submit (no silent auto-submit). Core **`docs/CORE_DATA_MODEL.md`** and **`docs/CONNECTOR_STRATEGY.md`**.
+- **Primary buyer:** CFO / VP Revenue Cycle at a hospital, health system, or large physician group
+- **Contract:** B2B SaaS with the health system; patients use it for free
+- **Sales motion:** Direct enterprise sales, pilot-first approach (6-week pilots)
+- **Pricing model:** Platform fee + success-fee on patient collections
 
 ---
 
-## 4. Cedar vs Anang (strategic)
+## 3. The Two Products
 
-| Area | Cedar (benchmark) | Anang intent |
-|------|-------------------|--------------|
-| Patient pay + engagement | Core strength | **Match** |
-| Cover / affordability | Strong | **Match** |
-| Support + voice AI | Strong | **Match** |
-| Reactive denial help (patient) | Cedar Cover | **Match** |
-| **Proactive denial prevention (provider)** | Not a headline | **Differentiator — Claims Build** |
-| **Full EDI / Connect** | Partner-dependent; we still **design** first-class Connect | **Explicit module** |
-| **Medical-context bill explanation** | Financial-first AI | **Differentiator** |
+### Product 1: Claims AI
 
----
+**Problem it solves:** The average health system has a 40–60% claim denial rate, costing $262B/year in the U.S. Most denials are preventable — coding errors, missing modifiers, wrong diagnosis specificity, prior auth not obtained.
 
-## 5. Technical reality today (repo state)
+**How it works:**
+1. Encounter data arrives (via EHR integration or manual entry)
+2. Claims AI runs four layers of analysis:
+   - **Layer 1 – Deterministic rules:** Missing fields, CPT/ICD consistency, payer edits — no AI needed
+   - **Layer 2 – Retrieval:** Payer bulletins, denial history, your own SOPs
+   - **Layer 3 – Predictive scoring:** Denial likelihood per payer/code combination based on your historical data
+   - **Layer 4 – AI explanation:** Plain-English rationale for every flag, for staff review
+3. Staff reviews flagged issues and approves or dismisses before submission
+4. Over time the system learns which claim patterns succeed with which payers — denial rate falls
 
-- **Monorepo:** two Next.js 15 apps — `apps/marketing-site` (public) and `apps/platform-app` (authenticated product at `/o/[orgSlug]/…` plus `/admin`).
-- **Shared packages:** `@anang/brand`, `@anang/config`, `@anang/types`, `@anang/ui`, `packages/tsconfig`, etc.
-- **Data:** Prisma + **PostgreSQL** (`docker-compose` for local, or Neon per **`DEPLOYMENT.md`**). **`prisma/seed.ts`** currently seeds **one** pilot-style tenant — **`synthetic-test`** — with **all** `ModuleEntitlement` modules enabled and **one** primary patient (Sam) driving a **connected** staff-demo thread (see **`docs/TENANCY_AND_MODULES.md`** § *Staff journey*). Older docs that referenced multiple named demo tenants (e.g. LCO / Tamarack / `demo`) describe **product positioning or past seeds**, not the present default seed file.
-- **Implemented (starter):** **Auth.js** — optional **platform OIDC** (`AUTH_OIDC_*`) + **per-tenant OIDC** (admin UI + env secret pattern) + staging **Credentials**; policy **`local_only` / `sso_allowed` / `sso_required`** per tenant (`docs/DEPLOYMENT.md`, `docs/CLIENT_IT_OIDC_ONBOARDING.md`), Build / Pay / Connect / Insight MVPs, **Connect → Authorizations** for **medical-benefit prior authorization** case tracking (queue, checklist, SLA-style flags, encounter/claim linkage, audit — no payer auto-submit; see **`docs/PRIOR_AUTHORIZATION.md`**), **Cover** (**`CoverAssistanceCase`** intake + status) and **Support** (**`SupportTask`** queue) staff workspaces, Pay **pre-visit hub** route (`/pay/pre`), tenant settings + audit (including **Implementation hub → prior auth defaults**), super-admin index; **optional Stripe Checkout + webhook** for Pay when env vars are set (see **`DEPLOYMENT.md`**). **Staff UI cross-navigation** on key pages links **Build ↔ Connect ↔ Pay** when optional FKs are populated (encounter detail → related claim + PA cases where seeded; claim detail → encounter; statement detail → related claim + encounter). **Dental** is a **documented vertical** (Cedar Orthodontics–class): same module spine, dental-tuned UX and integrations — see **`docs/MODULES_CUSTOMER.md`**; optional future **`DENTAL`** `ModuleKey` not in schema yet.
-- **Not yet built:** SCIM / platform-wide OIDC JIT, **dedicated patient PWA / native billing apps** (see **`docs/PRODUCT_SURFACES_VISION.md`**, **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`**), production **SMS / magic-link** orchestration, FHIR/EHR feeds-in-production, production clearinghouse, full breadth in **`IMPLEMENTATION_PLAN.md`** — **`docs/FULL_PLATFORM_CHECKLIST.md`**.
+**Denials workflow:** When claims are denied, the denial reason code (CO-4, CO-11, PR-96, etc.) is parsed, categorized, and routed. AI drafts an appeal template. Staff reviews and submits.
 
-**Rule:** Do **not** scatter “Anang” or product copy across random files — use **`getBrand()`** from `@anang/brand` or edit **`packages/brand/src/config.ts`**.
+**Staff interface:** A claims worklist with AI-surfaced issues, encounter review panel, payer rules editor, and denial inbox.
 
-**Pilot / customer sessions:** See **[`CLIENT_SHOWCASE.md`](./CLIENT_SHOWCASE.md)** for URLs, operator sign-in, checks, and current gaps before production.
+### Product 2: Patient Pay
 
----
+**Problem it solves:** Patients receive confusing bills they don't understand, don't pay, and the health system writes off the balance. Cedar has shown this is solvable with good UX and outreach — median digital payment rate goes from ~48% to ~73%.
 
-## 6. Compliance and risk (high level)
+**Our differentiator over Cedar and Epic MyChart:** Neither offers a conversational AI agent that *talks* to the patient, explains every line item, screens for Medicaid/charity care eligibility in real time, and closes the payment — all without calling billing.
 
-- **HIPAA:** PHI only in governed environments with **BAAs**; audit logging and encryption expected for production.
-- **PCI:** Prefer hosted payment fields (e.g. Stripe); minimize card data scope.
-- **TCPA / CAN-SPAM / NSA transparency:** Apply as features go live; **legal review** for GFEs and state balance-billing rules.
-- **AI:** Build outputs are **auditable** (rule IDs, retrieval, scores); generative APIs are **swappable**; human review before claim submit; template / minimal-payload paths for PHI-adjacent text — **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`**.
+**How it works:**
+1. Health system sends patient a text/email with a magic link (no app download required for web)
+2. Patient taps link → opens mobile app or web portal
+3. AI agent greets them, explains their bill in plain English, suggests payment plan or assistance programs
+4. Patient pays (Stripe, Apple Pay, bank transfer) or enrolls in assistance
+5. Health system sees payment in real time; AR balance drops
 
-Details: `IMPLEMENTATION_PLAN.md` Part 6, `BUILD_PLAN.md` §5–6.
-
----
-
-## 7. Document map (read order for a new agent)
-
-| Order | File | Contents |
-|-------|------|----------|
-| 1 | **`docs/PLATFORM_OVERVIEW.md`** (this file) | Vision, modules, Cedar comparison, repo reality |
-| 1b | **`docs/PRODUCT_SURFACES_VISION.md`** | Desktop / mobile web / native parity; take-rate vs channel; engineering north star |
-| 1c | **`docs/MODULES_CUSTOMER.md`** | Cedar-aligned **Pay / Cover / Support / Pre** + **Build / Connect / Insight / Core / Dental** — same `ModuleKey` set, buyer language |
-| 1c2 | **`docs/PRIOR_AUTHORIZATION.md`** | **Medical-benefit PA** — Connect Authorizations + Build signals; sales boundaries (no ePA, no auto decisioning) |
-| 1d | **`docs/PATIENT_SCENARIOS_AND_MOBILE_APP.md`** | Patient vs staff scenarios; SMS → web → verify; app mapping |
-| 1e | **`docs/FOUNDER_BUILD_GUIDE.md`** | Neon, seed vs PHI, what non-engineers configure |
-| 1f | **`docs/CORE_DATA_MODEL.md`** | Canonical RCM entities, raw vs normalized, module needs, Prisma gaps |
-| 1g | **`docs/CONNECTOR_STRATEGY.md`** | Connector categories, Greenway/Intergy research gate, CSV fallback, mapping; commercial pilot table → **`PILOT_CONNECTOR_ROADMAP.md`** / **`EPIC_FHIR_INTEGRATION_PLAN.md`** |
-| 1h | **`docs/MEDICAL_AI_AND_EXPLANATION_LAYER.md`** | Bill explain evolution; Build vs Support; provider abstraction |
-| 1i | **`docs/ENGINEERING_BACKLOG.md`** | Foundational tickets (data model, Build rules, connectors, AI adapters) |
-| 2 | **`docs/ARCHITECTURE.md`** | Marketing + **staff** platform apps today; **patient** shells per roadmap |
-| 3 | **`docs/DEPLOYMENT.md`** | Vercel projects, Postgres, env vars |
-| 4 | **`docs/TENANCY_AND_MODULES.md`** | Entitlements, seeds, adding clients |
-| 4b | **`docs/FIRST_CLIENT_ONBOARDING_6W.md`** | Six-week pilot rhythm; links to in-app **Implementation hub** |
-| 5 | **`docs/ROADMAP.md`** | Phased rollout after this starter |
-| 6 | **`IMPLEMENTATION_PLAN.md`** | Phased delivery, architecture diagram, regulatory checklist |
-| 7 | **`BUILD_PLAN.md`** | Repo layout, CI/cadence, quality, distribution alignment |
-| 8 | **`docs/FULL_PLATFORM_CHECKLIST.md`** | Master feature checklist |
-| 9 | **`docs/DEVELOPMENT_NEEDS.md`** | What the business must supply (EHR, Stripe, BAAs, etc.) |
-| 10 | **`docs/BRANDING.md`** | Env overrides and rename workflow |
-| 11 | **`docs/EPIC_AND_TEST_DATA.md`** | Sandboxes vs synthetic data — no “open Epic dumps” |
-| 12 | **`packages/brand/src/config.ts`** | Live display strings: **Anang**, suite name, AI labels |
+**Patient interface:** Expo (iOS + Android) native app plus responsive web. Four tabs:
+- **My Bill** — Balance, charges, payments made
+- **Coverage** — Insurance details, deductible/OOP progress
+- **Assistance** — Medicaid screener, charity care, prompt-pay discounts
+- **Account** — Settings, sign out
 
 ---
 
-## 8. Commands (local dev)
+## 4. What We Are NOT
 
-```powershell
+- **Not an EHR.** We integrate with Epic, athenahealth, Oracle Health, Greenway, etc. via FHIR/API/CSV.
+- **Not a clearinghouse.** We connect to clearinghouses (Availity, Change Healthcare) via their APIs.
+- **Not a practice management system.** We layer on top of what the health system already has.
+
+---
+
+## 5. Technical Architecture
+
+### Apps in the Monorepo
+
+| App | URL | Purpose |
+|-----|-----|---------|
+| `apps/marketing-site` | anang.ai | Public marketing, product pages |
+| `apps/platform-app` | app.anang.ai | Staff workspace (billers, coders, admins) |
+| `apps/patient-app` | Native iOS/Android + deep links | Patient billing app (Expo React Native) |
+
+### Shared Packages
+
+| Package | Purpose |
+|---------|---------|
+| `packages/brand` | Brand tokens, product names, company config — single source of truth |
+| `packages/config` | Shared TypeScript/ESLint config |
+| `packages/ui` | Shared React components (web) |
+
+### Stack
+
+- **Next.js 15** (platform-app, marketing-site) with React 19 and TypeScript
+- **Expo ~52** (patient-app) with Expo Router, React Native 0.76
+- **Prisma + Neon PostgreSQL** — multi-tenant via `tenantPrisma(orgSlug)`
+- **Next-Auth v5** — magic links + per-tenant OIDC/SSO
+- **Stripe** — patient payments (Checkout for web, Payment Sheet for mobile)
+- **OpenAI / Azure OpenAI** — bill explanations, AI agent responses
+
+### Module Entitlements
+
+Each tenant (health system) has `ModuleEntitlement` rows that gate product access:
+
+| ModuleKey | Maps to | Controls |
+|-----------|---------|---------|
+| `BUILD` | Claims AI — pre-denial | Claims worklist, AI review, encounter coding |
+| `PAY` | Patient Pay | Patient portal, statements, Stripe payments |
+| `CONNECT` | EHR/clearinghouse connectors | FHIR sync, 837/835 EDI, prior auth tracking |
+| `INSIGHT` | Analytics dashboard | Denial trends, payer performance, AR aging |
+| `SUPPORT` | Billing support tools | Staff task queue, escalations |
+| `COVER` | Financial assistance | Medicaid screener, charity care workflows |
+| `CORE` | Platform core | Always enabled; identity, audit, tenant settings |
+
+---
+
+## 6. Patient App — Auth Flow
+
+The patient app uses **magic links**, not passwords:
+
+1. Staff (or automated workflow) generates a signed token: `createPatientPayToken({ orgSlug, statementId })`
+2. Token is sent to patient via SMS or email as a deep link: `anang-patient://pay?org=<slug>&token=<token>`
+3. Patient opens the link → app stores token in `expo-secure-store`
+4. All API calls use `Authorization: Bearer <token>` — verified server-side with `verifyPatientPayToken()`
+5. Token expires in 7 days; patient can request a new link from the login screen
+
+**API routes serving the patient app** (all under `/api/patient/`):
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/patient/summary` | GET | All statements + total balance |
+| `/api/patient/statement` | GET | Detailed statement with charges, payments, plan |
+| `/api/patient/ask-ai` | POST | AI answer to a billing question |
+| `/api/patient/acknowledge-plan` | POST | Accept a payment plan |
+| `/api/patient/payment-intent` | POST | Stripe PaymentIntent for mobile SDK |
+
+---
+
+## 7. Cedar Comparison (Key for Sales Conversations)
+
+| Capability | Cedar | Epic MyChart | Anang |
+|------------|-------|-------------|-------|
+| Digital patient billing | ✅ Core strength | ✅ Built in | ✅ Match |
+| Payment plans | ✅ | ✅ | ✅ |
+| Financial assistance screening | ✅ Cedar Cover | Limited | ✅ |
+| **Conversational AI for patients** | ❌ Not yet | ❌ | ✅ **Differentiator** |
+| **Pre-denial claim review (provider)** | ❌ | ❌ | ✅ **Differentiator** |
+| **Denial prevention AI training** | ❌ | ❌ | ✅ **Differentiator** |
+| EHR-integrated (Epic sidebar) | Partial | Native | Roadmap (SMART on FHIR) |
+
+**The pitch:** Epic MyChart shows patients a bill. Cedar helps them pay it. Anang does both — and prevents the claim from being denied in the first place.
+
+---
+
+## 8. Compliance
+
+- **HIPAA:** PHI only in governed environments with signed BAAs. Audit logging on all patient data access.
+- **PCI:** Stripe handles card data; we never store card numbers.
+- **TCPA:** SMS outreach governed by consent; legal review before production SMS.
+- **AI / PHI:** Bill explanation calls use minimal-payload mode by default (code + amount, not description) unless `OPENAI_BILL_EXPLAIN_MINIMAL_PAYLOAD=0`. Azure OpenAI preferred for BAA-covered environments.
+
+---
+
+## 9. Development Setup
+
+```bash
 npm install
-docker compose up -d
-Copy-Item apps\platform-app\.env.example apps\platform-app\.env -Force
+docker compose up -d           # local Postgres
+cp apps/platform-app/.env.example apps/platform-app/.env
 npm run db:push -w @anang/platform-app
 npm run db:seed -w @anang/platform-app
-npm run dev
+npm run dev                    # starts marketing (3000) + platform (3001)
+npm run dev:patient            # starts Expo patient app
 ```
 
-Marketing: http://localhost:3000 · Platform: http://localhost:3001/login
+Marketing: http://localhost:3000
+Platform: http://localhost:3001/login
+Patient app: Expo Go or `npm run ios` / `npm run android`
 
 ---
 
-## 9. Glossary (quick)
+## 10. Document Map
 
-| Term | Meaning |
-|------|---------|
-| **RCM** | Revenue cycle management — billing, claims, cash, denials. |
-| **CoB** | Coordination of benefits — common denial / coverage class. |
-| **EDI 837/835** | Claim submission / remittance (payment/denial) transactions. |
-| **GFE** | Good faith estimate (No Surprises Act context). |
-| **Tenant** | One health system / customer org in the database (`Tenant` model). |
+| File | Read when you need to... |
+|------|--------------------------|
+| `docs/PLATFORM_OVERVIEW.md` (this file) | Understand the product and architecture |
+| `docs/ROADMAP.md` | See the phased delivery plan |
+| `docs/PATIENT_APP.md` | Build or debug the Expo patient app |
+| `docs/CORE_DATA_MODEL.md` | Understand Prisma models and RCM entities |
+| `docs/CONNECTOR_STRATEGY.md` | Work on EHR/clearinghouse integrations |
+| `docs/ARCHITECTURE.md` | Deployment topology, app structure |
+| `docs/DEPLOYMENT.md` | Vercel, Neon, env vars |
+| `docs/TENANCY_AND_MODULES.md` | Multi-tenant patterns, seeding |
+| `IMPLEMENTATION_PLAN.md` | Full feature-by-feature delivery plan |
+| `AGENTS.md` | Quick-start for AI coding agents |
 
 ---
 
-*Last updated: 2026-04-24 — Connect **Authorizations** (prior auth Phase 1), Build deterministic PA signals, `PRIOR_AUTHORIZATION.md`; seed includes demo PA cases.*
+*Last updated: 2026-06-19 — Rewritten around Claims AI + Patient Pay two-product vision.*
