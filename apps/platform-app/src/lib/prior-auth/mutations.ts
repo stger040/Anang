@@ -2,11 +2,11 @@ import { assertLegalPriorAuthTransition } from "@/lib/prior-auth/transitions";
 import { PriorAuthEventTypes } from "@/lib/prior-auth/events";
 import type { SessionPayload } from "@/lib/session";
 import {
+  Prisma,
   PriorAuthChecklistStatus,
   PriorAuthStatus,
   type PriorAuthSubmissionMethod,
   type PriorAuthUrgency,
-  type Prisma,
   type PrismaClient,
 } from "@prisma/client";
 import { platformLog, readRequestIdFromHeaders } from "@/lib/platform-log";
