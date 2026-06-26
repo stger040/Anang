@@ -1,5 +1,5 @@
 import { platformLog, readRequestId } from "@/lib/platform-log";
-import { allocatePaymentToPlanInstallments } from "@/lib/pay/plan-installment-allocation";
+import { postStripeCheckoutSessionPayment } from "@/lib/pay/stripe-checkout-posting";
 import { prisma, tenantPrisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe-server";
 import { NextResponse } from "next/server";
@@ -45,11 +45,18 @@ export async function POST(req: Request) {
   });
 
   if (event.type === "checkout.session.completed") {
-    await handleCheckoutCompleted(
-      event.data.object as Stripe.Checkout.Session,
-      requestId,
-      event.id,
-    );
+    try {
+      await handleCheckoutCompleted(
+        event.data.object as Stripe.Checkout.Session,
+        requestId,
+        event.id,
+      );
+    } catch {
+      return NextResponse.json(
+        { error: "Webhook processing failed" },
+        { status: 500 },
+      );
+    }
   }
 
   return NextResponse.json({ received: true });
@@ -60,115 +67,24 @@ async function handleCheckoutCompleted(
   requestId: string | undefined,
   stripeEventId: string,
 ) {
-  const sessionId = session.id;
   const tenantId = session.metadata?.tenantId;
   const statementId = session.metadata?.statementId;
   const orgSlug = session.metadata?.orgSlug?.trim();
   if (!tenantId || !statementId) {
-    platformLog("warn", "pay.stripe.checkout_completed.bad_metadata", {
+    await postStripeCheckoutSessionPayment({
+      db: prisma,
+      session,
       requestId,
-      stripeCheckoutSessionId: sessionId,
+      stripeEventId,
     });
     return;
   }
 
   const db = orgSlug ? tenantPrisma(orgSlug) : prisma;
-
-  const amountTotal = session.amount_total ?? 0;
-  if (amountTotal <= 0) return;
-
-  const existing = await db.payment.findFirst({
-    where: { stripeCheckoutSessionId: sessionId },
+  await postStripeCheckoutSessionPayment({
+    db,
+    session,
+    requestId,
+    stripeEventId,
   });
-  if (existing) return;
-
-  try {
-    await db.$transaction(async (tx) => {
-      const dup = await tx.payment.findFirst({
-        where: { stripeCheckoutSessionId: sessionId },
-      });
-      if (dup) return;
-
-      const stmt = await tx.statement.findFirst({
-        where: { id: statementId, tenantId },
-      });
-      if (!stmt) {
-        platformLog("warn", "pay.stripe.statement_not_found_in_webhook", {
-          requestId,
-          tenantId,
-          statementId,
-          stripeCheckoutSessionId: sessionId,
-        });
-        return;
-      }
-
-      const newBalance = Math.max(0, stmt.balanceCents - amountTotal);
-
-      const payment = await tx.payment.create({
-        data: {
-          tenantId,
-          statementId,
-          amountCents: amountTotal,
-          status: "posted",
-          method: "stripe",
-          paidAt: new Date(),
-          stripeCheckoutSessionId: sessionId,
-        },
-      });
-
-      await tx.statement.update({
-        where: { id: statementId },
-        data: {
-          balanceCents: newBalance,
-          status: newBalance === 0 ? "paid" : stmt.status,
-        },
-      });
-
-      await allocatePaymentToPlanInstallments(tx, {
-        tenantId,
-        statementId,
-        paymentId: payment.id,
-        amountCents: amountTotal,
-      });
-
-      await tx.auditEvent.create({
-        data: {
-          tenantId,
-          actorUserId: null,
-          action: "pay.stripe.payment_posted",
-          resource: "payment",
-          metadata: {
-            paymentId: payment.id,
-            statementId,
-            amountCents: amountTotal,
-            stripeCheckoutSessionId: sessionId,
-            stripeEventId,
-            ...(requestId ? { requestId } : {}),
-          },
-        },
-      });
-
-      platformLog("info", "pay.stripe.payment_posted", {
-        requestId,
-        tenantId,
-        statementId,
-        paymentId: payment.id,
-        stripeCheckoutSessionId: sessionId,
-        amountCents: amountTotal,
-      });
-    });
-  } catch (e) {
-    const stillThere = await db.payment.findFirst({
-      where: { stripeCheckoutSessionId: sessionId },
-    });
-    if (!stillThere) {
-      platformLog("error", "pay.stripe.webhook_transaction_failed", {
-        requestId,
-        stripeCheckoutSessionId: sessionId,
-        tenantId,
-        statementId,
-        message: e instanceof Error ? e.message : "unknown",
-      });
-    }
-  }
 }

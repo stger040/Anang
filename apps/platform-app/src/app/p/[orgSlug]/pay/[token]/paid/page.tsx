@@ -1,4 +1,5 @@
 import { PatientPayLinkErrorPanel } from "@/components/patient-pay-link-error";
+import { resolvePatientPayReceiptStatementId } from "@/lib/patient-pay-receipt";
 import { verifyPatientPayTokenDetailed } from "@/lib/patient-pay-token";
 import { tenantPrisma } from "@/lib/prisma";
 import { readRequestIdFromHeaders } from "@/lib/platform-log";
@@ -44,13 +45,13 @@ export default async function PatientPayPaidPage({
     try {
       const s = await stripe.checkout.sessions.retrieve(sessionId);
       stripeSession = s;
-      if (
-        s.payment_status === "paid" &&
-        s.metadata?.tenantId === tenant.id &&
-        s.metadata?.statementId
-      ) {
-        statementId = s.metadata.statementId;
-      }
+      statementId = resolvePatientPayReceiptStatementId({
+        tokenStatementId: statementId,
+        tenantId: tenant.id,
+        stripePaymentStatus: s.payment_status,
+        stripeTenantId: s.metadata?.tenantId,
+        stripeStatementId: s.metadata?.statementId,
+      });
     } catch {
       /* ignore */
     }
