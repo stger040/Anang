@@ -36,7 +36,7 @@ export default async function ImplementationHubPage({
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) notFound();
 
-  const canEdit = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const canEdit = await isTenantSettingsEditor(session, ctx.membershipRole);
 
   const tenant = await tenantPrisma(orgSlug).tenant.findUnique({
     where: { id: ctx.tenant.id },

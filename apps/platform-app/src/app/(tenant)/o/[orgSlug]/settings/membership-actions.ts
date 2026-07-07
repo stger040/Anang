@@ -28,7 +28,7 @@ export async function updateMembershipStaffModulesAction(
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) return { error: "Organization not found or no access." };
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return {
       error:
