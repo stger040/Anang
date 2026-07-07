@@ -57,7 +57,7 @@ export async function recordClaim837EdiSubmission(
     return { error: "Connect is not enabled for this account." };
   }
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return {
       error: "Only tenant admins or platform super admins can record 837 traces.",
@@ -205,7 +205,7 @@ export async function record837OutboundWithTransport(
     return { error: "Connect is not enabled for this account." };
   }
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return {
       error:

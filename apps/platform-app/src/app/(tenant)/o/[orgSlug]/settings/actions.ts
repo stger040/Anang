@@ -123,7 +123,7 @@ export async function saveImplementationProgress(
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) return { error: "Organization not found or no access." };
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return { error: "Only tenant admins or platform super admins can update this." };
   }
@@ -224,7 +224,7 @@ export async function saveBuildRulePack(
     return { error: "Build module is not enabled for this tenant." };
   }
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return { error: "Only tenant admins or platform super admins can update this." };
   }
@@ -297,7 +297,7 @@ export async function upsertBuildKnowledgeChunk(
     return { error: "Build module is not enabled for this tenant." };
   }
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return {
       error: "Only tenant admins or platform super admins can update this.",
@@ -389,7 +389,7 @@ export async function deleteBuildKnowledgeChunk(
     return { error: "Build module is not enabled for this tenant." };
   }
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return {
       error: "Only tenant admins or platform super admins can update this.",
@@ -439,7 +439,7 @@ export async function importFhirFixtureFromSettings(
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) return { error: "Organization not found or no access." };
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return { error: "Only tenant admins or platform super admins can import fixtures." };
   }
@@ -657,7 +657,7 @@ export async function importCsvFixtureFromSettings(
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) return { error: "Organization not found or no access." };
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return { error: "Only tenant admins or platform super admins can import fixtures." };
   }
@@ -841,7 +841,7 @@ export async function testGreenwayFhirPatientFromSettings(
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) return { error: "Organization not found or no access." };
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return {
       error:
@@ -977,7 +977,7 @@ export async function syncGreenwayFhirPatientEncountersFromSettings(
   const ctx = await assertOrgAccess(session, orgSlug);
   if (!ctx) return { error: "Organization not found or no access." };
 
-  const allowed = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const allowed = await isTenantSettingsEditor(session, ctx.membershipRole);
   if (!allowed) {
     return {
       error:

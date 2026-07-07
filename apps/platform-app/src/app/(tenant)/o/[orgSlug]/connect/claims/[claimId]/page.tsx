@@ -58,7 +58,7 @@ export default async function ClaimTimelinePage({
   });
   if (!claim) notFound();
 
-  const canRecord837 = await isTenantSettingsEditor(session, ctx.tenant.id);
+  const canRecord837 = await isTenantSettingsEditor(session, ctx.membershipRole);
 
   const buildEncounterId =
     claim.encounterId ?? claim.claimDraft?.encounterId ?? null;

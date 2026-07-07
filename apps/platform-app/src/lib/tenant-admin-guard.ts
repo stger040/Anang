@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/session";
 import { AppRole } from "@prisma/client";
 
@@ -14,18 +13,13 @@ export function canAccessTenantAdminRoutes(
   return membershipRole === AppRole.TENANT_ADMIN;
 }
 
-/** Tenant settings edits + FHIR fixture import: super admin or tenant admin membership. */
+/**
+ * Tenant settings edits + FHIR fixture import: super admin or tenant admin
+ * membership loaded by `assertOrgAccess` from the same tenant DB that writes use.
+ */
 export async function isTenantSettingsEditor(
   session: SessionPayload,
-  tenantId: string,
+  membershipRole: AppRole | null,
 ): Promise<boolean> {
-  if (session.appRole === AppRole.SUPER_ADMIN) return true;
-  const row = await prisma.membership.findFirst({
-    where: {
-      userId: session.userId,
-      tenantId,
-      role: AppRole.TENANT_ADMIN,
-    },
-  });
-  return !!row;
+  return canAccessTenantAdminRoutes(session, membershipRole);
 }
