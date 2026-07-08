@@ -4,9 +4,9 @@ import type { SessionPayload } from "@/lib/session";
 import {
   PriorAuthChecklistStatus,
   PriorAuthStatus,
+  Prisma,
   type PriorAuthSubmissionMethod,
   type PriorAuthUrgency,
-  type Prisma,
   type PrismaClient,
 } from "@prisma/client";
 import { platformLog, readRequestIdFromHeaders } from "@/lib/platform-log";
@@ -18,8 +18,12 @@ const DEFAULT_CHECKLIST: { label: string; sortOrder: number }[] = [
   { label: "Submission packet assembled (no auto-submit)", sortOrder: 3 },
 ];
 
+const MAX_CASE_NUMBER_ATTEMPTS = 3;
+
+type PriorAuthMutationDb = Prisma.TransactionClient;
+
 export async function nextPriorAuthCaseNumber(
-  db: PrismaClient,
+  db: PriorAuthMutationDb,
   tenantId: string,
 ): Promise<string> {
   const y = new Date().getUTCFullYear();
@@ -42,6 +46,11 @@ export type CreatePriorAuthCaseInput = {
   externalRefs?: Prisma.InputJsonValue;
 };
 
+export type CreatePriorAuthServiceLineInput = Omit<
+  Prisma.PriorAuthServiceCreateManyInput,
+  "caseId"
+>;
+
 export async function createPriorAuthCaseDb(args: {
   db: PrismaClient;
   orgSlug: string;
@@ -49,7 +58,74 @@ export async function createPriorAuthCaseDb(args: {
   session: SessionPayload;
   input: CreatePriorAuthCaseInput;
 }): Promise<{ id: string; caseNumber: string }> {
-  const { db, tenantId, session, input, orgSlug } = args;
+  return createPriorAuthCaseWithRetry(args);
+}
+
+export async function createPriorAuthCaseWithServicesDb(args: {
+  db: PrismaClient;
+  orgSlug: string;
+  tenantId: string;
+  session: SessionPayload;
+  input: CreatePriorAuthCaseInput;
+  serviceLines: CreatePriorAuthServiceLineInput[];
+}): Promise<{ id: string; caseNumber: string }> {
+  return createPriorAuthCaseWithRetry(args);
+}
+
+async function createPriorAuthCaseWithRetry(args: {
+  db: PrismaClient;
+  orgSlug: string;
+  tenantId: string;
+  session: SessionPayload;
+  input: CreatePriorAuthCaseInput;
+  serviceLines?: CreatePriorAuthServiceLineInput[];
+}): Promise<{ id: string; caseNumber: string }> {
+  const requestId = await readRequestIdFromHeaders();
+
+  for (let attempt = 1; attempt <= MAX_CASE_NUMBER_ATTEMPTS; attempt += 1) {
+    try {
+      const created = await args.db.$transaction(async (tx) => {
+        const row = await createPriorAuthCaseOnce({ ...args, db: tx, requestId });
+
+        if (args.serviceLines?.length) {
+          await tx.priorAuthService.createMany({
+            data: args.serviceLines.map((line) => ({ ...line, caseId: row.id })),
+          });
+        }
+
+        return row;
+      });
+
+      platformLog("info", "prior_auth.case.created", {
+        tenantId: args.tenantId,
+        orgSlug: args.orgSlug,
+        caseId: created.id,
+        encounterId: args.input.encounterId ?? null,
+        claimId: args.input.claimId ?? null,
+        requestId: requestId ?? null,
+      });
+
+      return created;
+    } catch (error) {
+      if (attempt < MAX_CASE_NUMBER_ATTEMPTS && isCaseNumberConflict(error)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error("Unable to allocate prior auth case number");
+}
+
+async function createPriorAuthCaseOnce(args: {
+  db: PriorAuthMutationDb;
+  orgSlug: string;
+  tenantId: string;
+  session: SessionPayload;
+  input: CreatePriorAuthCaseInput;
+  requestId?: string;
+}): Promise<{ id: string; caseNumber: string }> {
+  const { db, tenantId, session, input, requestId } = args;
 
   const patient = await db.patient.findFirst({
     where: { id: input.patientId, tenantId },
@@ -64,9 +140,9 @@ export async function createPriorAuthCaseDb(args: {
   }
   if (input.claimId) {
     const cl = await db.claim.findFirst({
-      where: { id: input.claimId, tenantId },
+      where: { id: input.claimId, tenantId, patientId: input.patientId },
     });
-    if (!cl) throw new Error("Claim not found");
+    if (!cl) throw new Error("Claim not found for patient");
   }
   if (input.coverageId) {
     const cv = await db.coverage.findFirst({
@@ -76,7 +152,6 @@ export async function createPriorAuthCaseDb(args: {
   }
 
   const caseNumber = await nextPriorAuthCaseNumber(db, tenantId);
-  const requestId = await readRequestIdFromHeaders();
 
   const row = await db.priorAuthCase.create({
     data: {
@@ -129,16 +204,22 @@ export async function createPriorAuthCaseDb(args: {
     },
   });
 
-  platformLog("info", "prior_auth.case.created", {
-    tenantId,
-    orgSlug,
-    caseId: row.id,
-    encounterId: input.encounterId ?? null,
-    claimId: input.claimId ?? null,
-    requestId: requestId ?? null,
-  });
-
   return { id: row.id, caseNumber };
+}
+
+function isCaseNumberConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { code?: unknown; meta?: { target?: unknown } };
+  if (err.code !== "P2002") return false;
+
+  const target = err.meta?.target;
+  if (Array.isArray(target)) {
+    return target.includes("tenantId") && target.includes("caseNumber");
+  }
+  if (typeof target === "string") {
+    return target.includes("caseNumber");
+  }
+  return true;
 }
 
 export async function updatePriorAuthCaseStatusDb(args: {
@@ -390,9 +471,9 @@ export async function linkPriorAuthToClaimDb(args: {
   const row = await db.priorAuthCase.findFirst({ where: { id: caseId, tenantId } });
   if (!row) throw new Error("Case not found");
   const cl = await db.claim.findFirst({
-    where: { id: claimId, tenantId },
+    where: { id: claimId, tenantId, patientId: row.patientId },
   });
-  if (!cl) throw new Error("Claim not found");
+  if (!cl) throw new Error("Claim not found for patient");
 
   await db.priorAuthCase.update({
     where: { id: caseId },
