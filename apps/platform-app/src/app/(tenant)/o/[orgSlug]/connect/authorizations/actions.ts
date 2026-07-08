@@ -3,6 +3,7 @@
 import {
   appendPriorAuthEventDb,
   createPriorAuthCaseDb,
+  createPriorAuthCaseWithServicesDb,
   linkPriorAuthToClaimDb,
   linkPriorAuthToEncounterDb,
   updatePriorAuthCaseStatusDb,
@@ -108,7 +109,9 @@ export async function createPriorAuthCaseFromEncounter(formData: FormData) {
   const payerName = cov?.payerName?.trim() || "Unknown payer (confirm)";
   const payerPlanName = cov?.planName?.trim() || null;
 
-  const created = await createPriorAuthCaseDb({
+  const draft = enc.drafts[0];
+
+  await createPriorAuthCaseWithServicesDb({
     db,
     orgSlug,
     tenantId: ctx.tenant.id,
@@ -124,21 +127,15 @@ export async function createPriorAuthCaseFromEncounter(formData: FormData) {
         draftLineCpts: enc.drafts[0]?.lines.map((l) => l.cpt.trim()) ?? [],
       },
     },
-  });
-
-  const draft = enc.drafts[0];
-  if (draft?.lines.length) {
-    await db.priorAuthService.createMany({
-      data: draft.lines.map((l, i) => ({
-        caseId: created.id,
+    serviceLines:
+      draft?.lines.map((l, i) => ({
         codeType: PriorAuthServiceCodeType.CPT,
         code: l.cpt.trim(),
         description: l.cptDescriptor ?? undefined,
         units: l.units,
         sortOrder: i,
-      })),
-    });
-  }
+      })) ?? [],
+  });
 
   revalidatePath(`/o/${orgSlug}/build/encounters/${encounterId}`, "page");
   revalidatePath(`/o/${orgSlug}/connect/authorizations`, "page");
