@@ -117,6 +117,15 @@ export async function GET(
   const auth = parseTenantAuthSettings(
     (row.settings as Record<string, unknown>)?.auth,
   );
+  if (auth.policy === "local_only") {
+    return oidcCallbackFail(
+      base,
+      `/login?org=${slug}&error=sso_not_enabled`,
+      requestId,
+      "policy_local_only",
+      { tenantSlug: slug },
+    );
+  }
   const secret = tenantOidcSecretFromEnv(slug);
   if (!auth.oidc?.issuer || !auth.oidc.clientId || !secret) {
     return oidcCallbackFail(
