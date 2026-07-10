@@ -1,7 +1,5 @@
 import { allocatePaymentToPlanInstallments } from "@/lib/pay/plan-installment-allocation";
-import type { Prisma, PrismaClient } from "@prisma/client";
-
-type Db = PrismaClient | Prisma.TransactionClient;
+import type { PrismaClient } from "@prisma/client";
 
 export type StripeCheckoutPostingResult =
   | {
@@ -30,7 +28,7 @@ export type StripeCheckoutPostingResult =
     };
 
 export async function postStripeCheckoutPayment(args: {
-  db: Db;
+  db: PrismaClient;
   tenantId: string;
   statementId: string;
   stripeCheckoutSessionId: string;
