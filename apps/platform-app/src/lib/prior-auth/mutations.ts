@@ -18,6 +18,25 @@ const DEFAULT_CHECKLIST: { label: string; sortOrder: number }[] = [
   { label: "Submission packet assembled (no auto-submit)", sortOrder: 3 },
 ];
 
+async function findClaimForPriorAuthPatient(args: {
+  db: PrismaClient;
+  tenantId: string;
+  claimId: string;
+  patientId: string;
+  encounterId?: string | null;
+}) {
+  const { db, tenantId, claimId, patientId, encounterId } = args;
+  const claim = await db.claim.findFirst({
+    where: { id: claimId, tenantId, patientId },
+    select: { id: true, encounterId: true },
+  });
+  if (!claim) throw new Error("Claim not found for patient");
+  if (encounterId && claim.encounterId && claim.encounterId !== encounterId) {
+    throw new Error("Claim not found for encounter");
+  }
+  return claim;
+}
+
 export async function nextPriorAuthCaseNumber(
   db: PrismaClient,
   tenantId: string,
@@ -63,10 +82,13 @@ export async function createPriorAuthCaseDb(args: {
     if (!e) throw new Error("Encounter not found for patient");
   }
   if (input.claimId) {
-    const cl = await db.claim.findFirst({
-      where: { id: input.claimId, tenantId },
+    await findClaimForPriorAuthPatient({
+      db,
+      tenantId,
+      claimId: input.claimId,
+      patientId: input.patientId,
+      encounterId: input.encounterId,
     });
-    if (!cl) throw new Error("Claim not found");
   }
   if (input.coverageId) {
     const cv = await db.coverage.findFirst({
@@ -389,10 +411,13 @@ export async function linkPriorAuthToClaimDb(args: {
   const { db, tenantId, session, caseId, claimId, orgSlug } = args;
   const row = await db.priorAuthCase.findFirst({ where: { id: caseId, tenantId } });
   if (!row) throw new Error("Case not found");
-  const cl = await db.claim.findFirst({
-    where: { id: claimId, tenantId },
+  await findClaimForPriorAuthPatient({
+    db,
+    tenantId,
+    claimId,
+    patientId: row.patientId,
+    encounterId: row.encounterId,
   });
-  if (!cl) throw new Error("Claim not found");
 
   await db.priorAuthCase.update({
     where: { id: caseId },

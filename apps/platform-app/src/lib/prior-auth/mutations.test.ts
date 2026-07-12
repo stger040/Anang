@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SessionPayload } from "@/lib/session";
 
-import { createPriorAuthCaseDb, updatePriorAuthCaseStatusDb } from "./mutations";
+import {
+  createPriorAuthCaseDb,
+  linkPriorAuthToClaimDb,
+  updatePriorAuthCaseStatusDb,
+} from "./mutations";
 
 vi.mock("@/lib/platform-log", () => ({
   platformLog: vi.fn(),
@@ -62,6 +66,120 @@ describe("createPriorAuthCaseDb", () => {
     expect(db.priorAuthChecklistItem.createMany).toHaveBeenCalled();
     expect(db.priorAuthEvent.create).toHaveBeenCalled();
     expect(db.auditEvent.create).toHaveBeenCalled();
+  });
+
+  it("rejects linking a claim that does not belong to the case patient", async () => {
+    const db = {
+      patient: { findFirst: vi.fn().mockResolvedValue({ id: "p1" }) },
+      claim: { findFirst: vi.fn().mockResolvedValue(null) },
+      priorAuthCase: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    await expect(
+      createPriorAuthCaseDb({
+        db,
+        orgSlug: "acme",
+        tenantId: "t1",
+        session,
+        input: { patientId: "p1", claimId: "claim-other-patient", payerName: "Payer" },
+      }),
+    ).rejects.toThrow("Claim not found for patient");
+    expect(db.claim.findFirst).toHaveBeenCalledWith({
+      where: { id: "claim-other-patient", tenantId: "t1", patientId: "p1" },
+      select: { id: true, encounterId: true },
+    });
+    expect(db.priorAuthCase.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a claim tied to a different encounter for the same patient", async () => {
+    const db = {
+      patient: { findFirst: vi.fn().mockResolvedValue({ id: "p1" }) },
+      encounter: { findFirst: vi.fn().mockResolvedValue({ id: "enc1" }) },
+      claim: { findFirst: vi.fn().mockResolvedValue({ id: "claim1", encounterId: "enc2" }) },
+      priorAuthCase: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    await expect(
+      createPriorAuthCaseDb({
+        db,
+        orgSlug: "acme",
+        tenantId: "t1",
+        session,
+        input: {
+          patientId: "p1",
+          encounterId: "enc1",
+          claimId: "claim1",
+          payerName: "Payer",
+        },
+      }),
+    ).rejects.toThrow("Claim not found for encounter");
+    expect(db.priorAuthCase.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("linkPriorAuthToClaimDb", () => {
+  const session: SessionPayload = {
+    userId: "u1",
+    email: "a@test",
+    appRole: AppRole.STAFF,
+  };
+
+  it("rejects a claim that belongs to a different patient", async () => {
+    const db = {
+      priorAuthCase: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "case1",
+          patientId: "p1",
+          encounterId: null,
+          claimId: null,
+        }),
+        update: vi.fn(),
+      },
+      claim: { findFirst: vi.fn().mockResolvedValue(null) },
+    } as unknown as PrismaClient;
+
+    await expect(
+      linkPriorAuthToClaimDb({
+        db,
+        orgSlug: "acme",
+        tenantId: "t1",
+        session,
+        caseId: "case1",
+        claimId: "claim-other-patient",
+      }),
+    ).rejects.toThrow("Claim not found for patient");
+    expect(db.claim.findFirst).toHaveBeenCalledWith({
+      where: { id: "claim-other-patient", tenantId: "t1", patientId: "p1" },
+      select: { id: true, encounterId: true },
+    });
+    expect(db.priorAuthCase.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a same-patient claim linked to a different encounter", async () => {
+    const db = {
+      priorAuthCase: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "case1",
+          patientId: "p1",
+          encounterId: "enc1",
+          claimId: null,
+        }),
+        update: vi.fn(),
+      },
+      claim: { findFirst: vi.fn().mockResolvedValue({ id: "claim1", encounterId: "enc2" }) },
+    } as unknown as PrismaClient;
+
+    await expect(
+      linkPriorAuthToClaimDb({
+        db,
+        orgSlug: "acme",
+        tenantId: "t1",
+        session,
+        caseId: "case1",
+        claimId: "claim1",
+      }),
+    ).rejects.toThrow("Claim not found for encounter");
+    expect(db.priorAuthCase.update).not.toHaveBeenCalled();
   });
 });
 
