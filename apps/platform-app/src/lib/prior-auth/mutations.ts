@@ -5,6 +5,7 @@ import {
   PriorAuthChecklistStatus,
   PriorAuthStatus,
   type PriorAuthSubmissionMethod,
+  type PriorAuthServiceCodeType,
   type PriorAuthUrgency,
   type Prisma,
   type PrismaClient,
@@ -18,8 +19,19 @@ const DEFAULT_CHECKLIST: { label: string; sortOrder: number }[] = [
   { label: "Submission packet assembled (no auto-submit)", sortOrder: 3 },
 ];
 
+const MAX_CASE_NUMBER_ATTEMPTS = 3;
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
+
 export async function nextPriorAuthCaseNumber(
-  db: PrismaClient,
+  db: Pick<PrismaClient, "priorAuthCase">,
   tenantId: string,
 ): Promise<string> {
   const y = new Date().getUTCFullYear();
@@ -42,92 +54,135 @@ export type CreatePriorAuthCaseInput = {
   externalRefs?: Prisma.InputJsonValue;
 };
 
+export type CreatePriorAuthCaseServiceInput = {
+  codeType: PriorAuthServiceCodeType;
+  code: string;
+  description?: string | null;
+  units?: number | null;
+  notes?: string | null;
+  sortOrder?: number | null;
+};
+
 export async function createPriorAuthCaseDb(args: {
   db: PrismaClient;
   orgSlug: string;
   tenantId: string;
   session: SessionPayload;
   input: CreatePriorAuthCaseInput;
+  services?: CreatePriorAuthCaseServiceInput[];
 }): Promise<{ id: string; caseNumber: string }> {
-  const { db, tenantId, session, input, orgSlug } = args;
-
-  const patient = await db.patient.findFirst({
-    where: { id: input.patientId, tenantId },
-  });
-  if (!patient) throw new Error("Patient not found");
-
-  if (input.encounterId) {
-    const e = await db.encounter.findFirst({
-      where: { id: input.encounterId, tenantId, patientId: input.patientId },
-    });
-    if (!e) throw new Error("Encounter not found for patient");
-  }
-  if (input.claimId) {
-    const cl = await db.claim.findFirst({
-      where: { id: input.claimId, tenantId },
-    });
-    if (!cl) throw new Error("Claim not found");
-  }
-  if (input.coverageId) {
-    const cv = await db.coverage.findFirst({
-      where: { id: input.coverageId, tenantId, patientId: input.patientId },
-    });
-    if (!cv) throw new Error("Coverage not found for patient");
-  }
-
-  const caseNumber = await nextPriorAuthCaseNumber(db, tenantId);
+  const { db, tenantId, session, input, orgSlug, services = [] } = args;
   const requestId = await readRequestIdFromHeaders();
 
-  const row = await db.priorAuthCase.create({
-    data: {
-      tenantId,
-      patientId: input.patientId,
-      encounterId: input.encounterId ?? undefined,
-      claimId: input.claimId ?? undefined,
-      coverageId: input.coverageId ?? undefined,
-      caseNumber,
-      status: PriorAuthStatus.DRAFT,
-      urgency: input.urgency ?? "ROUTINE",
-      priority: input.priority ?? "normal",
-      source: input.source ?? "staff",
-      submissionMethod: input.submissionMethod ?? "NOT_SUBMITTED",
-      payerName: input.payerName.trim(),
-      payerPlanName: input.payerPlanName?.trim() || undefined,
-      externalRefs: input.externalRefs ?? undefined,
-    },
-  });
+  let row: { id: string; caseNumber: string } | null = null;
+  for (let attempt = 1; attempt <= MAX_CASE_NUMBER_ATTEMPTS; attempt += 1) {
+    try {
+      row = await db.$transaction(async (tx) => {
+        const patient = await tx.patient.findFirst({
+          where: { id: input.patientId, tenantId },
+        });
+        if (!patient) throw new Error("Patient not found");
 
-  await db.priorAuthChecklistItem.createMany({
-    data: DEFAULT_CHECKLIST.map((c) => ({
-      caseId: row.id,
-      label: c.label,
-      sortOrder: c.sortOrder,
-      status: PriorAuthChecklistStatus.PENDING,
-    })),
-  });
+        if (input.encounterId) {
+          const e = await tx.encounter.findFirst({
+            where: { id: input.encounterId, tenantId, patientId: input.patientId },
+          });
+          if (!e) throw new Error("Encounter not found for patient");
+        }
+        if (input.claimId) {
+          const cl = await tx.claim.findFirst({
+            where: { id: input.claimId, tenantId, patientId: input.patientId },
+          });
+          if (!cl) throw new Error("Claim not found for patient");
+          if (input.encounterId && cl.encounterId && cl.encounterId !== input.encounterId) {
+            throw new Error("Claim is linked to a different encounter");
+          }
+        }
+        if (input.coverageId) {
+          const cv = await tx.coverage.findFirst({
+            where: { id: input.coverageId, tenantId, patientId: input.patientId },
+          });
+          if (!cv) throw new Error("Coverage not found for patient");
+        }
 
-  await db.priorAuthEvent.create({
-    data: {
-      caseId: row.id,
-      eventType: PriorAuthEventTypes.CREATED,
-      payload: { caseNumber, payerName: input.payerName },
-      actorUserId: session.userId,
-    },
-  });
+        const caseNumber = await nextPriorAuthCaseNumber(tx, tenantId);
+        const created = await tx.priorAuthCase.create({
+          data: {
+            tenantId,
+            patientId: input.patientId,
+            encounterId: input.encounterId ?? undefined,
+            claimId: input.claimId ?? undefined,
+            coverageId: input.coverageId ?? undefined,
+            caseNumber,
+            status: PriorAuthStatus.DRAFT,
+            urgency: input.urgency ?? "ROUTINE",
+            priority: input.priority ?? "normal",
+            source: input.source ?? "staff",
+            submissionMethod: input.submissionMethod ?? "NOT_SUBMITTED",
+            payerName: input.payerName.trim(),
+            payerPlanName: input.payerPlanName?.trim() || undefined,
+            externalRefs: input.externalRefs ?? undefined,
+          },
+          select: { id: true, caseNumber: true },
+        });
 
-  await db.auditEvent.create({
-    data: {
-      tenantId,
-      actorUserId: session.userId,
-      action: "prior_auth.case.created",
-      resource: "prior_auth_case",
-      metadata: {
-        caseId: row.id,
-        caseNumber,
-        ...(requestId ? { requestId } : {}),
-      },
-    },
-  });
+        await tx.priorAuthChecklistItem.createMany({
+          data: DEFAULT_CHECKLIST.map((c) => ({
+            caseId: created.id,
+            label: c.label,
+            sortOrder: c.sortOrder,
+            status: PriorAuthChecklistStatus.PENDING,
+          })),
+        });
+
+        if (services.length) {
+          await tx.priorAuthService.createMany({
+            data: services.map((s, i) => ({
+              caseId: created.id,
+              codeType: s.codeType,
+              code: s.code.trim(),
+              description: s.description?.trim() || undefined,
+              units: s.units ?? 1,
+              notes: s.notes?.trim() || undefined,
+              sortOrder: s.sortOrder ?? i,
+            })),
+          });
+        }
+
+        await tx.priorAuthEvent.create({
+          data: {
+            caseId: created.id,
+            eventType: PriorAuthEventTypes.CREATED,
+            payload: { caseNumber, payerName: input.payerName },
+            actorUserId: session.userId,
+          },
+        });
+
+        await tx.auditEvent.create({
+          data: {
+            tenantId,
+            actorUserId: session.userId,
+            action: "prior_auth.case.created",
+            resource: "prior_auth_case",
+            metadata: {
+              caseId: created.id,
+              caseNumber,
+              ...(requestId ? { requestId } : {}),
+            },
+          },
+        });
+
+        return created;
+      });
+      break;
+    } catch (error) {
+      if (attempt < MAX_CASE_NUMBER_ATTEMPTS && isUniqueConstraintError(error)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+  if (!row) throw new Error("Prior auth case could not be created");
 
   platformLog("info", "prior_auth.case.created", {
     tenantId,
@@ -138,7 +193,7 @@ export async function createPriorAuthCaseDb(args: {
     requestId: requestId ?? null,
   });
 
-  return { id: row.id, caseNumber };
+  return row;
 }
 
 export async function updatePriorAuthCaseStatusDb(args: {
@@ -157,36 +212,49 @@ export async function updatePriorAuthCaseStatusDb(args: {
   };
 }): Promise<void> {
   const { db, tenantId, session, caseId, nextStatus, patch, orgSlug } = args;
-  const row = await db.priorAuthCase.findFirst({ where: { id: caseId, tenantId } });
-  if (!row) throw new Error("Case not found");
-  assertLegalPriorAuthTransition(row.status, nextStatus);
-
-  await db.priorAuthCase.update({
-    where: { id: caseId },
-    data: {
-      status: nextStatus,
-      ...patch,
-    },
-  });
-
   const requestId = await readRequestIdFromHeaders();
-  await db.priorAuthEvent.create({
-    data: {
-      caseId,
-      eventType: PriorAuthEventTypes.STATUS,
-      payload: { from: row.status, to: nextStatus },
-      actorUserId: session.userId,
-    },
-  });
 
-  await db.auditEvent.create({
-    data: {
-      tenantId,
-      actorUserId: session.userId,
-      action: "prior_auth.case.status",
-      resource: "prior_auth_case",
-      metadata: { caseId, from: row.status, to: nextStatus, ...(requestId ? { requestId } : {}) },
-    },
+  const row = await db.$transaction(async (tx) => {
+    const current = await tx.priorAuthCase.findFirst({ where: { id: caseId, tenantId } });
+    if (!current) throw new Error("Case not found");
+    assertLegalPriorAuthTransition(current.status, nextStatus);
+
+    const updated = await tx.priorAuthCase.updateMany({
+      where: { id: caseId, tenantId, status: current.status },
+      data: {
+        status: nextStatus,
+        ...patch,
+      },
+    });
+    if (updated.count !== 1) {
+      throw new Error("Case status changed; retry transition");
+    }
+
+    await tx.priorAuthEvent.create({
+      data: {
+        caseId,
+        eventType: PriorAuthEventTypes.STATUS,
+        payload: { from: current.status, to: nextStatus },
+        actorUserId: session.userId,
+      },
+    });
+
+    await tx.auditEvent.create({
+      data: {
+        tenantId,
+        actorUserId: session.userId,
+        action: "prior_auth.case.status",
+        resource: "prior_auth_case",
+        metadata: {
+          caseId,
+          from: current.status,
+          to: nextStatus,
+          ...(requestId ? { requestId } : {}),
+        },
+      },
+    });
+
+    return current;
   });
 
   const eventName =
@@ -344,6 +412,15 @@ export async function linkPriorAuthToEncounterDb(args: {
     where: { id: encounterId, tenantId, patientId: row.patientId },
   });
   if (!enc) throw new Error("Encounter not found");
+  if (row.claimId) {
+    const cl = await db.claim.findFirst({ where: { id: row.claimId, tenantId } });
+    if (!cl || cl.patientId !== row.patientId) {
+      throw new Error("Linked claim not found for patient");
+    }
+    if (cl.encounterId && cl.encounterId !== encounterId) {
+      throw new Error("Linked claim belongs to a different encounter");
+    }
+  }
 
   await db.priorAuthCase.update({
     where: { id: caseId },
@@ -390,9 +467,12 @@ export async function linkPriorAuthToClaimDb(args: {
   const row = await db.priorAuthCase.findFirst({ where: { id: caseId, tenantId } });
   if (!row) throw new Error("Case not found");
   const cl = await db.claim.findFirst({
-    where: { id: claimId, tenantId },
+    where: { id: claimId, tenantId, patientId: row.patientId },
   });
-  if (!cl) throw new Error("Claim not found");
+  if (!cl) throw new Error("Claim not found for patient");
+  if (row.encounterId && cl.encounterId && cl.encounterId !== row.encounterId) {
+    throw new Error("Claim belongs to a different encounter");
+  }
 
   await db.priorAuthCase.update({
     where: { id: caseId },
