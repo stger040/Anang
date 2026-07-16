@@ -112,7 +112,14 @@ export async function suggestDraftFromEncounter(args: {
 
   const applied = await args.db.$transaction(async (tx) => {
     // The model call can take long enough for another request to approve this
-    // draft. Re-read immediately before replacing its persisted contents.
+    // draft. Lock and re-read immediately before replacing persisted contents.
+    // The row lock also serializes claim creation's foreign-key check.
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "ClaimDraft"
+      WHERE "id" = ${draft!.id} AND "tenantId" = ${args.tenantId}
+      FOR UPDATE
+    `;
     const currentDraft = await tx.claimDraft.findFirst({
       where: { id: draft!.id, tenantId: args.tenantId },
       include: { submittedClaim: { select: { id: true } } },

@@ -87,6 +87,7 @@ describe("suggestDraftFromEncounter immutable draft protection", () => {
     const deleteLines = vi.fn();
     const deleteIssues = vi.fn();
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([{ id: "draft-1" }]),
       claimDraft: {
         findFirst: vi.fn().mockResolvedValue({
           id: "draft-1",
@@ -116,6 +117,7 @@ describe("suggestDraftFromEncounter immutable draft protection", () => {
       error: IMMUTABLE_BUILD_DRAFT_ERROR,
     });
     expect(fetchBuildAiCodeSuggestions).toHaveBeenCalledOnce();
+    expect(tx.$queryRaw).toHaveBeenCalledOnce();
     expect(deleteLines).not.toHaveBeenCalled();
     expect(deleteIssues).not.toHaveBeenCalled();
   });

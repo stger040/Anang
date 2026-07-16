@@ -209,9 +209,23 @@ export async function clearDraftLinesForTesting(formData: FormData) {
 
   const db = tenantPrisma(orgSlug);
   const cleared = await db.$transaction(async (tx) => {
-    const draft = await tx.claimDraft.findFirst({
+    const candidate = await tx.claimDraft.findFirst({
       where: { encounterId, tenantId: ctx.tenant.id },
       orderBy: { id: "desc" },
+      select: { id: true },
+    });
+    if (!candidate) {
+      return { ok: false as const, error: "No draft for this encounter." };
+    }
+
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "ClaimDraft"
+      WHERE "id" = ${candidate.id} AND "tenantId" = ${ctx.tenant.id}
+      FOR UPDATE
+    `;
+    const draft = await tx.claimDraft.findFirst({
+      where: { id: candidate.id, tenantId: ctx.tenant.id },
       include: { submittedClaim: { select: { id: true } } },
     });
     if (!draft) {
