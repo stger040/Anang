@@ -16,6 +16,18 @@ export type SuggestDraftResult =
   | { ok: true; draftId: string; runId: string; lineCount: number }
   | { ok: false; error: string };
 
+export const IMMUTABLE_BUILD_DRAFT_ERROR =
+  "Approved or submitted drafts cannot be modified. Create a new blank draft first.";
+
+export function buildDraftMutationError(draft: {
+  status: string;
+  submittedClaim: { id: string } | null;
+}): string | null {
+  return draft.status === "draft" && !draft.submittedClaim
+    ? null
+    : IMMUTABLE_BUILD_DRAFT_ERROR;
+}
+
 function encounterPayload(enc: {
   dateOfService: Date;
   chiefComplaint: string | null;
@@ -61,6 +73,7 @@ export async function suggestDraftFromEncounter(args: {
   let draft = await args.db.claimDraft.findFirst({
     where: { encounterId: enc.id, tenantId: args.tenantId },
     orderBy: { id: "desc" },
+    include: { submittedClaim: { select: { id: true } } },
   });
 
   if (!draft) {
@@ -70,8 +83,12 @@ export async function suggestDraftFromEncounter(args: {
         encounterId: enc.id,
         status: "draft",
       },
+      include: { submittedClaim: { select: { id: true } } },
     });
   }
+
+  const mutationError = buildDraftMutationError(draft);
+  if (mutationError) return { ok: false, error: mutationError };
 
   const ai = await fetchBuildAiCodeSuggestions({
     userPayload: encounterPayload(enc),
@@ -93,7 +110,21 @@ export async function suggestDraftFromEncounter(args: {
     return { ok: false, error: ai.error };
   }
 
-  await args.db.$transaction(async (tx) => {
+  const applied = await args.db.$transaction(async (tx) => {
+    // The model call can take long enough for another request to approve this
+    // draft. Re-read immediately before replacing its persisted contents.
+    const currentDraft = await tx.claimDraft.findFirst({
+      where: { id: draft!.id, tenantId: args.tenantId },
+      include: { submittedClaim: { select: { id: true } } },
+    });
+    if (!currentDraft) {
+      return { ok: false as const, error: "Draft not found." };
+    }
+    const currentMutationError = buildDraftMutationError(currentDraft);
+    if (currentMutationError) {
+      return { ok: false as const, error: currentMutationError };
+    }
+
     await tx.claimDraftLine.deleteMany({ where: { draftId: draft!.id } });
     await tx.claimIssue.deleteMany({ where: { draftId: draft!.id } });
 
@@ -177,7 +208,10 @@ export async function suggestDraftFromEncounter(args: {
       },
       actorUserId: args.actorUserId,
     });
+
+    return { ok: true as const };
   });
+  if (!applied.ok) return applied;
 
   await syncClaimDraftRuleIssues(args.db, {
     tenantId: args.tenantId,
