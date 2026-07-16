@@ -2,7 +2,10 @@
 
 import { isBuildAiTestingEnabled } from "@/lib/build/build-ai-env";
 import { logBuildDraftEvent } from "@/lib/build/draft-event-log";
-import { suggestDraftFromEncounter } from "@/lib/build/suggest-draft-from-encounter";
+import {
+  buildDraftMutationError,
+  suggestDraftFromEncounter,
+} from "@/lib/build/suggest-draft-from-encounter";
 import { syncClaimDraftRuleIssues } from "@/lib/build/sync-draft-rules";
 import {
   assemble837pProfessional,
@@ -205,13 +208,34 @@ export async function clearDraftLinesForTesting(formData: FormData) {
   }
 
   const db = tenantPrisma(orgSlug);
-  const draft = await db.claimDraft.findFirst({
-    where: { encounterId, tenantId: ctx.tenant.id },
-    orderBy: { id: "desc" },
-  });
-  if (!draft) return { ok: false, error: "No draft for this encounter." };
+  const cleared = await db.$transaction(async (tx) => {
+    const candidate = await tx.claimDraft.findFirst({
+      where: { encounterId, tenantId: ctx.tenant.id },
+      orderBy: { id: "desc" },
+      select: { id: true },
+    });
+    if (!candidate) {
+      return { ok: false as const, error: "No draft for this encounter." };
+    }
 
-  await db.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "ClaimDraft"
+      WHERE "id" = ${candidate.id} AND "tenantId" = ${ctx.tenant.id}
+      FOR UPDATE
+    `;
+    const draft = await tx.claimDraft.findFirst({
+      where: { id: candidate.id, tenantId: ctx.tenant.id },
+      include: { submittedClaim: { select: { id: true } } },
+    });
+    if (!draft) {
+      return { ok: false as const, error: "No draft for this encounter." };
+    }
+    const mutationError = buildDraftMutationError(draft);
+    if (mutationError) {
+      return { ok: false as const, error: mutationError };
+    }
+
     await tx.claimDraftLine.deleteMany({ where: { draftId: draft.id } });
     await tx.claimIssue.deleteMany({ where: { draftId: draft.id } });
     await logBuildDraftEvent(tx, {
@@ -221,14 +245,20 @@ export async function clearDraftLinesForTesting(formData: FormData) {
       actorUserId: session.userId,
       payload: { encounterId, reason: "build_ai_testing_manual_clear" },
     });
-  });
 
-  await syncClaimDraftRuleIssues(db, { tenantId: ctx.tenant.id, draftId: draft.id });
+    return { ok: true as const, draftId: draft.id };
+  });
+  if (!cleared.ok) return cleared;
+
+  await syncClaimDraftRuleIssues(db, {
+    tenantId: ctx.tenant.id,
+    draftId: cleared.draftId,
+  });
 
   revalidatePath(`/o/${orgSlug}/build`, "page");
   revalidatePath(`/o/${orgSlug}/build/encounters/${encounterId}`, "page");
 
-  return { ok: true as const, draftId: draft.id };
+  return cleared;
 }
 
 export async function createBlankDraftForEncounterTesting(formData: FormData) {
