@@ -12,6 +12,10 @@ vi.mock("@/lib/build/build-ai-openai", () => ({
   fetchBuildAiCodeSuggestions: vi.fn(),
 }));
 
+vi.mock("@/lib/build/sync-draft-rules", () => ({
+  syncClaimDraftRuleIssues: vi.fn(),
+}));
+
 const encounter = {
   id: "enc-1",
   dateOfService: new Date("2026-03-18T15:30:00.000Z"),
