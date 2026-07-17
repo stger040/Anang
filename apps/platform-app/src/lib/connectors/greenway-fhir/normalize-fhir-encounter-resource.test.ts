@@ -59,13 +59,9 @@ describe("normalizeFhirEncounterResource", () => {
       subject: { reference: "Patient/p1" },
       period: { start: "2024-01-15T10:00:00Z" },
       class: {
-        coding: [
-          {
-            system: "http://terminology.hl7.org/CodeSystem/v3-ActCode",
-            code: "IMP",
-            display: "inpatient encounter",
-          },
-        ],
+        system: "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+        code: "IMP",
+        display: "inpatient encounter",
       },
     });
     expect(r.ok && r.data.placeOfService).toBe("21");
@@ -79,17 +75,35 @@ describe("normalizeFhirEncounterResource", () => {
       subject: { reference: "Patient/p1" },
       period: { start: "2024-01-15T10:00:00Z" },
       class: {
-        coding: [
-          {
-            system: "http://terminology.hl7.org/CodeSystem/v3-ActCode",
-            code: "AMB",
-            display: "ambulatory",
-          },
-        ],
+        system: "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+        code: "AMB",
+        display: "ambulatory",
       },
       type: [{ text: "Follow-up" }],
     });
     expect(r.ok && r.data.visitType).toBe("ambulatory");
+  });
+
+  it("does not treat an unrelated two-digit type code as CMS place of service", () => {
+    const r = normalizeFhirEncounterResource({
+      resourceType: "Encounter",
+      id: "e-non-pos",
+      subject: { reference: "Patient/p1" },
+      period: { start: "2024-01-15T10:00:00Z" },
+      type: [
+        {
+          coding: [
+            {
+              system: "https://example.test/CodeSystem/encounter-type",
+              code: "11",
+              display: "Consultation",
+            },
+          ],
+        },
+      ],
+    });
+    expect(r.ok && r.data.placeOfService).toBeNull();
+    expect(r.ok && r.data.visitType).toBe("Consultation");
   });
 
   it("uses location Reference.display as placeOfService fallback when no POS code", () => {

@@ -92,9 +92,7 @@ const ACT_CLASS_CODE_TO_CMS_POS: Record<string, string> = {
   HH: "12",
 };
 
-/**
- * Two-digit code or POS-flavored coding system → CMS-like POS string.
- */
+/** A code from a POS-flavored coding system → CMS-like POS string. */
 function cmsLikePosFromCoding(c: Record<string, unknown>): string | null {
   const codeRaw = typeof c.code === "string" ? c.code.trim() : "";
   if (!codeRaw) return null;
@@ -104,7 +102,6 @@ function cmsLikePosFromCoding(c: Record<string, unknown>): string | null {
     sys.includes("place-of-service") ||
     sys.includes("cms.gov") ||
     sys.includes("medicare.gov");
-  if (/^\d{2}$/.test(codeRaw)) return codeRaw;
   if (posSystem && /^\d{1,2}$/.test(codeRaw)) {
     const n = Number.parseInt(codeRaw, 10);
     if (n >= 1 && n <= 99) return codeRaw.padStart(2, "0");
@@ -140,6 +137,18 @@ function pickClassPrimaryCoding(
 ): Record<string, unknown> | null {
   const cls = asRecord(enc.class);
   if (!cls) return null;
+
+  // FHIR R4 Encounter.class is a Coding, not a CodeableConcept.
+  if (
+    typeof cls.code === "string" ||
+    typeof cls.system === "string" ||
+    typeof cls.display === "string"
+  ) {
+    return cls;
+  }
+
+  // Retain compatibility with non-standard payloads that wrap it as a
+  // CodeableConcept.
   const codings = cls.coding;
   if (!Array.isArray(codings) || codings.length === 0) return null;
   return asRecord(codings[0]);
@@ -160,8 +169,13 @@ function pickPlaceOfService(enc: Record<string, unknown>): string | null {
     return ACT_CLASS_CODE_TO_CMS_POS[clsCode];
   }
 
-  const cls = asRecord(enc.class);
-  const clsText = cls && typeof cls.text === "string" ? cls.text.trim() : "";
+  const cls = pickClassPrimaryCoding(enc);
+  const clsDisplay =
+    cls && typeof cls.display === "string" ? cls.display.trim() : "";
+  if (clsDisplay) return truncateLabel(clsDisplay);
+  const rawClass = asRecord(enc.class);
+  const clsText =
+    rawClass && typeof rawClass.text === "string" ? rawClass.text.trim() : "";
   if (clsText) return truncateLabel(clsText);
 
   const locs = enc.location;
@@ -180,24 +194,21 @@ function pickPlaceOfService(enc: Record<string, unknown>): string | null {
 }
 
 function pickVisitType(enc: Record<string, unknown>): string | null {
-  const cls = asRecord(enc.class);
+  const cls = pickClassPrimaryCoding(enc);
   if (cls) {
-    const c0 = pickClassPrimaryCoding(enc);
-    if (c0) {
-      const disp = c0.display;
-      if (typeof disp === "string" && disp.trim()) {
-        return truncateLabel(disp);
-      }
-      const code = c0.code;
-      if (typeof code === "string" && code.trim()) {
-        return truncateLabel(code);
-      }
+    const disp = cls.display;
+    if (typeof disp === "string" && disp.trim()) {
+      return truncateLabel(disp);
     }
-    const text = cls.text;
-    if (typeof text === "string" && text.trim()) {
-      return truncateLabel(text);
+    const code = cls.code;
+    if (typeof code === "string" && code.trim()) {
+      return truncateLabel(code);
     }
   }
+  const rawClass = asRecord(enc.class);
+  const clsText =
+    rawClass && typeof rawClass.text === "string" ? rawClass.text.trim() : "";
+  if (clsText) return truncateLabel(clsText);
 
   const types = enc.type;
   if (Array.isArray(types) && types.length > 0) {
