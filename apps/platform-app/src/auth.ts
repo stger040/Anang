@@ -78,11 +78,14 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         token.sub = user.id;
         token.appRole = (user as { appRole: AppRole }).appRole;
         token.email = user.email ?? undefined;
+        token.authViaCredentials = true;
         return token;
       }
       if (account?.provider === "oidc" && profile) {
         const email = (profile as { email?: string }).email?.toLowerCase();
-        return attachDbUserToToken(token, email);
+        const next = await attachDbUserToToken(token, email);
+        next.authViaCredentials = false;
+        return next;
       }
       return token;
     },
@@ -91,6 +94,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         session.user.id = token.sub;
         session.user.email = token.email as string;
         session.user.appRole = token.appRole as AppRole;
+        session.user.authViaCredentials = token.authViaCredentials === true;
       }
       return session;
     },

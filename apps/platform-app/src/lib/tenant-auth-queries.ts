@@ -1,12 +1,15 @@
 import { tenantPrisma } from "@/lib/prisma";
 import { validateTenantSlug } from "@/lib/platform-slug";
 import {
+  credentialsSessionAllowedForTenantPolicy,
   globalOidcConfigured,
   parseTenantAuthSettings,
   tenantOidcSecretFromEnv,
   type TenantAuthSettingsV1,
   type TenantLoginBranding,
 } from "@/lib/tenant-auth-settings";
+
+export { credentialsSessionAllowedForTenantPolicy } from "@/lib/tenant-auth-settings";
 import { AppRole } from "@prisma/client";
 
 export function tenantJitMembershipAppRole(
@@ -86,4 +89,18 @@ export async function passwordAllowedForTenantSlug(
     (row.settings as Record<string, unknown>)?.auth,
   );
   return auth.policy !== "sso_required";
+}
+
+/** Async guard for staff password sessions against a tenant slug. */
+export async function credentialsSessionAllowedForTenantSlug(
+  slug: string,
+  opts: { isSuperAdmin: boolean; authViaCredentials: boolean },
+): Promise<boolean> {
+  if (!opts.authViaCredentials || opts.isSuperAdmin) return true;
+  const row = await loadTenantAuthRow(slug);
+  if (!row) return true;
+  const auth = parseTenantAuthSettings(
+    (row.settings as Record<string, unknown>)?.auth,
+  );
+  return credentialsSessionAllowedForTenantPolicy(auth.policy, opts);
 }

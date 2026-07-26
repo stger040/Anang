@@ -93,6 +93,12 @@ export default async function LoginPage({
                 This invitation is invalid, expired, or already used.
               </p>
             ) : null}
+            {sp.error === "password_sso_required" ? (
+              <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                This organization requires SSO. Password sign-in cannot open the
+                workspace — use the SSO option below.
+              </p>
+            ) : null}
 
             <SignInForm
               marketingUrl={urls.marketing}

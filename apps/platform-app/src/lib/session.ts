@@ -11,6 +11,11 @@ export type SessionPayload = {
   userId: string;
   email: string;
   appRole: AppRole;
+  /**
+   * True when Auth.js issued this session via the credentials (password) provider.
+   * Tenant OIDC / global OIDC sessions leave this unset/false.
+   */
+  authViaCredentials?: boolean;
 };
 
 /** @deprecated Use SessionPayload */
@@ -24,6 +29,7 @@ export async function getSession(): Promise<SessionPayload | null> {
     userId: s.user.id,
     email: s.user.email,
     appRole: s.user.appRole,
+    ...(s.user.authViaCredentials ? { authViaCredentials: true } : {}),
   };
 }
 

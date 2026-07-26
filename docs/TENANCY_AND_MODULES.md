@@ -26,7 +26,7 @@ Super admins edit **`Tenant.settings.auth`** (v1) via **`/admin`** → tenant �
 |--------|---------|
 | `local_only` | Password (and internal virtual mailbox flow) only; no SSO tiles for that org. |
 | `sso_allowed` | Password **and** SSO when configured (recommended during rollout). |
-| `sso_required` | Password sign-in **blocked** when credentials include that org; users must use SSO. |
+| `sso_required` | Password sign-in **blocked** for that org (including generic `/login` without `?org=`). Staff password sessions cannot enter the workspace; users must use SSO. Super-admins may still use password for support. |
 
 **SSO** can be a **dedicated OIDC app** per tenant (issuer + client ID in DB; **client secret in env** `AUTH_OIDC_CLIENT_SECRET__…`) and/or optional **platform-wide** OIDC (`AUTH_OIDC_*`). Neither is required globally. Client IT steps: **[`CLIENT_IT_OIDC_ONBOARDING.md`](./CLIENT_IT_OIDC_ONBOARDING.md)**.
 

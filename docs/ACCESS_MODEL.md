@@ -37,7 +37,7 @@
 | Route prefix | Audience | Auth |
 |--------------|-----------|------|
 | **`/p/*`** | Patients | Link token / verification + gate cookie; **no** staff `User` session |
-| **`/o/[orgSlug]/*`** | Staff + tenant admins | NextAuth session; **`assertOrgAccess`** (membership **or** super-admin) |
+| **`/o/[orgSlug]/*`** | Staff + tenant admins | NextAuth session; **`assertOrgAccess`** (membership **or** super-admin). Password sessions cannot enter tenants with **`auth.policy = sso_required`** (must use SSO). |
 | **`/o/[orgSlug]/settings/*`** | Tenant admins + super-admins only | Server layout guard + **`canAccessTenantAdminRoutes`** |
 | **`/admin/*`** | Platform super-admins | Layout requires `User.appRole === SUPER_ADMIN` |
 
