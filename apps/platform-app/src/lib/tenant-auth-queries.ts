@@ -1,12 +1,15 @@
 import { tenantPrisma } from "@/lib/prisma";
 import { validateTenantSlug } from "@/lib/platform-slug";
 import {
+  credentialsSessionAllowedForTenantPolicy,
   globalOidcConfigured,
   parseTenantAuthSettings,
   tenantOidcSecretFromEnv,
   type TenantAuthSettingsV1,
   type TenantLoginBranding,
 } from "@/lib/tenant-auth-settings";
+
+export { credentialsSessionAllowedForTenantPolicy } from "@/lib/tenant-auth-settings";
 import { AppRole } from "@prisma/client";
 
 export function tenantJitMembershipAppRole(
@@ -88,24 +91,16 @@ export async function passwordAllowedForTenantSlug(
   return auth.policy !== "sso_required";
 }
 
-/**
- * Whether a session may enter a tenant workspace when that tenant is `sso_required`.
- * Super-admins may use password; password sessions for everyone else cannot enter
- * `sso_required` orgs (including after a generic `/login` that omitted `tenantSlug`).
- */
-export function credentialsSessionAllowedForTenantPolicy(
-  policy: TenantAuthSettingsV1["policy"],
-  opts: { isSuperAdmin: boolean; authViaCredentials: boolean },
-): boolean {
-  if (!opts.authViaCredentials || opts.isSuperAdmin) return true;
-  return policy !== "sso_required";
-}
-
 /** Async guard for staff password sessions against a tenant slug. */
 export async function credentialsSessionAllowedForTenantSlug(
   slug: string,
   opts: { isSuperAdmin: boolean; authViaCredentials: boolean },
 ): Promise<boolean> {
   if (!opts.authViaCredentials || opts.isSuperAdmin) return true;
-  return passwordAllowedForTenantSlug(slug);
+  const row = await loadTenantAuthRow(slug);
+  if (!row) return true;
+  const auth = parseTenantAuthSettings(
+    (row.settings as Record<string, unknown>)?.auth,
+  );
+  return credentialsSessionAllowedForTenantPolicy(auth.policy, opts);
 }

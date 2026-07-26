@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { credentialsSessionAllowedForTenantPolicy } from "./tenant-auth-queries";
+import { credentialsSessionAllowedForTenantPolicy } from "./tenant-auth-settings";
 
 describe("credentialsSessionAllowedForTenantPolicy", () => {
   it("allows non-password sessions into sso_required tenants", () => {
