@@ -3,6 +3,7 @@ import { unlockAllModulesForTesting } from "@/lib/auth-config";
 import { computeEffectiveModules } from "@/lib/effective-modules";
 import { tenantPrisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/session";
+import { credentialsSessionAllowedForTenantSlug } from "@/lib/tenant-auth-queries";
 
 function allEntitledModuleKeys(): Set<ModuleKey> {
   return new Set(Object.values(ModuleKey) as ModuleKey[]);
@@ -72,6 +73,12 @@ export async function assertOrgAccess(
 ): Promise<OrgAccessContext | null> {
   const ctx = await loadTenantNav(orgSlug);
   if (!ctx) return null;
+
+  const passwordOk = await credentialsSessionAllowedForTenantSlug(orgSlug, {
+    isSuperAdmin: session.appRole === AppRole.SUPER_ADMIN,
+    authViaCredentials: session.authViaCredentials === true,
+  });
+  if (!passwordOk) return null;
 
   const db = tenantPrisma(orgSlug);
   const membership = await db.membership.findFirst({

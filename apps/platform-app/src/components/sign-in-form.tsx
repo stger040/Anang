@@ -63,7 +63,7 @@ export function SignInForm({
       if (res?.error) {
         setError(
           tenantBranding?.policy === "sso_required"
-            ? "Password sign-in is disabled for this organization. Use SSO, or open the generic sign-in link without ?org= if you are a platform operator."
+            ? "Password sign-in is disabled for this organization. Use SSO."
             : "Invalid email or password.",
         );
         return;

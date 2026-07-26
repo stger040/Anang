@@ -1,5 +1,5 @@
-import { auth } from "@/auth";
 import { tenantPrisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
 import { assertOrgAccess } from "@/lib/tenant-context";
 import type { PriorAuthCasePatchBody } from "@/lib/prior-auth/prior-auth-api-contract";
 import { ModuleKey } from "@prisma/client";
@@ -12,8 +12,8 @@ export async function GET(
   req: Request,
   ctx: { params: Promise<{ caseId: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user?.id || !session.user.email) {
+  const session = await getSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const url = new URL(req.url);
@@ -22,12 +22,7 @@ export async function GET(
   if (!orgSlug) {
     return NextResponse.json({ error: "orgSlug required" }, { status: 400 });
   }
-  const payload = {
-    userId: session.user.id,
-    email: session.user.email,
-    appRole: session.user.appRole!,
-  };
-  const ac = await assertOrgAccess(payload, orgSlug);
+  const ac = await assertOrgAccess(session, orgSlug);
   if (!ac?.effectiveModules.has(ModuleKey.CONNECT)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

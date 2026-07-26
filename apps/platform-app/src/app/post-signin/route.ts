@@ -8,7 +8,9 @@ import { readRequestIdFromHeaders } from "@/lib/platform-log";
 import { prisma } from "@/lib/prisma";
 import { validateTenantSlug } from "@/lib/platform-slug";
 import { postSignInTenantPath } from "@/lib/adaptive-workspace";
+import { credentialsSessionAllowedForTenantSlug } from "@/lib/tenant-auth-queries";
 import { fulfillInviteForUser } from "@/lib/user-invite";
+import type { SessionPayload } from "@/lib/session";
 import { AppRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -19,6 +21,47 @@ function clearAuthFlowCookies(res: NextResponse) {
   const base = { ...authFlowCookieDefaults(), maxAge: 0 };
   res.cookies.set(PENDING_INVITE_COOKIE, "", base);
   res.cookies.set(INTENDED_ORG_COOKIE, "", base);
+}
+
+function sessionPayloadFromAuth(session: {
+  user: {
+    id: string;
+    email: string;
+    appRole?: AppRole;
+    authViaCredentials?: boolean;
+  };
+}): SessionPayload {
+  return {
+    userId: session.user.id,
+    email: session.user.email.toLowerCase(),
+    appRole: session.user.appRole ?? AppRole.STAFF,
+    ...(session.user.authViaCredentials ? { authViaCredentials: true } : {}),
+  };
+}
+
+async function redirectIntoTenantOrSsoRequired(
+  request: NextRequest,
+  sessionPayload: SessionPayload,
+  tenantSlug: string,
+): Promise<NextResponse> {
+  const allowed = await credentialsSessionAllowedForTenantSlug(tenantSlug, {
+    isSuperAdmin: sessionPayload.appRole === AppRole.SUPER_ADMIN,
+    authViaCredentials: sessionPayload.authViaCredentials === true,
+  });
+  if (!allowed) {
+    const res = NextResponse.redirect(
+      new URL(
+        `/login?org=${encodeURIComponent(tenantSlug)}&error=password_sso_required`,
+        request.url,
+      ),
+    );
+    clearAuthFlowCookies(res);
+    return res;
+  }
+  const path = await postSignInTenantPath(sessionPayload, tenantSlug);
+  const res = NextResponse.redirect(new URL(path, request.url));
+  clearAuthFlowCookies(res);
+  return res;
 }
 
 export async function GET(request: NextRequest) {
@@ -41,6 +84,14 @@ export async function GET(request: NextRequest) {
   const intendedOrgRaw = orgFromQuery || orgFromCookie;
 
   const emailLower = session.user.email.toLowerCase();
+  const sessionPayload = sessionPayloadFromAuth({
+    user: {
+      id: session.user.id,
+      email: emailLower,
+      appRole: session.user.appRole,
+      authViaCredentials: session.user.authViaCredentials,
+    },
+  });
 
   if (inviteToken) {
     const requestId = await readRequestIdFromHeaders();
@@ -50,25 +101,19 @@ export async function GET(request: NextRequest) {
       emailLower,
       requestId ? { requestId } : undefined,
     );
-    const sessionPayload = {
-      userId: session.user.id,
-      email: emailLower,
-      appRole: session.user.appRole ?? AppRole.STAFF,
-    };
-    const res = r.ok
-      ? NextResponse.redirect(
-          new URL(
-            await postSignInTenantPath(sessionPayload, r.tenantSlug),
-            request.url,
-          ),
-        )
-      : r.code === "email_mismatch"
-        ? NextResponse.redirect(
-            new URL("/login?error=invite_email_mismatch", request.url),
-          )
-        : NextResponse.redirect(new URL("/login?error=invite_invalid", request.url));
-    clearAuthFlowCookies(res);
-    return res;
+    if (!r.ok) {
+      const res =
+        r.code === "email_mismatch"
+          ? NextResponse.redirect(
+              new URL("/login?error=invite_email_mismatch", request.url),
+            )
+          : NextResponse.redirect(
+              new URL("/login?error=invite_invalid", request.url),
+            );
+      clearAuthFlowCookies(res);
+      return res;
+    }
+    return redirectIntoTenantOrSsoRequired(request, sessionPayload, r.tenantSlug);
   }
 
   if (session.user.appRole === AppRole.SUPER_ADMIN) {
@@ -80,15 +125,7 @@ export async function GET(request: NextRequest) {
           select: { id: true },
         });
         if (tenant) {
-          const sessionPayload = {
-            userId: session.user.id,
-            email: emailLower,
-            appRole: session.user.appRole!,
-          };
-          const path = await postSignInTenantPath(sessionPayload, slug);
-          const res = NextResponse.redirect(new URL(path, request.url));
-          clearAuthFlowCookies(res);
-          return res;
+          return redirectIntoTenantOrSsoRequired(request, sessionPayload, slug);
         }
       }
     }
@@ -112,15 +149,11 @@ export async function GET(request: NextRequest) {
           include: { tenant: { select: { slug: true } } },
         });
         if (m) {
-          const sessionPayload = {
-            userId: session.user.id,
-            email: emailLower,
-            appRole: session.user.appRole!,
-          };
-          const path = await postSignInTenantPath(sessionPayload, m.tenant.slug);
-          const res = NextResponse.redirect(new URL(path, request.url));
-          clearAuthFlowCookies(res);
-          return res;
+          return redirectIntoTenantOrSsoRequired(
+            request,
+            sessionPayload,
+            m.tenant.slug,
+          );
         }
       }
     }
@@ -133,15 +166,11 @@ export async function GET(request: NextRequest) {
   });
 
   if (m) {
-    const sessionPayload = {
-      userId: session.user.id,
-      email: emailLower,
-      appRole: session.user.appRole!,
-    };
-    const path = await postSignInTenantPath(sessionPayload, m.tenant.slug);
-    const res = NextResponse.redirect(new URL(path, request.url));
-    clearAuthFlowCookies(res);
-    return res;
+    return redirectIntoTenantOrSsoRequired(
+      request,
+      sessionPayload,
+      m.tenant.slug,
+    );
   }
 
   const res = NextResponse.redirect(

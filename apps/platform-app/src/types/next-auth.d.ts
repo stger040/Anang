@@ -10,6 +10,8 @@ declare module "next-auth" {
       id: string;
       appRole: AppRole;
       email: string;
+      /** True when the session was issued via the credentials (password) provider. */
+      authViaCredentials?: boolean;
     };
   }
 }
@@ -17,5 +19,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     appRole?: AppRole;
+    /** True when the session was issued via the credentials (password) provider. */
+    authViaCredentials?: boolean;
   }
 }
