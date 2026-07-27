@@ -5,6 +5,7 @@
  */
 
 import type { TradingPartnerEnrollmentV1 } from "@/lib/trading-partner-enrollment";
+import { normalizeProcedureCode } from "./procedure-code";
 
 export type Assemble837pTradingPartner = {
   isaSenderId: string;
@@ -238,7 +239,7 @@ export function assemble837pProfessional(input: Assemble837pInput): string {
   for (const row of lines) {
     lx += 1;
     ts.push(joinSeg(["LX", String(lx)]));
-    const cpt = sanitizeToken(row.cpt).replace(/\D/g, "").slice(0, 5);
+    const cpt = normalizeProcedureCode(sanitizeToken(row.cpt));
     const mod = row.modifier
       ? sanitizeToken(row.modifier).slice(0, 2)
       : "";

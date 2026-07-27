@@ -27,6 +27,7 @@ import {
   ClaimDraftLineSource,
 } from "@prisma/client";
 import * as XLSX from "xlsx";
+import { normalizeProcedureCode } from "../src/lib/connect/edi/procedure-code";
 
 const prisma = new PrismaClient();
 
@@ -846,7 +847,7 @@ async function main() {
       await prisma.claimDraftLine.create({
         data: {
           draftId: draft.id,
-          cpt: fallbackCpt.replace(/\D/g, "").slice(0, 5) || "99213",
+          cpt: normalizeProcedureCode(fallbackCpt) || "99213",
           icd10,
           modifier: null,
           units: 1,
@@ -862,7 +863,7 @@ async function main() {
         const modifier =
           [modA, modB].filter(Boolean).join(",") || null;
         const cptRaw = String(ln.procedure_code ?? "");
-        const cpt = cptRaw.replace(/\D/g, "").slice(0, 5) || "99213";
+        const cpt = normalizeProcedureCode(cptRaw) || "99213";
         await prisma.claimDraftLine.create({
           data: {
             draftId: draft.id,
