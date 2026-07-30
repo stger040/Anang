@@ -1,5 +1,9 @@
 import { platformLog, readRequestId } from "@/lib/platform-log";
 import { allocatePaymentToPlanInstallments } from "@/lib/pay/plan-installment-allocation";
+import {
+  isStripeCheckoutFulfillmentEvent,
+  isStripeCheckoutPaymentSettled,
+} from "@/lib/pay/stripe-checkout-settled";
 import { prisma, tenantPrisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe-server";
 import { NextResponse } from "next/server";
@@ -44,12 +48,31 @@ export async function POST(req: Request) {
     type: event.type,
   });
 
-  if (event.type === "checkout.session.completed") {
-    await handleCheckoutCompleted(
-      event.data.object as Stripe.Checkout.Session,
+  if (isStripeCheckoutFulfillmentEvent(event.type)) {
+    const checkoutSession = event.data.object as Stripe.Checkout.Session;
+    // Delayed methods complete Checkout while payment_status is still "unpaid".
+    // Only post to the ledger once funds settle (paid / async_payment_succeeded).
+    if (!isStripeCheckoutPaymentSettled(checkoutSession)) {
+      platformLog("info", "pay.stripe.checkout_not_settled", {
+        requestId,
+        stripeEventId: event.id,
+        type: event.type,
+        stripeCheckoutSessionId: checkoutSession.id,
+        paymentStatus: checkoutSession.payment_status,
+      });
+    } else {
+      await handleCheckoutCompleted(checkoutSession, requestId, event.id);
+    }
+  } else if (event.type === "checkout.session.async_payment_failed") {
+    const checkoutSession = event.data.object as Stripe.Checkout.Session;
+    platformLog("warn", "pay.stripe.async_payment_failed", {
       requestId,
-      event.id,
-    );
+      stripeEventId: event.id,
+      stripeCheckoutSessionId: checkoutSession.id,
+      paymentStatus: checkoutSession.payment_status,
+      tenantId: checkoutSession.metadata?.tenantId,
+      statementId: checkoutSession.metadata?.statementId,
+    });
   }
 
   return NextResponse.json({ received: true });
