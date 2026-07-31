@@ -10,7 +10,10 @@ import {
   greenwayFhirGetUrl,
 } from "./client";
 import { normalizeFhirEncounterResource } from "./normalize-fhir-encounter-resource";
-import { normalizeFhirPatientResource } from "./normalize-fhir-patient-resource";
+import {
+  mergeGreenwayPatientDemographics,
+  normalizeFhirPatientResource,
+} from "./normalize-fhir-patient-resource";
 import {
   findEncounterByFhirEncounterLogicalId,
   findPatientIdByFhirPatientLogicalId,
@@ -201,26 +204,44 @@ export async function syncGreenwayPatientEncounters(
       tenantId,
       d.fhirLogicalId,
     );
-    const patient =
-      existingPatientId != null
-        ? await tx.patient.update({
-            where: { id: existingPatientId, tenantId },
-            data: {
-              mrn: d.mrn,
-              firstName: d.firstName,
-              lastName: d.lastName,
-              dob: d.dob,
-            },
-          })
-        : await tx.patient.create({
-            data: {
-              tenantId,
-              mrn: d.mrn,
-              firstName: d.firstName,
-              lastName: d.lastName,
-              dob: d.dob,
-            },
-          });
+    let patient;
+    if (existingPatientId != null) {
+      const existing = await tx.patient.findFirst({
+        where: { id: existingPatientId, tenantId },
+        select: {
+          id: true,
+          mrn: true,
+          firstName: true,
+          lastName: true,
+          dob: true,
+        },
+      });
+      if (!existing) {
+        throw new Error(
+          `Greenway FHIR patient ${d.fhirLogicalId} external id points at missing Patient ${existingPatientId}`,
+        );
+      }
+      const merged = mergeGreenwayPatientDemographics(existing, d);
+      patient = await tx.patient.update({
+        where: { id: existing.id, tenantId },
+        data: {
+          mrn: merged.mrn,
+          firstName: merged.firstName,
+          lastName: merged.lastName,
+          dob: merged.dob,
+        },
+      });
+    } else {
+      patient = await tx.patient.create({
+        data: {
+          tenantId,
+          mrn: d.mrn,
+          firstName: d.firstName,
+          lastName: d.lastName,
+          dob: d.dob,
+        },
+      });
+    }
 
     await recordFhirPatientExternalIdOnly(tx, {
       tenantId,
