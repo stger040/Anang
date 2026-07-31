@@ -49,7 +49,9 @@ export {
   type GreenwayCronAllowlistSource,
 } from "./greenway-cron-allowlist";
 export {
+  mergeGreenwayPatientDemographics,
   normalizeFhirPatientResource,
+  type ExistingPatientDemographics,
   type MappedFhirPatientFields,
   type NormalizeFhirPatientResult,
 } from "./normalize-fhir-patient-resource";
