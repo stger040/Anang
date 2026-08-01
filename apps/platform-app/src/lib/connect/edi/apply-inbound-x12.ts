@@ -153,6 +153,26 @@ async function apply277Row(
 
 const DENIED_835 = new Set(["2", "4", "22", "23"]);
 
+/**
+ * Stable ERA key derived from the 835 payload body (not the delivery/ingestion batch).
+ * Retries of the same X12 must upsert the same Remittance835 / adjudication slices.
+ */
+export function inbound835RemittanceKey(x12: string): string {
+  return `edi835:sha:${createHash("sha256").update(x12, "utf8").digest("hex").slice(0, 32)}`;
+}
+
+async function totalPaidCentsFromClaimAdjudications(
+  db: DbClient,
+  tenantId: string,
+  claimId: string,
+): Promise<number> {
+  const agg = await db.claimAdjudication.aggregate({
+    where: { tenantId, claimId },
+    _sum: { paidCents: true },
+  });
+  return agg._sum.paidCents ?? 0;
+}
+
 async function upsertRemittance835FromInbound835(
   db: DbClient,
   tenantId: string,
@@ -362,14 +382,32 @@ async function apply835Row(
   }
 
   let nextStatus = claim.status;
-  let paidUpdate: number | null | undefined = undefined;
-
   if (payCents != null && payCents > 0) {
     nextStatus = ClaimLifecycleStatus.PAID;
-    paidUpdate = payCents;
   } else if (DENIED_835.has(row.statusCode)) {
     nextStatus = ClaimLifecycleStatus.DENIED;
   }
+
+  // Persist the remittance slice first so Claim.paidCents can be recomputed from all
+  // adjudications (partial / secondary payments accumulate; delivery retries upsert).
+  if (remittance) {
+    await persist835ClaimAdjudicationSlice(
+      db,
+      tenantId,
+      claim.id,
+      row,
+      remittance,
+      payCents ?? 0,
+      serviceLines,
+      clpInnerSegments,
+    );
+  }
+
+  const paidUpdate = remittance
+    ? await totalPaidCentsFromClaimAdjudications(db, tenantId, claim.id)
+    : payCents != null && payCents > 0
+      ? payCents
+      : undefined;
 
   await db.claim.update({
     where: { id: claim.id },
@@ -403,19 +441,6 @@ async function apply835Row(
       detail: timelineDetail,
     },
   });
-
-  if (remittance) {
-    await persist835ClaimAdjudicationSlice(
-      db,
-      tenantId,
-      claim.id,
-      row,
-      remittance,
-      payCents ?? 0,
-      serviceLines,
-      clpInnerSegments,
-    );
-  }
 
   return {
     kind: "matched",
@@ -678,9 +703,7 @@ export async function applyInboundX12ToTenant(args: {
     transactionSet === "835" ? findClpSegmentIndices(segments) : [];
 
   if (transactionSet === "835" && rows.length > 0) {
-    const remittanceKey = ingestionBatchId
-      ? `edi835:batch:${ingestionBatchId}`
-      : `edi835:sha:${createHash("sha256").update(x12, "utf8").digest("hex").slice(0, 32)}`;
+    const remittanceKey = inbound835RemittanceKey(x12);
     const header = await upsertRemittance835FromInbound835(db, tenantId, {
       remittanceKey,
       eraTraceNumber: trnRefs[0] ?? null,
