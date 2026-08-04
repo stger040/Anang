@@ -151,7 +151,27 @@ async function apply277Row(
   };
 }
 
-const DENIED_835 = new Set(["2", "4", "22", "23"]);
+/**
+ * 835 CLP02 claim status codes that mean the claim was denied.
+ *
+ * X12 005010X221 CLP02 (not the 277 claim-status table):
+ *   1 = Processed as Primary
+ *   2 = Processed as Secondary
+ *   3 = Processed as Tertiary
+ *   4 = Denied
+ *  19/20/21 = Processed as Primary/Secondary/Tertiary, Forwarded
+ *  22 = Reversal of Previous Payment
+ *  23 = Not Our Claim, Forwarded to Additional Payer(s)
+ *
+ * Only code 4 is a denial. Codes 2/22/23 were previously (incorrectly) treated
+ * as denials, which flipped secondary zero-pay and reversal rows to DENIED.
+ */
+const DENIED_835 = new Set(["4"]);
+
+/** True when an 835 CLP02 value is the Denied status (code 4). */
+export function isDenied835Status(statusCode: string): boolean {
+  return DENIED_835.has(statusCode);
+}
 
 async function upsertRemittance835FromInbound835(
   db: DbClient,
@@ -220,7 +240,7 @@ async function persist835ClaimAdjudicationSlice(
   }
   const prCents = prRollup;
   const adjudicationKey = `${remittance.key}:${row.submitterClaimId}:${remittance.clpIndex}`;
-  const denied = DENIED_835.has(row.statusCode);
+  const denied = isDenied835Status(row.statusCode);
   const denialCategory = denied ? `835 CLP02=${row.statusCode}` : null;
 
   const finCtx = extract835ClpFinancialContext(clpInnerSegments);
@@ -367,7 +387,7 @@ async function apply835Row(
   if (payCents != null && payCents > 0) {
     nextStatus = ClaimLifecycleStatus.PAID;
     paidUpdate = payCents;
-  } else if (DENIED_835.has(row.statusCode)) {
+  } else if (isDenied835Status(row.statusCode)) {
     nextStatus = ClaimLifecycleStatus.DENIED;
   }
 
@@ -397,8 +417,8 @@ async function apply835Row(
       label:
         payCents != null && payCents > 0
           ? "835 — remittance / payment posted"
-          : DENIED_835.has(row.statusCode)
-            ? "835 — denial or zero pay"
+          : isDenied835Status(row.statusCode)
+            ? "835 — denial"
             : `835 — CLP status ${row.statusCode}`,
       detail: timelineDetail,
     },
