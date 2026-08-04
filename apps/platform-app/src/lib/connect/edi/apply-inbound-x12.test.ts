@@ -5,6 +5,7 @@ import {
   applyInboundX12ToTenant,
   isDenied835Status,
 } from "./apply-inbound-x12";
+import type { X12ValidationResult } from "./validate-x12-structure";
 
 function make835Db(claim: {
   id?: string;
@@ -47,11 +48,11 @@ function make835Db(claim: {
   return { db, claimUpdate, timelineCreate, adjudicationUpsert };
 }
 
-const structuralOk = {
-  ok: true as const,
+const structuralOk: X12ValidationResult = {
+  ok: true,
   issues: [],
   guide: "835-5010-min",
-  transactionSet: "835" as const,
+  transactionSet: "835",
   segmentCount: 3,
 };
 
