@@ -9,6 +9,7 @@ import {
   recordFhirFixtureExternalIds,
 } from "@/lib/connectors/external-identifiers";
 import type { ConnectorKind } from "@/lib/connectors/canonical-ingest";
+import { planPatientEncounterStatementImport } from "@/lib/connectors/patient-encounter-statement-plan";
 import { createIngestionBatchRecordingRawPayload } from "@/lib/connectors/source-artifact";
 import type {
   FhirClaimStatementLine,
@@ -188,59 +189,68 @@ export async function persistPatientEncounterImport(
       }
     }
 
-    const existingStmt = await tx.statement.findFirst({
+    const existingStatements = await tx.statement.findMany({
       where: {
         tenantId: args.tenantId,
         encounterId: encounter.id,
       },
+      select: {
+        id: true,
+        number: true,
+        _count: { select: { payments: true } },
+      },
     });
+    const plan = planPatientEncounterStatementImport({
+      stmtNumber,
+      existing: existingStatements.map((s) => ({
+        id: s.id,
+        number: s.number,
+        paymentCount: s._count.payments,
+      })),
+    });
+
+    if (plan.action === "reuse_paid") {
+      // Companion `-P` already exists (and has payments). Do not mint another
+      // open balance — repeated re-imports must stay idempotent.
+      return {
+        encounterId: encounter.id,
+        statementId: plan.statementId,
+        payStatementCreated: false,
+        idempotentPatient: ipat,
+        idempotentEncounter: ienc,
+        statementReplaced: false,
+        sourceArtifactMeta: sourceArtifactMetaTx,
+      };
+    }
 
     let stmtId: string;
     let replaced = false;
+    let created = false;
 
-    if (existingStmt) {
-      const paymentCount = await tx.payment.count({
-        where: { statementId: existingStmt.id },
+    if (plan.action === "replace") {
+      await tx.statementLine.deleteMany({
+        where: { statementId: plan.statementId },
       });
-      if (paymentCount === 0) {
-        await tx.statementLine.deleteMany({
-          where: { statementId: existingStmt.id },
-        });
-        await tx.statement.update({
-          where: { id: existingStmt.id },
-          data: {
-            number: stmtNumber,
-            totalCents: args.statementTotalCents,
-            balanceCents: args.statementTotalCents,
-            status: "open",
-            dueDate: due,
-            patientId: patient.id,
-          },
-        });
-        stmtId = existingStmt.id;
-        replaced = true;
-      } else {
-        const stmt = await tx.statement.create({
-          data: {
-            tenantId: args.tenantId,
-            patientId: patient.id,
-            encounterId: encounter.id,
-            number: `${stmtNumber}-P`,
-            totalCents: args.statementTotalCents,
-            balanceCents: args.statementTotalCents,
-            status: "open",
-            dueDate: due,
-          },
-        });
-        stmtId = stmt.id;
-      }
+      await tx.statement.update({
+        where: { id: plan.statementId },
+        data: {
+          number: plan.number,
+          totalCents: args.statementTotalCents,
+          balanceCents: args.statementTotalCents,
+          status: "open",
+          dueDate: due,
+          patientId: patient.id,
+        },
+      });
+      stmtId = plan.statementId;
+      replaced = true;
     } else {
       const stmt = await tx.statement.create({
         data: {
           tenantId: args.tenantId,
           patientId: patient.id,
           encounterId: encounter.id,
-          number: stmtNumber,
+          number: plan.number,
           totalCents: args.statementTotalCents,
           balanceCents: args.statementTotalCents,
           status: "open",
@@ -248,6 +258,7 @@ export async function persistPatientEncounterImport(
         },
       });
       stmtId = stmt.id;
+      created = true;
     }
 
     if (fromClaim) {
@@ -273,7 +284,7 @@ export async function persistPatientEncounterImport(
     return {
       encounterId: encounter.id,
       statementId: stmtId,
-      payStatementCreated: true,
+      payStatementCreated: created || replaced,
       idempotentPatient: ipat,
       idempotentEncounter: ienc,
       statementReplaced: replaced,
