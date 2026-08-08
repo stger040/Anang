@@ -65,8 +65,8 @@ function ediContextPatch(ctx: InboundApplyContext): Record<string, unknown> {
 
 /**
  * X12 Claim Status Code (DE 1029) on 277 CLP02 — same code list as 835.
- * Only `4` = Denied. `3` is Processed as Tertiary; `23`/`24` are forwarded /
- * transferred, not denials.
+ * Only `4` = Denied. `3` is Processed as Tertiary; `23` is Not Our Claim /
+ * Forwarded; `24` is Predetermination Pricing Only — none of those are denials.
  */
 export function isDenied277Status(code: string): boolean {
   return code === "4";

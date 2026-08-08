@@ -140,7 +140,7 @@ describe("applyInboundX12ToTenant 277 CLP02 status mapping", () => {
     );
   });
 
-  it("does not mark transferred to proper carrier (CLP02=24) as DENIED", async () => {
+  it("does not mark predetermination-only (CLP02=24) as DENIED", async () => {
     const { db, claimUpdate } = make277Db({
       status: ClaimLifecycleStatus.SUBMITTED,
     });
