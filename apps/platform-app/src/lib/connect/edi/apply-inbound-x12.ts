@@ -63,16 +63,22 @@ function ediContextPatch(ctx: InboundApplyContext): Record<string, unknown> {
   return patch;
 }
 
-function isDenied277(code: string): boolean {
-  return ["3", "4", "23", "24"].includes(code);
+/**
+ * X12 Claim Status Code (DE 1029) on 277 CLP02 — same code list as 835.
+ * Only `4` = Denied. `3` is Processed as Tertiary; `23` is Not Our Claim /
+ * Forwarded; `24` is Predetermination Pricing Only — none of those are denials.
+ */
+export function isDenied277Status(code: string): boolean {
+  return code === "4";
 }
 
 function isAccepted277(code: string): boolean {
-  return ["1", "2", "19", "20", "21"].includes(code);
+  // Processed as primary/secondary/tertiary (+ forwarded-to-additional-payer variants).
+  return ["1", "2", "3", "19", "20", "21"].includes(code);
 }
 
 function lifecycleHint277(code: string): ClaimLifecycleStatus | null {
-  if (isDenied277(code)) return ClaimLifecycleStatus.DENIED;
+  if (isDenied277Status(code)) return ClaimLifecycleStatus.DENIED;
   if (isAccepted277(code)) return ClaimLifecycleStatus.ACCEPTED;
   return null;
 }
