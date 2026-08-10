@@ -1,5 +1,10 @@
 import { platformLog, readRequestId } from "@/lib/platform-log";
 import { allocatePaymentToPlanInstallments } from "@/lib/pay/plan-installment-allocation";
+import {
+  classifyStripeCheckoutPostFailure,
+  stripeCheckoutWebhookHttpStatus,
+  type StripeCheckoutWebhookPostResult,
+} from "@/lib/pay/stripe-checkout-webhook-result";
 import { prisma, tenantPrisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe-server";
 import { NextResponse } from "next/server";
@@ -44,11 +49,20 @@ export async function POST(req: Request) {
     type: event.type,
   });
 
+  let postResult: StripeCheckoutWebhookPostResult = "ok";
   if (event.type === "checkout.session.completed") {
-    await handleCheckoutCompleted(
+    postResult = await handleCheckoutCompleted(
       event.data.object as Stripe.Checkout.Session,
       requestId,
       event.id,
+    );
+  }
+
+  const status = stripeCheckoutWebhookHttpStatus(postResult);
+  if (status !== 200) {
+    return NextResponse.json(
+      { error: "Checkout payment posting failed" },
+      { status },
     );
   }
 
@@ -59,7 +73,7 @@ async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   requestId: string | undefined,
   stripeEventId: string,
-) {
+): Promise<StripeCheckoutWebhookPostResult> {
   const sessionId = session.id;
   const tenantId = session.metadata?.tenantId;
   const statementId = session.metadata?.statementId;
@@ -69,18 +83,18 @@ async function handleCheckoutCompleted(
       requestId,
       stripeCheckoutSessionId: sessionId,
     });
-    return;
+    return "ok";
   }
 
   const db = orgSlug ? tenantPrisma(orgSlug) : prisma;
 
   const amountTotal = session.amount_total ?? 0;
-  if (amountTotal <= 0) return;
+  if (amountTotal <= 0) return "ok";
 
   const existing = await db.payment.findFirst({
     where: { stripeCheckoutSessionId: sessionId },
   });
-  if (existing) return;
+  if (existing) return "ok";
 
   try {
     await db.$transaction(async (tx) => {
@@ -157,11 +171,15 @@ async function handleCheckoutCompleted(
         amountCents: amountTotal,
       });
     });
+    return "ok";
   } catch (e) {
     const stillThere = await db.payment.findFirst({
       where: { stripeCheckoutSessionId: sessionId },
     });
-    if (!stillThere) {
+    const result = classifyStripeCheckoutPostFailure({
+      paymentExistsAfterFailure: Boolean(stillThere),
+    });
+    if (result === "retry") {
       platformLog("error", "pay.stripe.webhook_transaction_failed", {
         requestId,
         stripeCheckoutSessionId: sessionId,
@@ -170,5 +188,6 @@ async function handleCheckoutCompleted(
         message: e instanceof Error ? e.message : "unknown",
       });
     }
+    return result;
   }
 }
