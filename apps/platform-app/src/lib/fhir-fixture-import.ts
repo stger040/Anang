@@ -511,6 +511,8 @@ export function normalizeFhirBundlePayload(
   const { first, last } = patientName(patientRec);
 
   let encounterRec: Record<string, unknown> | null = null;
+  let subjectlessEncounter: Record<string, unknown> | null = null;
+  let mismatchedSubjectEncounter = false;
   for (const r of resources) {
     const rec = asRecord(r);
     if (rec?.resourceType !== "Encounter") continue;
@@ -523,17 +525,25 @@ export function normalizeFhirBundlePayload(
       encounterRec = rec;
       break;
     }
-  }
-  if (!encounterRec) {
-    for (const r of resources) {
-      const rec = asRecord(r);
-      if (rec?.resourceType === "Encounter") {
-        encounterRec = rec;
-        break;
-      }
+    if (!ePid) {
+      if (!subjectlessEncounter) subjectlessEncounter = rec;
+      continue;
     }
+    // Encounter references a different patient — never attach it to this Patient.
+    mismatchedSubjectEncounter = true;
   }
   if (!encounterRec) {
+    // Incomplete fixtures may omit Encounter.subject; only fall back then.
+    encounterRec = subjectlessEncounter;
+  }
+  if (!encounterRec) {
+    if (mismatchedSubjectEncounter) {
+      return {
+        ok: false,
+        error:
+          "No Encounter in bundle references the Patient resource (refusing mismatched subject).",
+      };
+    }
     return { ok: false, error: "No Encounter resource found in bundle." };
   }
 

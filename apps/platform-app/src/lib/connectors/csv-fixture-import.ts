@@ -88,9 +88,18 @@ export function parseCsvRows(text: string): string[][] {
   return rows;
 }
 
-function slugSegment(s: string): string {
-  const t = s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return t.slice(0, 48) || "x";
+/**
+ * Stable external-id segment for CSV logical ids.
+ * Non-alphanumeric characters are hex-encoded so distinct MRNs / statement
+ * numbers cannot collapse into the same key (e.g. MRN-001 vs MRN_001).
+ */
+export function slugSegment(s: string): string {
+  const trimmed = s.trim().toLowerCase();
+  if (!trimmed) return "x";
+  const encoded = trimmed.replace(/[^a-z0-9]/g, (ch) =>
+    `%${ch.charCodeAt(0).toString(16).padStart(2, "0")}`,
+  );
+  return encoded.slice(0, 96) || "x";
 }
 
 function parseDos(raw: string): Date | null {

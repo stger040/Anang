@@ -284,4 +284,50 @@ describe("normalizeFhirBundlePayload", () => {
     expect(r.data.explanationOfBenefit).toBeUndefined();
     expect(r.data.visitSummary).not.toContain("ExplanationOfBenefit");
   });
+
+  it("refuses Encounter that references a different patient", async () => {
+    const { normalizeFhirBundlePayload } = await import("./fhir-fixture-import");
+    const otherEncounter = {
+      resourceType: "Encounter",
+      id: "e-other",
+      subject: { reference: "Patient/other" },
+      period: { start: "2024-06-01T10:00:00Z" },
+    };
+    const r = normalizeFhirBundlePayload(
+      bundleJson([patientJane, otherEncounter]),
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toMatch(/mismatched subject/i);
+  });
+
+  it("prefers subject-matched Encounter over earlier mismatched Encounter", async () => {
+    const { normalizeFhirBundlePayload } = await import("./fhir-fixture-import");
+    const otherEncounter = {
+      resourceType: "Encounter",
+      id: "e-other",
+      subject: { reference: "Patient/other" },
+      period: { start: "2024-06-01T10:00:00Z" },
+    };
+    const r = normalizeFhirBundlePayload(
+      bundleJson([patientJane, otherEncounter, encounterForP1]),
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data.fhirEncounterLogicalId).toBe("e1");
+    expect(r.data.dateOfService.toISOString().slice(0, 10)).toBe("2024-01-15");
+  });
+
+  it("allows subjectless Encounter fallback for incomplete fixtures", async () => {
+    const { normalizeFhirBundlePayload } = await import("./fhir-fixture-import");
+    const subjectless = {
+      resourceType: "Encounter",
+      id: "e-bare",
+      period: { start: "2024-03-01T10:00:00Z" },
+    };
+    const r = normalizeFhirBundlePayload(bundleJson([patientJane, subjectless]));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data.fhirEncounterLogicalId).toBe("e-bare");
+  });
 });
