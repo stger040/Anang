@@ -203,6 +203,11 @@ export async function persistPatientEncounterImport(
         where: { statementId: existingStmt.id },
       });
       if (paymentCount === 0) {
+        // Unpaid replace rewrites balance/lines — drop any offered plan so
+        // installment totals cannot diverge from the new statement amount.
+        await tx.statementPaymentPlan.deleteMany({
+          where: { statementId: existingStmt.id },
+        });
         await tx.statementLine.deleteMany({
           where: { statementId: existingStmt.id },
         });
