@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 
+import { planInviteMembershipUpdate } from "@/lib/invite-membership-plan";
 import { prisma } from "@/lib/prisma";
 import { AppRole } from "@prisma/client";
 
@@ -43,27 +44,41 @@ export async function fulfillInviteForUser(
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { ok: false, code: "invalid" };
 
-  let memRole = invite.membershipRole;
-  if (memRole === AppRole.SUPER_ADMIN) {
-    memRole = AppRole.TENANT_ADMIN;
-  }
-
-  const staffAllowList =
-    memRole === AppRole.STAFF ? invite.staffModuleAllowList : [];
-
   await prisma.$transaction(async (tx) => {
-    await tx.membership.upsert({
+    const existing = await tx.membership.findUnique({
       where: {
         userId_tenantId: { userId, tenantId: invite.tenantId },
       },
-      create: {
-        userId,
-        tenantId: invite.tenantId,
-        role: memRole,
-        staffModuleAllowList: staffAllowList,
-      },
-      update: { role: memRole, staffModuleAllowList: staffAllowList },
+      select: { role: true, staffModuleAllowList: true },
     });
+
+    const planned = planInviteMembershipUpdate({
+      existing,
+      inviteRole: invite.membershipRole,
+      inviteStaffModuleAllowList: invite.staffModuleAllowList,
+    });
+
+    if (!existing) {
+      await tx.membership.create({
+        data: {
+          userId,
+          tenantId: invite.tenantId,
+          role: planned.role,
+          staffModuleAllowList: planned.staffModuleAllowList,
+        },
+      });
+    } else if (planned.applyUpdate) {
+      await tx.membership.update({
+        where: {
+          userId_tenantId: { userId, tenantId: invite.tenantId },
+        },
+        data: {
+          role: planned.role,
+          staffModuleAllowList: planned.staffModuleAllowList,
+        },
+      });
+    }
+
     await tx.userInvite.update({
       where: { id: invite.id },
       data: { consumedAt: new Date() },
@@ -76,7 +91,9 @@ export async function fulfillInviteForUser(
         resource: "user_invite",
         metadata: {
           email: emailLower,
-          membershipRole: memRole,
+          membershipRole: planned.role,
+          inviteMembershipRole: invite.membershipRole,
+          membershipUpdated: !existing || planned.applyUpdate,
           ...(opts?.requestId ? { requestId: opts.requestId } : {}),
         },
       },
