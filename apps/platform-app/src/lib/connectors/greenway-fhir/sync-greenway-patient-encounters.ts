@@ -17,6 +17,7 @@ import {
   recordFhirFixtureExternalIds,
   recordFhirPatientExternalIdOnly,
 } from "@/lib/connectors/external-identifiers";
+import { lockFhirIdentityInTransaction } from "@/lib/connectors/fhir-identity-lock";
 import { createIngestionBatchRecordingRawPayload } from "@/lib/connectors/source-artifact";
 import type { PrismaClient } from "@prisma/client";
 
@@ -196,6 +197,10 @@ export async function syncGreenwayPatientEncounters(
     });
 
     const d = patientNorm.data;
+    await lockFhirIdentityInTransaction(tx, {
+      tenantId,
+      fhirPatientLogicalId: d.fhirLogicalId,
+    });
     const existingPatientId = await findPatientIdByFhirPatientLogicalId(
       tx,
       tenantId,
