@@ -9,6 +9,7 @@ import {
   recordFhirFixtureExternalIds,
 } from "@/lib/connectors/external-identifiers";
 import type { ConnectorKind } from "@/lib/connectors/canonical-ingest";
+import { lockFhirIdentityInTransaction } from "@/lib/connectors/fhir-identity-lock";
 import { createIngestionBatchRecordingRawPayload } from "@/lib/connectors/source-artifact";
 import type {
   FhirClaimStatementLine,
@@ -18,6 +19,33 @@ import type { PrismaClient } from "@prisma/client";
 
 export const PATIENT_ENCOUNTER_IMPORT_ENCOUNTER_PATIENT_MISMATCH =
   "PATIENT_ENCOUNTER_IMPORT_ENCOUNTER_PATIENT_MISMATCH";
+
+export type ImportedEncounterStatementPlan =
+  | { kind: "create"; number: string }
+  | { kind: "replace"; statementId: string; number: string };
+
+/**
+ * Unpaid encounter statements are replaced in place. After a payment exists,
+ * a new `-P` statement is created (sequential re-import after pay is a
+ * separate concern from the concurrent first-write race).
+ */
+export function planImportedEncounterStatement(args: {
+  existingStatementId: string | null;
+  existingPaymentCount: number;
+  statementNumber: string;
+}): ImportedEncounterStatementPlan {
+  if (!args.existingStatementId) {
+    return { kind: "create", number: args.statementNumber };
+  }
+  if (args.existingPaymentCount === 0) {
+    return {
+      kind: "replace",
+      statementId: args.existingStatementId,
+      number: args.statementNumber,
+    };
+  }
+  return { kind: "create", number: `${args.statementNumber}-P` };
+}
 
 export type PersistPatientEncounterImportResult = {
   encounterId: string;
@@ -75,6 +103,12 @@ export async function persistPatientEncounterImport(
       externalStored: ingest.externalStorageStored,
       storageUri: ingest.artifact.storageUri,
     };
+
+    await lockFhirIdentityInTransaction(tx, {
+      tenantId: args.tenantId,
+      fhirPatientLogicalId: d.fhirPatientLogicalId,
+      fhirEncounterLogicalId: d.fhirEncounterLogicalId,
+    });
 
     const existingPatientId = await findPatientIdByFhirPatientLogicalId(
       tx,
@@ -194,53 +228,44 @@ export async function persistPatientEncounterImport(
         encounterId: encounter.id,
       },
     });
+    const paymentCount = existingStmt
+      ? await tx.payment.count({
+          where: { statementId: existingStmt.id },
+        })
+      : 0;
+    const stmtPlan = planImportedEncounterStatement({
+      existingStatementId: existingStmt?.id ?? null,
+      existingPaymentCount: paymentCount,
+      statementNumber: stmtNumber,
+    });
 
     let stmtId: string;
     let replaced = false;
 
-    if (existingStmt) {
-      const paymentCount = await tx.payment.count({
-        where: { statementId: existingStmt.id },
+    if (stmtPlan.kind === "replace") {
+      await tx.statementLine.deleteMany({
+        where: { statementId: stmtPlan.statementId },
       });
-      if (paymentCount === 0) {
-        await tx.statementLine.deleteMany({
-          where: { statementId: existingStmt.id },
-        });
-        await tx.statement.update({
-          where: { id: existingStmt.id },
-          data: {
-            number: stmtNumber,
-            totalCents: args.statementTotalCents,
-            balanceCents: args.statementTotalCents,
-            status: "open",
-            dueDate: due,
-            patientId: patient.id,
-          },
-        });
-        stmtId = existingStmt.id;
-        replaced = true;
-      } else {
-        const stmt = await tx.statement.create({
-          data: {
-            tenantId: args.tenantId,
-            patientId: patient.id,
-            encounterId: encounter.id,
-            number: `${stmtNumber}-P`,
-            totalCents: args.statementTotalCents,
-            balanceCents: args.statementTotalCents,
-            status: "open",
-            dueDate: due,
-          },
-        });
-        stmtId = stmt.id;
-      }
+      await tx.statement.update({
+        where: { id: stmtPlan.statementId },
+        data: {
+          number: stmtPlan.number,
+          totalCents: args.statementTotalCents,
+          balanceCents: args.statementTotalCents,
+          status: "open",
+          dueDate: due,
+          patientId: patient.id,
+        },
+      });
+      stmtId = stmtPlan.statementId;
+      replaced = true;
     } else {
       const stmt = await tx.statement.create({
         data: {
           tenantId: args.tenantId,
           patientId: patient.id,
           encounterId: encounter.id,
-          number: stmtNumber,
+          number: stmtPlan.number,
           totalCents: args.statementTotalCents,
           balanceCents: args.statementTotalCents,
           status: "open",
